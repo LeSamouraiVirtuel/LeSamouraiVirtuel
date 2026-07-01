@@ -128,10 +128,10 @@ h3 { font-size: 1.25rem; }
 
 .hero-visual { position: relative; min-height: 420px; }
 .hero-blob {
-  position: absolute; inset: 6% 4% 6% 8%;
+  position: absolute; inset: 12% 10% 12% 14%; z-index: 1;
   background: linear-gradient(150deg, var(--teal-500), var(--teal-700));
   border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%;
-  filter: blur(2px); opacity: .95;
+  filter: blur(2px); opacity: .16;
   animation: morph 12s ease-in-out infinite;
 }
 @keyframes morph {
@@ -139,7 +139,7 @@ h3 { font-size: 1.25rem; }
   50%     { border-radius: 58% 42% 45% 55% / 55% 55% 45% 45%; }
 }
 .hero-card {
-  position: absolute; background: #fff; border-radius: var(--radius); padding: 1rem 1.2rem;
+  position: absolute; z-index: 2; background: #fff; border-radius: var(--radius); padding: 1rem 1.2rem;
   box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 2px; min-width: 172px;
   border: 1px solid var(--line);
 }
