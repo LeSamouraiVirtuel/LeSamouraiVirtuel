@@ -8,7 +8,7 @@ const loader = new GLTFLoader();
 const A = {props: {}, chars: {}, clips: {}};
 
 export async function loadAssets(base, onProgress){
-  const files = ['props', 'santa', 'elf', 'anims'];
+  const files = ['props', 'santa', 'elf', 'anims', 'farm'];
   const done = new Array(files.length).fill(0);
   const tick = (i, v) => { done[i] = v; onProgress?.(done.reduce((a, b) => a + b) / files.length); };
   const res = await Promise.all(files.map(async (f, i) => {
@@ -21,11 +21,14 @@ export async function loadAssets(base, onProgress){
       const g = await loader.parseAsync(bin.buffer, base); tick(i, 1); return g;
     }
   }));
-  const [props, santa, elf, anims] = res;
+  const [props, santa, elf, anims, farm] = res;
   props.scene.traverse(o => {
     if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; tuneMaterial(o.material); }
   });
   for (const child of [...props.scene.children]) A.props[child.name] = child;
+  farm.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; tuneMaterial(o.material); } });
+  // GLTFLoader renomme « corn » en « corn_1 » quand un enfant porte déjà ce nom : on retire le suffixe
+  for (const child of [...farm.scene.children]){ const n = child.name.replace(/_\d+$/, ''); A.props[A.props[n] ? child.name : n] = child; }
   for (const [k, g] of [['santa', santa], ['elf', elf]]) {
     g.scene.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; tuneMaterial(o.material); } });
     A.chars[k] = g.scene;

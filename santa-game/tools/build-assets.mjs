@@ -48,19 +48,29 @@ const PROPS = {
     'banner-red', 'banner-green', 'poles', 'planks'],
 };
 
+// V2 « Township » : cultures, aliments (produits des usines), animaux de ferme
+const N = 'kenney-nature-kit/3D/nature/Models/GLTF format/%.glb';
+const FD = 'kenney-food-kit/3D/food/Models/GLB format/%.glb';
+const PET = 'kenney-cube-pets/3D/characters/Models/GLB format/%.glb';
+const FARM = {
+  [N]: ['crops_dirtSingle', 'crops_dirtRow', 'crops_dirtDoubleRow', 'crops_wheatStageA', 'crops_wheatStageB', 'crops_cornStageA', 'crops_cornStageB', 'crops_cornStageC', 'crops_cornStageD',
+    'crops_leafsStageA', 'crops_leafsStageB', 'crop_carrot', 'crop_pumpkin', 'crop_turnip', 'crop_melon', 'fence_simple', 'fence_simpleLow', 'fence_gate', 'flower_redA', 'flower_yellowA', 'grass_large'],
+  [FD]: ['bread', 'carrot', 'egg', 'cheese', 'corn', 'cookie', 'ginger-bread', 'carton', 'cupcake', 'cake', 'honey', 'strawberry', 'pumpkin', 'croissant', 'donut', 'bag', 'chocolate', 'cherries', 'apple', 'whipped-cream', 'waffle', 'pudding'],
+  [PET]: ['animal-chick', 'animal-cow', 'animal-pig', 'animal-deer', 'animal-polar', 'animal-bunny', 'animal-penguin'],
+};
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const file = (pat, name) => path.join(SRC, pat.replace('%', name));
 // Quantification des sommets (KHR_mesh_quantization) : lue nativement par three.js, sans WebAssembly.
 const squeeze = () => quantize();
 const webp = () => textureCompress({encoder: sharp, targetFormat: 'webp', quality: 90});
 
-async function packProps(){
+async function packProps(PACK = PROPS, outName = 'props.glb'){
   const target = await io.read(file(K, 'tree'));
   // empty the seed document, keeping its buffer
   for (const s of target.getRoot().listScenes()) s.dispose();
   const main = target.createScene('props');
   target.getRoot().setDefaultScene(main);
-  for (const [pat, names] of Object.entries(PROPS)) {
+  for (const [pat, names] of Object.entries(PACK)) {
     for (const name of names) {
       const src = await io.read(file(pat, name));
       const scenes = src.getRoot().listScenes();
@@ -74,8 +84,10 @@ async function packProps(){
       main.addChild(holder);
     }
   }
+  // certains modèles Kenney référencent des textures absentes : on les retire avant compression
+  for (const t of target.getRoot().listTextures()){ const im = t.getImage(); if (!im || im.byteLength < 16 || !/png|jpe?g|webp/.test(t.getMimeType() || '')) t.dispose(); }
   await target.transform(unpartition(), dedup(), weld(), prune(), webp(), squeeze());
-  await io.write(path.join(OUT, 'props.glb'), target);
+  await io.write(path.join(OUT, outName), target);
 }
 
 async function copyChar(name, out){
@@ -113,6 +125,7 @@ async function packAnims(){
 }
 
 await packProps();
+await packProps(FARM, 'farm.glb');
 await copyChar('Engineer', 'santa.glb');
 await copyChar('Rogue_Hooded', 'elf.glb');
 await packAnims();
