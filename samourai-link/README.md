@@ -1,85 +1,108 @@
 # ⚔️ SamouraiLink : Claude pilote un iPhone, sans Mac ni jailbreak
 
 On ne pirate pas l'iPhone. On lui donne ce qu'il accepte déjà de n'importe quel humain :
-**des yeux qui regardent l'écran** et **des mains qui touchent**.
+**des yeux qui regardent l'écran** et **des mains qui touchent**. Le cerveau tourne sur ton VPS.
 
 ```
-              AirPlay (Recopie de l'écran)
-   📱 iPhone ────────────────────────────────► 🖥️ Raspberry Pi (ou PC)
-       ▲                                         │  UxPlay affiche l'écran
-       │ Bluetooth : souris + clavier            │  Claude Code (Remote Control)
-       │                                         │  link.py : regarde, décide, agit
-   🔌 ESP32 ◄────────────── câble USB ───────────┘
+   CHEZ TOI                                            TON VPS (n'importe où)
+ ┌──────────────────────────────┐                ┌─────────────────────────────────────┐
+ │ 📱 iPhone                    │  écran (RTMP)  │ nginx-rtmp ─► ffmpeg ─► latest.jpg  │
+ │   app de diffusion d'écran ──┼───────────────►│     (clé secrète)        ▲ yeux     │
+ │   AssistiveTouch (pointeur)  │                │                          │          │
+ │        ▲ Bluetooth           │                │ Claude Code ─► link.py ──┘          │
+ │ 🔌 ESP32 (souris + clavier) ─┼── Wi-Fi ──────►│        ▼                            │
+ │   branché sur un chargeur    │   WSS (TLS +   │     relay.py ◄── page /calib        │
+ └──────────────────────────────┘   jeton)       └─────────────────────────────────────┘
 ```
 
-1. **Yeux** : l'iPhone envoie son écran en AirPlay vers le Pi, qui fait tourner
-   [UxPlay](https://github.com/FDH2/UxPlay), un récepteur AirPlay open source.
-   `link.py screenshot` capture cet écran.
-2. **Mains** : un ESP32 à environ 8 € se présente à l'iPhone comme une souris et un
-   clavier Bluetooth. Avec **AssistiveTouch**, un pointeur apparaît sur l'iPhone :
-   Claude le déplace, clique, glisse et tape du texte.
-3. **Cerveau** : Claude Code tourne sur le Pi. Tu lui parles depuis l'app Claude, où que tu sois.
+- **Yeux** : une app de diffusion d'écran envoie l'écran de l'iPhone au VPS. Le VPS garde la dernière image, 3 fois par seconde.
+- **Mains** : un ESP32 à environ 8 € joue la souris et le clavier Bluetooth de l'iPhone. Il reçoit les ordres du VPS par Wi-Fi, sur une connexion chiffrée. Il se connecte lui-même au VPS : aucun port à ouvrir chez toi.
+- **Cerveau** : Claude Code sur le VPS. Tu lui parles depuis l'app Claude.
 
-## 🛒 Matériel (≈ 90 €, ou ≈ 10 € si tu as déjà un PC)
-| Pièce | Prix | Rôle |
-|---|---|---|
-| ESP32 DevKit V1 (ESP32-WROOM-32) | 5–10 € | les mains (souris + clavier Bluetooth) |
-| Câble micro-USB ou USB-C **data** | 3 € | relie l'ESP32 au Pi |
-| Raspberry Pi 5 4 Go + alimentation + carte SD 32 Go | ≈ 80 € | les yeux et le cerveau, allumé en permanence |
+## ✅ Ce qui est déjà testé (sans matériel)
+| Élément | Test |
+|---|---|
+| Firmware ESP32 | **compile** en mode USB (44 %) et en mode Wi-Fi + TLS (53 %), y compris avec le `config.h` généré par `install.sh` |
+| Relais | un faux ESP32 (`server/simulator.py`) se connecte en TLS ; un **mauvais jeton** et un **faux certificat** sont **refusés** |
+| Flux vidéo | une vidéo test arrive dans `latest.jpg` ; un flux avec une **mauvaise clé** est **refusé** |
+| Calibration automatique | retrouve exactement l'échelle simulée ; les taps tombent au point près |
+| `install.sh` | tourne de bout en bout (sauf systemd, simulé dans le test) et garde les secrets quand on le relance |
+| Pannes | flux coupé, ESP32 hors ligne, relais arrêté : un message clair à chaque fois |
 
-> Un PC Windows ou Linux peut remplacer le Pi : UxPlay et Python y fonctionnent aussi.
-> Attention : ni ESP32-S2 ni ESP32-C3 « sans Bluetooth Classic ». Prends un **ESP32 classique**.
+**Pas encore testé :** le vrai Bluetooth avec un vrai iPhone, et une vraie app de diffusion d'écran.
 
-## 🔧 Installation, une seule fois (≈ 45 min)
-Après ça, Claude se débrouille seul.
+## 🛒 Matériel
+| Pièce | Prix |
+|---|---|
+| ESP32 DevKit V1 (**ESP32-WROOM-32**, pas S2/S3/C3) | 5–10 € |
+| Câble USB **data** (pour flasher le programme une fois) + un chargeur USB | 3 € |
+| Ton VPS : Debian 12 ou Ubuntu 22.04+, 1 Go de RAM suffit | déjà là |
 
-### A. Les mains (ESP32)
-1. Installe l'[Arduino IDE](https://www.arduino.cc/en/software). Dans Gestionnaire de cartes,
-   ajoute **esp32 by Espressif** en version **2.0.17**.
-2. Télécharge [ESP32-BLE-Combo](https://github.com/blackketter/ESP32-BLE-Combo) en .zip, puis
-   Croquis → Inclure une bibliothèque → Ajouter la bibliothèque .ZIP.
-3. Ouvre `firmware/samourai_hid/samourai_hid.ino`, choisis la carte « ESP32 Dev Module »,
-   puis clique sur **Téléverser**.
-4. Sur l'iPhone, va dans Réglages → Bluetooth et appaire **SamouraiLink**.
+## 🔧 Installation, une seule fois
 
-### B. Réglages de l'iPhone
-1. Réglages → Accessibilité → Toucher → **AssistiveTouch** : **activé**. Le pointeur apparaît.
-2. Dans AssistiveTouch → Appareils → SamouraiLink → **Personnaliser les boutons
-   supplémentaires**, mets le **clic droit** sur **Écran d'accueil**.
-3. Dans AssistiveTouch, règle la **Vitesse de suivi** au milieu et ne la change plus.
-4. Réglages → Général → Clavier → Clavier physique : disposition **Anglais (US)**.
-5. Réglages → Écran et luminosité → Verrouillage auto : **Jamais** (ou 5 min au minimum).
-
-### C. Les yeux et le cerveau (Raspberry Pi)
+### 1. VPS (≈ 5 min)
 ```bash
-# Raspberry Pi OS (64 bits). Passe en session X11 : sudo raspi-config → Advanced → Wayland → X11
-sudo apt update && sudo apt install -y uxplay python3-pip git
-pip install --break-system-packages pyserial mss pillow
-git clone https://github.com/LeSamouraiVirtuel/LeSamouraiVirtuel && cd LeSamouraiVirtuel/samourai-link/agent
-uxplay -n SamouraiLink -fs &          # récepteur AirPlay en plein écran
+git clone -b claude/phone-control-8qps2h https://github.com/LeSamouraiVirtuel/LeSamouraiVirtuel
+sudo bash LeSamouraiVirtuel/samourai-link/server/install.sh      # ou : install.sh mon-domaine.fr
 ```
-1. Sur l'iPhone, ouvre Centre de contrôle → **Recopie de l'écran** → **SamouraiLink**.
-2. Teste : `python3 link.py status` doit répondre `OK connected`.
-3. Calibre une fois : `python3 link.py calibrate` (Claude le fait lui-même en lisant les captures).
-4. Installe Claude Code sur le Pi, puis lance `claude remote-control` dans le dossier `agent`.
+Le script installe tout, crée les secrets et le certificat, lance les services, puis affiche
+**les 3 infos à recopier**. Elles sont aussi gardées dans `/etc/samourai/INFOS.txt`.
+Si ton hébergeur a un pare-feu dans son panneau, ouvre les ports **8765, 8767 et 1935** (TCP).
 
-Ensuite, depuis l'app Claude sur ton iPhone :
-*« Ouvre Spotify et mets ma playlist du matin »*. Claude regarde, bouge, clique.
+### 2. ESP32 (≈ 15 min, sur n'importe quel ordinateur, même emprunté)
+1. Installe l'[Arduino IDE](https://www.arduino.cc/en/software). Dans le Gestionnaire de cartes,
+   installe **esp32 by Espressif**, version **2.0.17**.
+2. Dans le Gestionnaire de bibliothèques, installe **WebSockets** de Markus Sattler, version **2.6.1**.
+3. Télécharge [ESP32-BLE-Combo](https://github.com/blackketter/ESP32-BLE-Combo) (Code → Download ZIP),
+   puis Croquis → Inclure une bibliothèque → Ajouter la bibliothèque .ZIP.
+4. Ouvre `firmware/samourai_hid/samourai_hid.ino`. Colle dans `config.h` le bloc affiché par
+   `install.sh` et mets ton Wi-Fi (**2,4 GHz**).
+5. Choisis la carte **ESP32 Dev Module** et le Partition Scheme **Huge APP (3MB No OTA)**, puis clique sur **Téléverser**.
+6. Débranche l'ordinateur et branche l'ESP32 sur un chargeur, près de l'iPhone. C'est fini pour l'ordinateur.
+
+### 3. iPhone (≈ 10 min)
+1. Réglages → Bluetooth : appaire **ESP32 Keyboard/Mouse**.
+2. Réglages → Accessibilité → Toucher → **AssistiveTouch** : active-le.
+   - Dans Appareils → ESP32 Keyboard/Mouse → Personnaliser les boutons supplémentaires,
+     mets le **clic droit** sur **Écran d'accueil**.
+   - Règle la **Vitesse de suivi** et ne la change plus (sinon il faut recalibrer).
+3. Réglages → Général → Clavier → Clavier physique : **Anglais (US)**.
+4. Installe une app de diffusion d'écran en RTMP, par exemple **Larix Screencaster** (gratuite).
+   Mets le serveur et la clé de l'étape 2 d'INFOS.txt, puis lance la diffusion depuis
+   Centre de contrôle → appui long sur Enregistrement de l'écran → choisis l'app.
+5. Ouvre dans Safari la **page de calibration** (étape 3 d'INFOS.txt) et laisse-la au premier plan.
+
+### 4. Donner la main à Claude
+Sur le VPS : installe Claude Code (`curl -fsSL https://claude.ai/install.sh | bash`), puis
+lance `claude remote-control` dans `/opt/samourai/agent`. Ensuite, depuis l'app Claude :
+*« Calibre-toi, puis ouvre Spotify. »*
+
+## 🧪 Tester le VPS sans matériel
+```bash
+# un faux ESP32 + faux iPhone se branche sur ton relais (remplace IP_DU_VPS)
+sudo bash -c 'set -a; . /etc/samourai/env; exec /opt/samourai/venv/bin/python /opt/samourai/simulator.py \
+  wss://IP_DU_VPS:8765/esp "$ESP_TOKEN" /etc/samourai/cert.pem "http://127.0.0.1:8767/calib/$CALIB_KEY"' &
+source /etc/profile.d/samourai.sh
+link status && link calibrate && link tap 585 1266   # le simulateur affiche où tombe le tap
+kill %1                                              # arrête le simulateur
+```
 
 ## 🧠 Comment Claude vise juste
-Le pointeur iOS ne se place pas à des coordonnées absolues. `link.py` contourne ça :
-1. Il plaque le pointeur dans le **coin haut-gauche** : c'est un point de départ connu.
-2. Il avance par **petits pas de 4 unités**, ce qui évite l'accélération du pointeur.
-3. La **calibration** relie les pixels de la capture aux unités de la souris.
-4. Claude **vérifie sur une capture** et corrige avec `nudge` si besoin. C'est une boucle fermée.
+1. `Z` : le pointeur est plaqué dans le **coin haut-gauche**, une origine connue.
+2. `G dx dy` : l'ESP32 avance lui-même par **petits pas réguliers**, ce qui évite l'accélération du pointeur iOS.
+3. **Calibration automatique** : Claude clique deux fois sur la page `/calib`, et Safari renvoie les coordonnées
+   exactes des clics. On en déduit l'échelle entre les unités de la souris et les pixels de la capture.
+4. Claude **vérifie sur une capture** et corrige avec `nudge` si besoin.
 
 ## ⚠️ Limites (honnêtes)
-- La Recopie de l'écran AirPlay s'arrête si l'iPhone se verrouille. Il faut alors la relancer depuis l'iPhone.
-- Le **code de déverrouillage** et Face ID restent à toi.
-- Les apps bancaires et de streaming masquent leur contenu en AirPlay (écran noir).
-- Accents et emojis : pas avec le clavier simulé. On peut ajouter la disposition FR au firmware plus tard.
-- Je n'ai **pas encore testé ce système sur du vrai matériel** : il faudra ajuster aux premiers essais.
+- Si l'iPhone se **verrouille**, la diffusion d'écran s'arrête. Mets le verrouillage automatique sur « Jamais » pendant les sessions.
+- Le **code**, Face ID et les paiements restent à toi.
+- Les apps bancaires et de streaming peuvent masquer leur contenu (écran noir).
+- Accents et emojis ne passent pas encore (clavier US).
+- Délai : environ 1 à 2 s entre une action et la capture qui la montre.
 
 ## 🔒 Sécurité
-Le SamouraiLink peut tout faire sur ton iPhone. Garde le Pi chez toi, protège-le avec un mot de passe,
-et retire l'appareil Bluetooth « SamouraiLink » de l'iPhone pour couper l'accès instantanément.
+- ESP32 ↔ VPS : TLS avec **certificat épinglé** et jeton de 48 caractères. Un faux serveur ou un faux ESP32 est refusé.
+- Le flux vidéo exige la clé secrète, sinon il est refusé. Seul le VPS lui-même peut relire les images.
+- **Coupure d'urgence** : débranche l'ESP32, ou oublie l'appareil Bluetooth sur l'iPhone.
+- Ne partage jamais `/etc/samourai/INFOS.txt`.
