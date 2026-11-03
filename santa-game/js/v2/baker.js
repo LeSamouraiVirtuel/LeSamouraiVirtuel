@@ -100,7 +100,7 @@ function heroScene(){
  */
 export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   await loadAssets(base, p => bar(p * .55));
-  const SPR = {}, ICON = {}, thumbs = {};
+  const SPR = {}, ICON = {}, thumbs = {}, models = {};
   const jobs = [];
   for (const type of Object.keys(BUILDINGS)) if (BUILDINGS[type].kind !== 'field') jobs.push(['b:' + type, () => modelFor(type)]);
   jobs.push(['f:empty', () => field(null)], ['b:path2', () => pathTile(2)], ['b:path3', () => pathTile(3)], ['b:wildtree', () => deco('wildtree')], ['b:wildtree2', () => deco('wildtree2')]);
@@ -110,7 +110,8 @@ export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   for (let v = 0; v < 3; v++) jobs.push(['elf:' + v, () => { const c = character('elf', elfLook(v)); c.root.scale.setScalar(.38); c.mixer.update(.5); return c.root; }]);
   for (let i = 0; i < jobs.length; i++){
     const [k, fn] = jobs[i];
-    SPR[k] = bake(fn(), {density: k.startsWith('forest') ? Math.min(DPR, 2) : BD});
+    const obj = fn(); if (extras) models[k] = obj;
+    SPR[k] = bake(obj, {density: k.startsWith('forest') ? Math.min(DPR, 2) : BD});
     bar(.55 + .35 * (i + 1) / jobs.length);
     if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));
   }
@@ -125,7 +126,9 @@ export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
     const portrait = (() => { const c = character('santa', santaLook(9), {hat: true}); c.mixer.update(.6); return bust(c.root, 128, DPR); })();
   for (const type of Object.keys(BUILDINGS)) thumbs[type] = url(bakeIcon(type === 'field' ? field('wheat', 1) : modelFor(type), 96, DPR));
   const buildIcon = url(bakeIcon(prop('Wood_Planks_Stack_Medium'), 96, DPR));
-  const splash = extras ? bake(heroScene(), {density: 2.4, shadow: true}) : null;
+  const hero = extras ? heroScene() : null;
+  const splash = hero ? bake(hero, {density: 2.4, shadow: true}) : null;
+  if (hero) models.splash = hero;
   disposeBaker();
-  return {SPR, ICON, thumbs, portrait, buildIcon, splash};
+  return {SPR, ICON, thumbs, portrait, buildIcon, splash, models};
 }
