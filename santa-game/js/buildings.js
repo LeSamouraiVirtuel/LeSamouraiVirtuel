@@ -5,7 +5,7 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {prop, tint} from './assets.js';
 
 const HALF_PI = Math.PI / 2;
-export const tierOf = lv => lv >= 7 ? 3 : lv >= 4 ? 2 : 1;
+export const tierOf = lv => lv >= 12 ? 3 : lv >= 5 ? 2 : 1;
 
 /* ------------------------------------------------------------------ */
 /* Chalet modulaire (Kenney Holiday Kit). Faîtage dans l'axe z,        */
@@ -85,7 +85,7 @@ const sealMat = new THREE.MeshStandardMaterial({color: '#e0243a', roughness: .5}
 const sealGeo = new THREE.CylinderGeometry(.04, .04, .025, 10);
 
 // teinte des boiseries par type : [teinte HSL, saturation]
-const TRIM = {hq: [.985, 1.25], post: [.6, 1.1], workshop: [.13, 1.3], stable: [.08, 1], sawmill: [null]};
+const TRIM = {hq: [.985, 1.25], post: [.6, 1.1], workshop: [.13, 1.3], stable: [.08, 1], sawmill: [null], mill: [.8, 1.1]};
 
 export function buildModel(type, lv){
   const T = tierOf(Math.max(1, lv));
@@ -187,6 +187,23 @@ export function buildModel(type, lv){
       anim.push(t => { cars.forEach((c, i) => { const a = -t * .55 - i * .36; c.position.set(.35 + Math.cos(a) * R, 0, .25 + Math.sin(a) * R * .85); c.rotation.y = -a + Math.PI; }); });
       top = T === 3 ? 3.2 : 3;
     }
+  }
+  else if (type === 'mill'){
+    if (T === 1){
+      add('stall-green', {x: -.3, z: -.3, s: 1.9});
+      add('Textiles_Stack_Large_Colored', {x: 1.05, z: .9, s: .55});
+      add('Food_Basket_A_Berries', {x: -1.2, z: 1.2, s: .6});
+      top = 2.7;
+    } else {
+      addCabin({len: T === 3 ? 2 : 1, front: ['cabin-window-b', 'door'], chimney: T === 3 ? 1 : 0}, -.45, -.5, 0, 1.12);
+      add('Textiles_Stack_Large_Colored', {x: 1.2, z: 1.1, s: .5});
+      add('stall-green', {x: 1.25, z: -.3, s: 1.1, ry: -HALF_PI});
+      if (T === 3) add('Textiles_Stack_Large_Colored', {x: -1.2, z: 1.35, s: .45, ry: 1});
+      top = T === 3 ? 3.1 : 2.9;
+    }
+    const wheel = add('watermill', {x: T === 1 ? -1.2 : -1.55, z: T === 1 ? .1 : .7, s: .55, ry: HALF_PI});
+    wheel.position.y = .55;
+    anim.push((t, dt) => wheel.rotation.x += dt * 3);
   }
   else if (type === 'storage'){
     add('Containers_Pile_Large', {x: -.75, z: -.55, s: T === 1 ? .7 : .85});

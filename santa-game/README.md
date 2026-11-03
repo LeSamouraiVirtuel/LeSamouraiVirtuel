@@ -16,8 +16,9 @@ npx serve .          # puis ouvre l'adresse affichée (depuis le téléphone : m
 | Fichier | Rôle |
 |---|---|
 | `index.html` | Interface : HUD, panneaux, écran titre, styles |
-| `js/main.js` | Boucle de jeu, caméra, personnages, interactions, icônes 3D |
-| `js/game.js` | Règles : bâtiments, coûts, production, quêtes, sauvegarde |
+| `js/main.js` | Boucle de jeu, caméra, personnages, interactions, panneaux, icônes 3D |
+| `js/minigames.js` | Mini-jeux (traîneau, boules de neige) |
+| `js/game.js` | Règles : bâtiments, jouets, lettres, missions, calendrier, niveaux, sauvegarde |
 | `js/buildings.js` | Modèles des bâtiments par niveau (3 paliers + décorations) |
 | `js/world.js` | Terrain en terrasses, forêt, place du village, lumières, nuages |
 | `js/assets.js` | Chargement des modèles, recoloration du Père Noël et des lutins |
@@ -25,15 +26,31 @@ npx serve .          # puis ouvre l'adresse affichée (depuis le téléphone : m
 
 ## Le jeu
 
-- Tu commences en lutin au pied de la montagne. Ton personnage change avec le niveau de la Maison du Père Noël : le manteau passe du vert au rouge, la barbe devient blanche, et il gagne le bonnet au niveau 6.
-- 7 bâtiments avec 10 niveaux chacun. L'apparence change par palier : socle en bois, puis en pierre, puis en pierre et or, avec un bâtiment plus grand et des décorations ajoutées à chaque niveau.
-- Chaque bâtiment a ses animations : roue de la scierie, train de jouets de l'atelier, lettres qui volent au-dessus du bureau de poste, rennes, cookie géant, fumée des cheminées.
-- Des lutins se promènent dans le village et vont travailler sur les chantiers en cours.
-- 4 terrasses sur la montagne, cachées sous les nuages jusqu'à ce qu'elles soient débloquées (Maison niveaux 2, 4 et 6).
-- Le traîneau part en tournée avec les cadeaux et rapporte des pièces et des étoiles.
-- 13 objectifs servent de tutoriel. La production continue hors ligne (jusqu'à 8 h) et la partie est sauvegardée automatiquement.
+Le jeu ne se termine pas. Comme dans Township ou Hay Day, il y a toujours quelque chose à faire.
 
-**Contrôles** : glisser pour se déplacer, pincer ou molette pour zoomer, toucher une bulle pour récolter, toucher un bâtiment ou un « + » pour ouvrir sa fiche, toucher le Père Noël pour le saluer.
+**Progression**
+- Niveau du joueur sans limite. L'expérience vient de tout ce qu'on fait : récoltes, chantiers, jouets, lettres, mini-jeux, missions.
+- Le personnage évolue avec le niveau, de lutin jusqu'au Père Noël (niveau 28), puis Père Noël ★ à ★★★★★.
+- 8 bâtiments avec 25 niveaux chacun. Les chantiers durent de quelques secondes au début jusqu'à 24 h au niveau 25. La Maison du Père Noël demande un niveau joueur minimum.
+- 6 terrasses sur la montagne, débloquées aux niveaux 1, 3, 6, 10, 15 et 21.
+
+**Économie**
+- Ressources : pièces, bois, biscuits, tissu (Filature), plus les étoiles, une monnaie rare.
+- L'Atelier fabrique 8 jouets à partir des ressources, avec une file d'attente qui s'agrandit avec son niveau.
+- Les lettres des enfants sont des commandes de jouets qui se renouvellent sans arrêt. Elles rapportent pièces, XP et parfois des étoiles.
+
+**Activités**
+- Mini-jeu « Tournée de Noël » : lâcher les cadeaux dans les cheminées depuis le traîneau. Les gains augmentent avec l'Écurie.
+- Mini-jeu « Bataille de boules de neige » : toucher les lutins farceurs, pas les rennes.
+- Les mini-jeux coûtent un ticket. Un ticket revient toutes les 15 minutes, et on peut en acheter avec des étoiles.
+- 3 missions du jour, plus un coffre bonus.
+- Calendrier de l'Avent : une case par jour, 24 cases, puis un nouveau calendrier.
+- Objectifs : 11 étapes de tutoriel, puis des objectifs générés à l'infini.
+- Les étoiles servent à finir un chantier tout de suite ou à acheter des tickets.
+
+La production continue hors ligne (jusqu'à 8 h) et la partie est sauvegardée automatiquement.
+
+**Contrôles** : glisser pour se déplacer, pincer ou molette pour zoomer, toucher une bulle pour récolter, toucher un bâtiment ou un « + » pour ouvrir sa fiche.
 
 ## Modèles 3D et licences
 
@@ -53,5 +70,5 @@ node build-assets.mjs /chemin/vers/jam-ready-assets ../assets
 
 - Packager en app iOS/Android avec Capacitor.
 - Musique et vrais effets sonores.
-- Événements quotidiens, coffres, rennes à collectionner.
+- Événements limités dans le temps, rennes à collectionner, amis et classements (nécessitent un serveur).
 - Bande-annonce et pubs vidéo avec Remotion ou HyperFrames, à partir de captures du jeu.
