@@ -19,7 +19,8 @@ const q = s => document.querySelector(s);
 const bubble = id => q(`.bubble[data-id="${id}"]`);
 const plus = id => q(`.plus[data-id="${id}"]`);
 
-export function createTuto({getState, save, focusPlot, portrait, sfx}){
+export function createTuto({getState, save, focusPlot, portrait, sfx, steps = STEPS}){
+  const STEPS_ = steps;
   const S = getState;
   const root = document.createElement('div'); root.id = 'tuto'; root.hidden = true;
   root.innerHTML = `<div class="tb t"></div><div class="tb r"></div><div class="tb b"></div><div class="tb l"></div>
@@ -30,9 +31,9 @@ export function createTuto({getState, save, focusPlot, portrait, sfx}){
   const [bt, br, bb, bl] = root.querySelectorAll('.tb'), ring = root.querySelector('.tring'), hand = root.querySelector('.thand'), box = root.querySelector('.tbox');
   let step = null, raf = 0;
 
-  const active = () => S().tuto != null && S().tuto < STEPS.length;
+  const active = () => S().tuto != null && S().tuto < STEPS_.length;
   function show(){
-    const i = S().tuto; step = STEPS[i]; root.hidden = false; document.body.classList.add('tutoring');
+    const i = S().tuto; step = STEPS_[i]; root.hidden = false; document.body.classList.add('tutoring');
     box.querySelector('p').innerHTML = step.say;
     box.querySelector('.tnext').hidden = !step.tap;
     box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
@@ -44,7 +45,8 @@ export function createTuto({getState, save, focusPlot, portrait, sfx}){
     raf = requestAnimationFrame(track);
     if (step?.skipIf?.(S()) && !step.skipping){ step.skipping = true; setTimeout(next, 300); }
     const el = step?.target?.();
-    let r = el && el.getBoundingClientRect();
+    // la cible peut être un élément HTML ou un rectangle à l'écran (objet dessiné dans le canvas)
+    let r = el && (el.getBoundingClientRect ? el.getBoundingClientRect() : el);
     if (!r || !r.width){
       // pas de cible (dialogue) ou cible pas encore à l'écran : tout est bloqué, pas de main
       for (const b of [bt, br, bb, bl]) Object.assign(b.style, {left: '0px', top: '0px', width: '0px', height: '0px'});
@@ -67,10 +69,10 @@ export function createTuto({getState, save, focusPlot, portrait, sfx}){
   }
   function next(){
     S().tuto++; save(); sfx.tap();
-    if (S().tuto >= STEPS.length){ finish(); return; }
+    if (S().tuto >= STEPS_.length){ finish(); return; }
     show();
   }
-  function finish(){ S().tuto = STEPS.length; save(); root.hidden = true; document.body.classList.remove('tutoring'); cancelAnimationFrame(raf); step = null; }
+  function finish(){ S().tuto = STEPS_.length; save(); root.hidden = true; document.body.classList.remove('tutoring'); cancelAnimationFrame(raf); step = null; }
   root.addEventListener('click', e => { if (step?.tap && (e.target.closest('.tbox') || e.target.classList.contains('tb'))){ if (step.end) { finish(); sfx.level(); } else next(); } });
 
   return {
