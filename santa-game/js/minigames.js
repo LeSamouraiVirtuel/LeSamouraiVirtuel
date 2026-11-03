@@ -40,7 +40,7 @@ export async function openMinigame(kind, ctx){
   cv.addEventListener('pointerdown', e => { if (state === 'play') game.tap(e.clientX, e.clientY); });
 
   function finish(){
-    state = 'end';
+    state = 'end'; ctx.onScore?.(score);
     const rw = ctx.reward(kind, score), best = ctx.best(kind), rec = score > best;
     if (rec) ctx.setBest(kind, score);
     const card = root.querySelector('.mg-card');

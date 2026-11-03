@@ -4,11 +4,14 @@ import {loadAssets, prop, character, santaLook, elfLook} from './assets.js';
 import {createWorld, groundY, plotPos, ALL_PLOTS, HQ_ID, zoneZ, zoneY, LANE_X, NZ, radialTexture} from './world.js';
 import {buildModel, scaffold, constructionSite} from './buildings.js';
 import {openMinigame, GAMES} from './minigames.js';
+import {createNet} from './net.js';
+import {installFeatures} from './features.js';
+import {plotBase} from './buildings.js';
 import * as G from './game.js';
 
 const $ = s => document.querySelector(s);
 const BASE = new URL('../assets/', import.meta.url).href;
-const {TYPES, RES, TOYS} = G;
+const {TYPES, RES, TOYS, RARITY, SKINS} = G;
 
 /* =====================================================================
    RENDU
@@ -33,6 +36,8 @@ const scene = world.scene;
 const saved = G.loadState();
 let state = saved || G.newState();
 const R = G.rules(() => state);
+const net = createNet(() => state);
+const skinOf = cat => SKINS[cat][state.skins[cat]] || null;
 
 /* =====================================================================
    ICÔNES 3D (rendues une fois à partir des vrais modèles)
@@ -106,15 +111,52 @@ const ICON = {
   elf: charIcon('elf', elfLook(1)),
 };
 for (const [k, T] of Object.entries(TOYS)) ICON['toy_' + k] = renderIcon(prop(T.model), {pitch: .45, yaw: .7});
+function starMesh(){
+  const sh = new THREE.Shape(); for (let i = 0; i < 10; i++){ const r = i % 2 ? .42 : 1, a = i * Math.PI / 5 + Math.PI / 2; i ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r) : sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, {depth: .3, bevelEnabled: true, bevelSize: .08, bevelThickness: .1, bevelSegments: 2}), new THREE.MeshStandardMaterial({color: '#ffd23f', emissive: '#ff9d00', emissiveIntensity: .25, metalness: .1, roughness: .35}));
+  m.rotation.y = -.35; return m;
+}
+function trophy(){
+  const g = new THREE.Group(), gold = new THREE.MeshStandardMaterial({color: '#ffc531', metalness: .6, roughness: .3});
+  const pts = [[0, 0], [.45, 0], [.45, .08], [.12, .2], [.1, .55], [.25, .65], [.5, 1.2], [.52, 1.3], [0, 1.3]].map(([x, y]) => new THREE.Vector2(x, y));
+  g.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 24), gold));
+  for (const sx of [-1, 1]){ const h = new THREE.Mesh(new THREE.TorusGeometry(.22, .05, 8, 16, Math.PI), gold); h.position.set(sx * .5, 1.0, 0); h.rotation.z = sx > 0 ? -Math.PI / 2 : Math.PI / 2; g.add(h); }
+  return g;
+}
+const presentsPile = () => { const g = new THREE.Group(); [['present_A_red', 0, 0], ['present_D_blue', .5, -.2], ['present_C_yellow', -.45, -.1], ['present_B_green', .1, -.5]].forEach(([n, x, z], i) => g.add(prop(n, {x, z, s: .55, ry: i}))); return g; };
+Object.assign(ICON, {
+  event: renderIcon(prop('bell_decorated'), {pitch: .25}),
+  trophy: renderIcon(trophy(), {pitch: .15, yaw: 0}),
+  guild: renderIcon(prop('banner-red', {s: 1}), {yaw: 1.2, pitch: .1}),
+  shop: renderIcon(starMesh(), {pitch: .1, yaw: 0}),
+  login: renderIcon(prop('wreath'), {pitch: .1, yaw: 0}),
+  hotte: renderIcon(presentsPile(), {pitch: .45}),
+  paper_kraft: renderIcon(prop('present-a-cube'), {pitch: .45}),
+  paper_ribbon: renderIcon(prop('present-b-round'), {pitch: .45}),
+  paper_gold: renderIcon(prop('present_C_yellow'), {pitch: .45}),
+  em_star: null, em_deer: ICON.deer, em_tree: renderIcon(prop('tree-decorated-snow'), {pitch: .2}), em_gift: ICON.gift, em_bell: null,
+  em_cookie: ICON.cookies, em_gear: renderIcon(prop('Parts_Cog'), {pitch: .6}), em_leaf: renderIcon(prop('mistletoe_A'), {pitch: .3}),
+});
+ICON.em_star = ICON.shop; ICON.em_bell = ICON.event;
+RARITY.forEach((r, i) => { ICON['present' + i] = renderIcon(prop(r.present), {pitch: .45}); });
+const skinIcons = new Map();
+function skinIcon(cat, k){
+  const key = cat + k; if (skinIcons.has(key)) return skinIcons.get(key);
+  const sk = SKINS[cat][k]; let url;
+  if (cat === 'santa'){ const c = character('santa', santaLook(k === 'classic' ? 10 : 9, k === 'classic' ? null : sk), {hat: true}); c.mixer.update(.6); url = renderIcon(c.root, {size: 160, yaw: .3, pitch: .12, pad: 1.05}); }
+  else if (cat === 'elves'){ const g = new THREE.Group(); sk.hoods.slice(0, 2).forEach((_, i) => { const c = character('elf', elfLook(i, sk)); c.mixer.update(.6 + i * .3); c.root.position.x = (i - .5) * 1.4 * (sk.hoods.length > 1 ? 1 : 0); g.add(c.root); }); url = renderIcon(g, {size: 160, yaw: .2, pitch: .12, pad: 1.05}); }
+  else { const g = new THREE.Group(); g.add(plotBase(k === 'classic' ? 2 : 1, k === 'classic' ? null : sk)); g.add(prop('present_A_red', {y: .34, s: .9})); url = renderIcon(g, {size: 160, pitch: .55}); }
+  skinIcons.set(key, url); return url;
+}
 const thumbCache = new Map();
 function thumb(type, lv){
-  const k = type + lv; if (thumbCache.has(k)) return thumbCache.get(k);
-  const m = buildModel(type, lv); m.anim.forEach(a => a(2, .1));
+  const k = type + lv + state.skins.bases; if (thumbCache.has(k)) return thumbCache.get(k);
+  const m = buildModel(type, lv, skinOf('bases')); m.anim.forEach(a => a(2, .1));
   const url = renderIcon(m.group, {size: 220, yaw: .55, pitch: .5, pad: 1.05});
   thumbCache.set(k, url); return url;
 }
 function portrait(lv){
-  const c = character('santa', santaLook(lv), {hat: lv >= 6}); c.mixer.update(.6);
+  const c = character('santa', santaLook(lv, skinOf('santa')), {hat: lv >= 6}); c.mixer.update(.6);
   return renderIcon(c.root, {size: 128, yaw: .25, pitch: .1, focusY: 1.75, dist: 2.6});
 }
 
@@ -164,13 +206,13 @@ const zoneOf = id => +id.split('-')[0];
 function syncPlot(id){
   const v = views[id], p = state.plots[id];
   v.marker.visible = !p && R.zoneOpen(zoneOf(id));
-  const sig = p ? `${p.type}:${p.lv}:${p.upEnd ? 1 : 0}` : '';
+  const sig = p ? `${p.type}:${p.lv}:${p.upEnd ? 1 : 0}:${state.skins.bases}` : '';
   if (sig === v.sig) return;
   const prevLv = v.lv;
   v.sig = sig; v.holder.clear(); v.anim = []; v.smoke = []; v.inner = null;
   if (!p){ v.lv = 0; return; }
-  if (p.lv > 0){ const m = buildModel(p.type, p.lv); v.holder.add(m.group); v.inner = m.group; v.anim = m.anim; v.smoke = m.smoke; v.top = m.top; }
-  else { const c = constructionSite(); v.holder.add(c); v.inner = c; v.top = 2.4; }
+  if (p.lv > 0){ const m = buildModel(p.type, p.lv, skinOf('bases')); v.holder.add(m.group); v.inner = m.group; v.anim = m.anim; v.smoke = m.smoke; v.top = m.top; }
+  else { const c = constructionSite(skinOf('bases')); v.holder.add(c); v.inner = c; v.top = 2.4; }
   if (p.upEnd) v.holder.add(scaffold(Math.max(2.2, v.top - .4)));
   if (p.lv > prevLv && v.ready){ v.pop = 0; burst(v.holder.position.clone().add(new THREE.Vector3(0, 1.6, 0)), 34); }
   v.lv = p.lv; v.ready = true;
@@ -222,15 +264,15 @@ function makeSanta(){
   const lv = G.looksOf(state.pl);
   const pos = santa ? santa.root.position.clone() : plotPos(HQ_ID).add(new THREE.Vector3(1.2, 0, 2.3));
   if (santa) scene.remove(santa.root);
-  santa = new Walker(character('santa', santaLook(lv), {hat: lv >= 6}), .6 + lv * .012, 1.1);
-  santa.root.position.copy(pos); santa.lv = lv;
+  santa = new Walker(character('santa', santaLook(lv, skinOf('santa')), {hat: lv >= 6}), .6 + lv * .012, 1.1);
+  santa.root.position.copy(pos); santa.lv = lv + state.skins.santa;
   $('#avatar img').src = portrait(lv);
 }
 const elves = [];
 function syncElves(){
   const want = Math.min(9, 2 + Object.values(state.plots).filter(p => p.lv > 0).length);
   while (elves.length < want){
-    const e = new Walker(character('elf', elfLook(elves.length)), .42, 1.5 + Math.random() * .5);
+    const e = new Walker(character('elf', elfLook(elves.length, skinOf('elves'))), .42, 1.5 + Math.random() * .5);
     const s = randomSpot(); e.root.position.set(s.x, groundY(s.x, s.z), s.z); elves.push(e);
   }
 }
@@ -248,7 +290,7 @@ function updateCharacters(dt){
     if (e.site && !e.path.length){ const p = plotPos(e.site); e.root.rotation.y = Math.atan2(p.x - e.root.position.x, p.z - e.root.position.z); }
   }
   if (santa){
-    if (santa.lv !== G.looksOf(state.pl)) makeSanta();
+    if (santa.lv !== G.looksOf(state.pl) + state.skins.santa) makeSanta();
     if (!santa.path.length && santa.wait <= 0){
       const h = plotPos(HQ_ID);
       santa.goTo(Math.random() < .6 ? new THREE.Vector3(h.x + (Math.random() - .5) * 5, 0, h.z + 2.75 + (Math.random() - .5) * .5) : randomSpot(), 'face');
@@ -262,16 +304,17 @@ function updateCharacters(dt){
    ===================================================================== */
 let offline = false;
 const fmt = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + 'k' : String(n); };
-const fmtTime = s => { s = Math.max(0, Math.ceil(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : m ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`; };
+const fmtTime = s => { s = Math.max(0, Math.ceil(s)); if (s >= 172800) return `${Math.floor(s / 86400)} j ${Math.floor(s % 86400 / 3600)} h`; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return h ? `${h}h ${String(m).padStart(2, '0')}m` : m ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`; };
 
 function track(kind, n = 1){
   state.stats[kind] = (state.stats[kind] || 0) + n;
   const d = R.ensureDaily();
   for (const m of d.list) if (m.k === kind && !m.claimed) m.p = Math.min(m.n, m.p + n);
+  F.onTrack(kind, n);
 }
 function gainXp(n){
   if (!n) return;
-  state.xp += Math.round(n);
+  state.xp += Math.round(n); F.week().xp += Math.round(n); net.push();
   let up = false;
   while (state.xp >= G.xpNeed(state.pl)){ state.xp -= G.xpNeed(state.pl); state.pl++; up = true; }
   if (up && !offline) levelUp();
@@ -283,10 +326,12 @@ function gain(rw, el){
     else if (k === 'stars') state.stars += rw[k];
     else if (k === 'xp') gainXp(rw[k]);
     else if (k === 'tickets') state.tickets += rw[k];
+    else if (k === 'skin'){ if (!state.owned.includes(rw[k])) state.owned.push(rw[k]); }
+    else if (k === 'pass') state.pass = Math.max(Date.now(), state.pass || 0) + rw[k] * 86400000;
     if (el && !offline && (k in RES || k === 'stars' || k === 'xp')) flyIcons(k, rw[k], el);
   }
 }
-function pay(c){ for (const k in c) state.res[k] -= c[k]; }
+function pay(c){ for (const k in c){ if (k === 'stars') state.stars -= c[k]; else state.res[k] -= c[k]; } }
 
 function simulate(dt, now){
   for (const id in state.plots){
@@ -300,9 +345,10 @@ function simulate(dt, now){
     if (T.prod && p.lv > 0 && !p.upEnd) p.buf = Math.min(G.bufCap(p.type, p.lv), (p.buf || 0) + G.rate(p.type, p.lv) / 60 * dt);
     if (T.craft){
       p.queue = p.queue || []; p.done = p.done || [];
-      while (p.queue.length && p.queue[0].end <= now) p.done.push(p.queue.shift().toy);
+      while (p.queue.length && p.queue[0].end <= now){ const q = p.queue.shift(); p.done.push(T.craft === 'toy' ? q.toy : {toy: q.toy, r: q.r}); }
     }
   }
+  F.tickEnergy(now);
   // tickets de jeu
   const tm = R.tMax();
   if (state.tickets >= tm) state.ticketT = now;
@@ -314,6 +360,12 @@ function simulate(dt, now){
 
 function collect(id, el){
   const p = state.plots[id], T = TYPES[p.type];
+  if (T.craft === 'wrap'){
+    if (!p.done?.length) return false;
+    const items = p.done.map(it => { const k = G.giftKey(it.toy, it.r); const isNew = !state.album[k]; state.gifts[k] = (state.gifts[k] || 0) + 1; state.album[k] = true; return {...it, isNew}; });
+    p.done = []; track('wrapped', items.length); gainXp(items.length * 6); F.reveal(items); save();
+    return true;
+  }
   if (T.craft){
     if (!p.done?.length) return false;
     const got = {}; for (const k of p.done){ state.toys[k] = (state.toys[k] || 0) + 1; got[k] = (got[k] || 0) + 1; }
@@ -380,10 +432,36 @@ function save(){ G.saveState(state); }
    ===================================================================== */
 const ic = k => k === 'stars' ? '<i class="i star"></i>' : k === 'xp' ? '<i class="i xp">XP</i>' : k === 'tickets' ? '<i class="i ticket"></i>' : `<img class="i" src="${ICON[k]}" alt="">`;
 const chips = c => Object.keys(c).map(k => `<span class="chip ${k in RES && state.res[k] < c[k] ? 'bad' : ''}">${ic(k)}${fmt(c[k])}</span>`).join('');
-const rwChips = rw => Object.keys(rw).filter(k => rw[k]).map(k => `<span class="chip">${ic(k)}${fmt(rw[k])}</span>`).join('');
+const rwChips = rw => Object.keys(rw).filter(k => rw[k] && k !== 'skin' && k !== 'pass').map(k => `<span class="chip">${ic(k)}${fmt(rw[k])}</span>`).join('');
+
+function modal(html, onAction, cls = ''){
+  const m = $('#modal'); m.className = cls; m.querySelector('.mcard').innerHTML = html; m.hidden = false;
+  const close = () => { m.hidden = true; m.onclick = null; };
+  m.onclick = e => {
+    const b = e.target.closest('[data-m]');
+    if (!b){ if (e.target === m) close(); return; }
+    const a = b.dataset.m; let keep;
+    if (a !== 'close' && onAction) keep = onAction(a, b);
+    if (keep !== 'keep') close();
+  };
+}
+function applySkins(){
+  thumbCache.clear(); for (const id of ALL_PLOTS) syncPlot(id);
+  makeSanta(); for (const e of elves) scene.remove(e.root); elves.length = 0; syncElves();
+}
+const F = installFeatures({
+  get state(){ return state; }, R, ICON, ic, chips, rwChips, fmt, fmtTime, net,
+  gain, pay, save, toast, sfx, track, playGame, modal, skinIcon, applySkins,
+  openPanel: n => openPanel(n), portraitNow: () => portrait(G.looksOf(state.pl)), sel: () => sel,
+  rerender: () => { sheetHtml = ''; renderSheet(); },
+});
+net.onChange(() => { if (['ranking', 'guild', 'hotte'].includes(sel)){ sheetHtml = ''; renderSheet(); } });
 
 $('#res').innerHTML = Object.keys(RES).map(k => `<div class="res" id="r-${k}"><img src="${ICON[k]}" alt="${RES[k].name}"><b class="num">0</b><span class="cap"><i></i></span></div>`).join('');
-for (const [id, k] of [['d-letters', 'letter'], ['d-games', 'games'], ['d-missions', 'missions'], ['d-advent', 'advent']]) $(`#${id} img`).src = ICON[k];
+for (const [id, k] of [['d-letters', 'letter'], ['d-games', 'games'], ['d-hotte', 'hotte'], ['d-guild', 'guild'], ['d-shop', 'shop'], ['d-missions', 'missions'], ['d-advent', 'advent'], ['s-login', 'login'], ['s-event', 'event'], ['s-rank', 'trophy']]) $(`#${id} img`).src = ICON[k];
+$('#s-wardrobe img').src = skinIcon('santa', 'royal');
+$('#stars').addEventListener('click', () => { sfx.tap(); openPanel('shop'); });
+$('#avatar').addEventListener('click', () => { sfx.tap(); openPanel('profile'); });
 
 function renderHud(){
   const cap = R.storeCap();
@@ -392,7 +470,7 @@ function renderHud(){
   $('#avatar .lv').textContent = state.pl;
   $('#xpbar i').style.width = Math.min(100, state.xp / G.xpNeed(state.pl) * 100) + '%';
   $('#xpbar b').textContent = `${fmt(state.xp)} / ${fmt(G.xpNeed(state.pl))}`;
-  $('#builders').textContent = `${R.busyBuilders()}/${G.BUILDERS}`;
+  $('#builders').textContent = `${R.busyBuilders()}/${R.builders()}`;
   $('#stars b').textContent = fmt(state.stars);
   // dock
   const now = Date.now();
@@ -402,6 +480,13 @@ function renderHud(){
   const d = R.ensureDaily(); const mReady = d.list.filter(m => m.p >= m.n && !m.claimed).length + (d.list.every(m => m.claimed) && !d.bonus ? 1 : 0);
   badge('#d-missions', mReady || '');
   badge('#d-advent', R.adventReady() ? '!' : '');
+  badge('#s-login', F.loginReady() ? '!' : '');
+  $('#s-login small').textContent = state.login.streak;
+  const e = F.ev(); badge('#s-event', e.energy || '', R.pl() < 2);
+  const gifts = Object.values(state.gifts).reduce((a, b) => a + b, 0); badge('#d-hotte', gifts || '');
+  const g = F.myGuild(); const wk = G.weekKey(); const tc = g ? G.TOUR_TIERS.filter((t, i) => (g.tour || 0) >= t && !(state.guildClaims[wk] || []).includes(i)).length : 0;
+  badge('#d-guild', tc || '', R.pl() < G.GUILD_PL);
+  badge('#d-shop', state.purchases.starter ? '' : '!');
   // objectif
   const q = R.quest(), qe = $('#quest');
   const done = q.ok(state);
@@ -418,7 +503,7 @@ $('#quest').addEventListener('click', () => {
   if (q.ok(state)){ gain(q.rw, $('#qbtn')); if (q.goal) state.goal.done = true; else state.quest++; sfx.level(); save(); }
   else { sfx.tap(); toast(q.t); }
 });
-for (const [id, panel, need] of [['d-letters', 'letters', 2], ['d-games', 'games', 2], ['d-missions', 'missions', 1], ['d-advent', 'advent', 1]])
+for (const [id, panel, need] of [['d-letters', 'letters', 2], ['d-games', 'games', 2], ['d-hotte', 'hotte', 1], ['d-guild', 'guild', G.GUILD_PL], ['d-shop', 'shop', 1], ['d-missions', 'missions', 1], ['d-advent', 'advent', 1], ['s-login', 'login', 1], ['s-event', 'event', 2], ['s-rank', 'ranking', 1], ['s-wardrobe', 'wardrobe', 1]])
   $('#' + id).addEventListener('click', () => { if (R.pl() < need){ sfx.err(); toast(`Débloqué au niveau joueur ${need}`); return; } sfx.tap(); openPanel(panel); });
 $('#sound').addEventListener('click', () => { soundOn = !soundOn; $('#sound').classList.toggle('muted', !soundOn); });
 
@@ -526,7 +611,7 @@ function buildingHtml(id){
   }
   const next = to <= G.MAX_LV && !p.upEnd;
   return `${header(pips(p.lv), T.name)}
-  ${T.craft && p.lv > 0 ? workshopHtml(p) + '<h3>Bâtiment</h3>' : ''}
+  ${T.craft && p.lv > 0 ? (T.craft === 'toy' ? workshopHtml(p) : F.wrapHtml(p)) + '<h3>Bâtiment</h3>' : ''}
   <div class="preview ${next ? 'two' : ''}"><figure><img src="${thumb(p.type, Math.max(1, p.lv))}" alt=""><figcaption>Niv. ${Math.max(1, p.lv)}</figcaption></figure>
   ${next ? `<span class="arrow"></span><figure class="nx"><img src="${thumb(p.type, to)}" alt=""><figcaption>Niv. ${to}</figcaption></figure>` : ''}</div>
   <p>${T.desc}</p><div class="stats">${statRows(p, to)}</div>${body}`;
@@ -534,7 +619,7 @@ function buildingHtml(id){
 function buildMenuHtml(){
   return `${header('Terrain libre', 'Construire')}<div class="grid">${G.BUILDABLE.map(t => { const T = TYPES[t], why = R.buildBlock(t), hard = why && !/Ressources/.test(why);
     return `<button class="card ${hard ? 'locked' : ''}" data-a="build" data-t="${t}"><img src="${thumb(t, 1)}" alt=""><b>${T.name}</b>
-    <span class="meta">${T.prod ? `${ic(T.prod)} ${G.rate(t, 1)}/min` : T.craft ? 'Fabrique les jouets' : t === 'storage' ? 'Stock +' + fmt(G.storageBonus(1)) : 'Tournée en traîneau'}</span>
+    <span class="meta">${T.prod ? `${ic(T.prod)} ${G.rate(t, 1)}/min` : T.craft === 'toy' ? 'Fabrique les jouets' : T.craft ? 'Cadeaux et rareté' : t === 'storage' ? 'Stock +' + fmt(G.storageBonus(1)) : 'Tournée en traîneau'}</span>
     ${hard ? `<span class="why">${why}</span>` : `<span class="costs">${chips(G.costOf(t, 1))}</span>`}</button>`; }).join('')}</div>`;
 }
 function lettersHtml(){
@@ -589,6 +674,7 @@ function renderSheet(){
   if (sel === 'games') return setSheet(gamesHtml());
   if (sel === 'missions') return setSheet(missionsHtml());
   if (sel === 'advent') return setSheet(adventHtml());
+  if (F.panels[sel]) return setSheet(F.panels[sel]());
   setSheet(state.plots[sel] ? buildingHtml(sel) : buildMenuHtml());
 }
 $('#sheet').addEventListener('click', e => {
@@ -606,15 +692,19 @@ $('#sheet').addEventListener('click', e => {
   else if (a === 'buyticket'){ if (state.stars < 5){ sfx.err(); toast("Pas assez d'étoiles"); } else { state.stars -= 5; state.tickets++; sfx.collect(); } }
   else if (a === 'mission'){ const m = R.ensureDaily().list[+b.dataset.i]; if (m.p >= m.n && !m.claimed){ m.claimed = true; gain({stars: m.stars, xp: m.xp}, b); sfx.level(); } }
   else if (a === 'bonus'){ const d = R.ensureDaily(); if (!d.bonus && d.list.every(m => m.claimed)){ d.bonus = true; gain({stars: 15, xp: 50 + R.pl() * 10}, b); sfx.bells(); } }
+  else if (F.actions[a]) F.actions[a](b);
   else if (a === 'advent' && R.adventReady()){ const rw = R.adventReward(state.advent.count); state.advent.count++; state.advent.last = G.today(); track('advent'); gain(rw, b); sfx.bells(); }
   save(); sheetHtml = ''; renderSheet();
 });
 
 /* ---------- mini-jeux ---------- */
-function playGame(k){
-  if (k === 'sleigh' && R.bestLv('stable') < 1){ sfx.err(); toast("Construis l'Écurie des rennes"); return; }
-  if (state.tickets < 1){ sfx.err(); toast("Plus de tickets : attends le prochain ou utilise 5 étoiles"); return; }
-  state.tickets--; if (state.tickets === R.tMax() - 1) state.ticketT = Date.now();
+function playGame(k, opts = {}){
+  if (opts.event){ if (!F.spendEnergy()) return; }
+  else {
+    if (k === 'sleigh' && R.bestLv('stable') < 1){ sfx.err(); toast("Construis l'Écurie des rennes"); return; }
+    if (state.tickets < 1){ sfx.err(); toast("Plus de tickets : attends le prochain ou utilise 5 étoiles"); return; }
+    state.tickets--; if (state.tickets === R.tMax() - 1) state.ticketT = Date.now();
+  }
   closeSheet(); document.body.classList.add('in-game');
   openMinigame(k, {
     icons: {sleigh: ICON.sleigh, gift: ICON.gift, elf: ICON.elf, deer: ICON.deer, gold: ICON.gold},
@@ -622,13 +712,15 @@ function playGame(k){
     chipsHtml: rwChips,
     reward: (g, score) => {
       const m = Math.pow(1.25, R.pl() / 2);
-      if (g === 'sleigh'){ const mult = G.sleighMult(R.bestLv('stable')); return {coins: Math.round(score * 4 * m * mult), xp: Math.round((10 + score / 3) * m), stars: score >= 160 ? 3 : score >= 80 ? 1 : 0}; }
+      if (g === 'sleigh'){ const mult = G.sleighMult(Math.max(1, R.bestLv('stable'))); return {coins: Math.round(score * 4 * m * mult), xp: Math.round((10 + score / 3) * m), stars: score >= 160 ? 3 : score >= 80 ? 1 : 0}; }
       return {wood: Math.round(score * 6 * m), cookies: Math.round(score * 3 * m), xp: Math.round((8 + score) * m), stars: score >= 45 ? 2 : score >= 25 ? 1 : 0};
     },
-    grant: (rw, el) => { gain(rw, el); track('games'); track(k); save(); },
-    onClose: () => document.body.classList.remove('in-game'),
+    grant: (rw, el) => { gain(rw, el); track('games'); track(k); if (opts.event){ F.eventGameDone(k, lastScore); toast(`+${fmt(k === 'snow' ? lastScore * 4 : lastScore)} points d'événement`); } save(); },
+    onScore: sc => { lastScore = sc; },
+    onClose: () => { document.body.classList.remove('in-game'); if (opts.event) openPanel('event'); },
   });
 }
+let lastScore = 0;
 
 /* ---------- bulles au-dessus des bâtiments ---------- */
 const ovRoot = $('#ov'), ovs = {};
@@ -647,10 +739,11 @@ function ovKey(id){
   if (!p) return 'plus';
   if (p.upEnd) return 'timer';
   if (R.ready(p)){
-    if (TYPES[p.type].craft) return 'bubble:toy_' + p.done[0] + ':' + p.done.length;
+    if (TYPES[p.type].craft === 'toy') return 'bubble:toy_' + p.done[0] + ':' + p.done.length;
+    if (TYPES[p.type].craft) return 'bubble:present' + Math.max(...p.done.map(d => d.r)) + ':' + p.done.length;
     return 'bubble:' + TYPES[p.type].prod + (p.buf >= G.bufCap(p.type, p.lv) - .01 ? ':full' : '');
   }
-  if (TYPES[p.type].craft && p.queue?.length) return 'craft:toy_' + p.queue[0].toy;
+  if (TYPES[p.type].craft && p.queue?.length) return TYPES[p.type].craft === 'toy' ? 'craft:toy_' + p.queue[0].toy : 'craft:gift';
   return '';
 }
 const v3 = new THREE.Vector3();
@@ -782,6 +875,7 @@ if (saved){ $('#play').textContent = 'Continuer'; $('#reset').hidden = false; }
 $('#play').addEventListener('click', () => {
   introMode = false; cam.tyaw = 0; cam.tz = 3; cam.tdist = homeDist();
   $('#intro').classList.add('hide'); document.body.classList.add('playing'); sfx.bells();
+  setTimeout(() => { if (F.loginReady()) openPanel('login'); }, 1400);
   setTimeout(() => $('#intro').remove(), 700);
 });
 let resetArmed = false;
@@ -793,4 +887,4 @@ $('#reset').addEventListener('click', () => {
 });
 
 // accès pour les tests automatisés
-window.__game = {get state(){ return state; }, set state(s){ state = s; }, cam, views, openPanel, playGame};
+window.__game = {get state(){ return state; }, set state(s){ state = s; }, cam, views, openPanel, playGame, net, F};

@@ -118,20 +118,23 @@ function recolor(root, key, edits){
 const mix = (a, b, t) => '#' + new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString();
 
 /** Le Père Noël évolue avec le niveau de la Maison (1 → 10). */
-export function santaLook(lv){
+export function santaLook(lv, skin = null){
   const t = Math.min(1, (lv - 1) / 4);             // manteau vert → rouge (niv 1 → 5)
   const b = Math.max(0, Math.min(1, (lv - 4) / 5)); // barbe rousse → blanche (niv 4 → 9)
   const coat = mix('#2f9e5b', '#e0243a', t), coatD = mix('#1d6b3b', '#9c1426', t);
-  const beard = mix('#ff8a2a', '#ffffff', b), beardD = mix('#b34a12', '#cfd8e6', b);
+  let beard = mix('#ff8a2a', '#ffffff', b), beardD = mix('#b34a12', '#cfd8e6', b);
+  let [c1, c2] = [coat, coatD];
+  if (skin?.coat) [c1, c2] = skin.coat;
+  if (skin?.beard) [beard, beardD] = skin.beard;
   return [
     [1, beard, beardD], [7, mix(beard, '#ffffff', .3), beardD],
-    [8, coat, coatD], [16, coat, coatD], [11, coat, coatD],
+    [8, c1, c2], [16, c1, c2], [11, c1, c2],
     [19, '#3a2c2a', '#1b1414'], [20, '#2a2222', '#141010'],
     [15, '#2b2224', '#140f10'], [23, '#ffffff', '#d9e2ee'],
   ];
 }
-export function elfLook(v){
-  const hoods = [['#3fbf6a', '#1c7a40'], ['#ef3b4f', '#a3162a'], ['#ffd34a', '#d8901c'], ['#4fb8ff', '#1f6fc0']];
+export function elfLook(v, skin = null){
+  const hoods = skin?.hoods || [['#3fbf6a', '#1c7a40'], ['#ef3b4f', '#a3162a'], ['#ffd34a', '#d8901c'], ['#4fb8ff', '#1f6fc0']];
   const [a, b] = hoods[v % hoods.length];
   return [[1, a, b], [9, a, b]];
 }

@@ -54,9 +54,14 @@ const BASE_MATS = {
   2: [new THREE.MeshStandardMaterial({color: '#cfd6e3', roughness: .9}), new THREE.MeshStandardMaterial({color: '#8b97ad', roughness: .9})],
   3: [new THREE.MeshStandardMaterial({color: '#e7ecf5', roughness: .8}), new THREE.MeshStandardMaterial({color: '#f2b632', roughness: .45, metalness: .35})],
 };
-export function plotBase(tier){
+const skinMats = new Map();
+export function plotBase(tier, skin = null){
   const g = new THREE.Group();
-  const [top, rim] = BASE_MATS[tier];
+  let [top, rim] = BASE_MATS[tier];
+  if (skin?.top){
+    if (!skinMats.has(skin.top)) skinMats.set(skin.top, [new THREE.MeshStandardMaterial({color: skin.top, roughness: .6}), new THREE.MeshStandardMaterial({color: skin.rim, roughness: .4, metalness: skin.rim === '#f2b632' ? .4 : 0})]);
+    [top, rim] = skinMats.get(skin.top);
+  }
   const r = new THREE.Mesh(rimGeo, rim); r.position.y = .08; r.receiveShadow = true; g.add(r);
   const b = new THREE.Mesh(baseGeo, top); b.position.y = .2; b.receiveShadow = true; g.add(b);
   return g;
@@ -85,12 +90,12 @@ const sealMat = new THREE.MeshStandardMaterial({color: '#e0243a', roughness: .5}
 const sealGeo = new THREE.CylinderGeometry(.04, .04, .025, 10);
 
 // teinte des boiseries par type : [teinte HSL, saturation]
-const TRIM = {hq: [.985, 1.25], post: [.6, 1.1], workshop: [.13, 1.3], stable: [.08, 1], sawmill: [null], mill: [.8, 1.1]};
+const TRIM = {hq: [.985, 1.25], post: [.6, 1.1], workshop: [.13, 1.3], stable: [.08, 1], sawmill: [null], mill: [.8, 1.1], wrap: [.9, 1.2]};
 
-export function buildModel(type, lv){
+export function buildModel(type, lv, baseSkin = null){
   const T = tierOf(Math.max(1, lv));
   const root = new THREE.Group();
-  const g = new THREE.Group(); g.position.y = BASE_Y; root.add(plotBase(T), g);
+  const g = new THREE.Group(); g.position.y = BASE_Y; root.add(plotBase(T, baseSkin), g);
   const anim = [], smoke = [];
   const add = (name, o = {}) => { const p = prop(name, o); g.add(p); return p; };
   const addCabin = (opts, x = 0, z = 0, ry = 0, s = 1.15) => {
@@ -205,6 +210,21 @@ export function buildModel(type, lv){
     wheel.position.y = .55;
     anim.push((t, dt) => wheel.rotation.x += dt * 3);
   }
+  else if (type === 'wrap'){
+    if (T === 1){
+      add('stall-red', {x: -.35, z: -.35, s: 1.8});
+      presents(g, [[1.1, .9, 0], [1.4, .4, 3, .4, .8], [.75, 1.35, 2], [-1.25, 1.2, 1, .3], [-1.0, 1.5, 5, 0, .8]]);
+      top = 2.7;
+    } else {
+      addCabin({len: T === 3 ? 2 : 1, front: ['cabin-window-large', 'door'], chimney: T === 3 ? 1 : 0}, -.45, -.5, 0, 1.12);
+      add('stall-red', {x: 1.25, z: -.2, s: 1.1, ry: -HALF_PI});
+      presents(g, [[1.15, 1.15, 0], [1.5, .85, 3, .4, .8], [-1.3, 1.3, 1], [-.9, 1.5, 4, .3, .7]]);
+      if (T === 3) add('christmas_tree_decorated', {x: 1.35, z: 1.25, s: .22});
+      top = T === 3 ? 3.1 : 2.9;
+    }
+    const bow = add('present_sphere_A_red', {x: 0, z: 1.3, s: .55});
+    anim.push(t => { bow.position.y = .15 + Math.abs(Math.sin(t * 2.4)) * .35; bow.rotation.y = t * 1.5; });
+  }
   else if (type === 'storage'){
     add('Containers_Pile_Large', {x: -.75, z: -.55, s: T === 1 ? .7 : .85});
     add('Pallet_Wood_Covered_A', {x: .85, z: -.7, s: .8});
@@ -258,9 +278,9 @@ export function scaffold(h = 2.4){
   g.add(prop('Containers_Crate_Large', {x: -1.1, y: BASE_Y, z: 1.15, s: .35}));
   return g;
 }
-export function constructionSite(){
+export function constructionSite(skin = null){
   const root = new THREE.Group();
-  root.add(plotBase(1));
+  root.add(plotBase(1, skin));
   const f = prop('Pallet_Wood', {y: BASE_Y, s: .9}); root.add(f);
   root.add(prop('Wood_Planks_Stack_Small', {x: -.4, y: BASE_Y, z: -.3, s: .6}));
   return root;
