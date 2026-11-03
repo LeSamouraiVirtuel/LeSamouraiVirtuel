@@ -1,153 +1,62 @@
 // Le Village du Pôle V2 — « Township de Noël » en 2D isométrique.
-// Les modèles 3D sont pré-rendus en images au chargement (bake.js) ; le jeu ne dessine ensuite que des images
-// sur un canvas 2D : fluide et net sur téléphone.
-import * as THREE from 'three';
-import {loadAssets, prop, tint, character, elfLook} from '../assets.js';
-import {buildModel, cabin, plotBase} from '../buildings.js';
-import {bake, bakeIcon, TW, free, disposeBaker} from './bake.js';
+// Toutes les images (bâtiments, champs, icônes) sont pré-rendues une fois pour toutes depuis les modèles 3D
+// (tools/export-pack.mjs → assets/pack/). Le téléphone ne fait que télécharger des images et les poser sur un
+// canvas 2D : chargement rapide, fluide, net, et aucune 3D à calculer sur l'appareil.
 import {createTuto} from '../tuto.js';
 import * as T from './town.js';
-import {fieldModel, pickIcon, coinsModel, pathTile, giftPile} from './models.js';
 
 const {ITEMS, CROPS, BUILDINGS} = T;
 const $ = s => document.querySelector(s);
-const BASE = new URL('../../assets/', import.meta.url).href;
-const DPR = Math.min(devicePixelRatio || 1, 3);
+const ROOT = new URL('../../', import.meta.url).href;
+const Q = new URLSearchParams(location.search);
+const EXPORT = Q.has('export');                       // mode « fabrication du pack » (outil hors ligne)
+const DPR = EXPORT ? 3 : Math.min(devicePixelRatio || 1, 3);
 const ZOOM0 = 1.1;                                   // zoom par défaut : les images y sont affichées pixel pour pixel
-const BD = Math.min(DPR * ZOOM0, 3);                // densité du pré-rendu des bâtiments
-const TH = TW / 2;
+const BD = Math.min(DPR * ZOOM0, 3);                // densité des images des bâtiments
+const TW = 64, TH = TW / 2;
 
 /* =====================================================================
    CHARGEMENT
    ===================================================================== */
-const TIPS = ['Astuce : glisse le doigt sur plusieurs champs pour tout récolter d’un coup.', 'Astuce : les commandes du traîneau rapportent beaucoup d’XP.', 'Astuce : les usines travaillent pendant que tu fais autre chose.', 'Astuce : agrandis ta grange avec des planches, des clous et de la peinture.', 'Astuce : les maisons apportent des habitants, nécessaires pour les usines.'];
+const TIPS = ['Glisse le doigt sur plusieurs champs pour tout récolter d’un coup.', 'Les commandes du traîneau rapportent beaucoup d’XP.', 'Les usines travaillent pendant que tu fais autre chose.', 'Agrandis ta grange avec des planches, des clous et de la peinture.', 'Les maisons apportent des habitants, nécessaires pour les usines.', 'Reviens chaque jour pour ton cadeau du jour !'];
 let tipI = Math.floor(Math.random() * TIPS.length);
 const tip = () => { const e = $('#tip'); if (e) e.textContent = TIPS[tipI++ % TIPS.length]; };
-tip(); const tipTimer = setInterval(tip, 2600);
-const bar = p => { $('#loadbar i').style.width = Math.round(p * 100) + '%'; };
-// Cache des images pré-rendues (IndexedDB) : dès la 2e ouverture, le village s'affiche en 1 à 2 secondes.
-const CACHE_V = `spr-4:${DPR}:${BD}`;   // à changer quand les modèles ou le rendu changent
-const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('vdp-sprites', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
-async function cacheGet(){
-  try { const db = await idb(); const v = await new Promise((ok, ko) => { const q = db.transaction('c').objectStore('c').get(CACHE_V); q.onsuccess = () => ok(q.result); q.onerror = () => ko(q.error); });
-    if (!v) return null;
-    const keys = Object.keys(v.spr);
-    const bm = await Promise.all(keys.map(k => createImageBitmap(new Blob([v.spr[k].buf], {type: 'image/png'}))));
-    keys.forEach((k, i) => { v.spr[k].canvas = bm[i]; delete v.spr[k].buf; });
-    return v; } catch(e){ return null; }
-}
-let cacheAbort = false;
-async function cachePut(){
-  try { const spr = {};
-    for (const [k, o] of Object.entries(SPR)){ const blob = await new Promise(r => o.canvas.toBlob(r)); if (!blob) return; spr[k] = {buf: await blob.arrayBuffer(), ax: o.ax, ay: o.ay, w: o.w, h: o.h}; }
-    if (cacheAbort) return;
-    const db = await idb(); if (cacheAbort) return; const tx = db.transaction('c', 'readwrite'); const st = tx.objectStore('c'); st.clear(); st.put({spr, urls: {ICON, thumbs, elfPortrait, buildIcon}}, CACHE_V);
-  } catch(e){}
-}
-// garde-fou : si le stockage ne répond pas (certains navigateurs), on n'attend pas plus de 5 s
-const within = (pr, ms) => Promise.race([pr, new Promise(r => setTimeout(() => r(null), ms))]);
-const cached = await within(cacheGet(), 5000);
-if (!cached){ await loadAssets(BASE, p => bar(p * .55)); $('#loadtxt').textContent = 'Préparation du village…'; await new Promise(r => setTimeout(r, 30)); }
+tip(); const tipTimer = setInterval(tip, 3200);
+const bar = p => { const i = $('#loadbar i'); if (i) i.style.width = Math.max(3, Math.round(p * 100)) + '%'; };
+const SPR = {}, ICON = {}, thumbs = {};
+let portrait = '', buildIcon = '';
 
-/* =====================================================================
-   PRÉ-RENDU DES SPRITES
-   ===================================================================== */
-const SPR = {}, ICON = {};
-const scaled = (g, s) => { const w = new THREE.Group(); g.scale.setScalar(s); w.add(g); return w; };
-function pen(animal){
-  const g = new THREE.Group();
-  g.add(scaled(plotBase(1), .8));
-  for (let i = 0; i < 3; i++){
-    g.add(prop('fence_simple', {x: -1 + i, z: -1, y: .25})); g.add(prop('fence_simple', {x: -1 + i, z: 1, y: .25, ry: Math.PI}));
-    g.add(prop('fence_simple', {x: -1, z: -1 + i, y: .25, ry: -Math.PI / 2})); if (i !== 1) g.add(prop('fence_simple', {x: 1, z: -1 + i, y: .25, ry: Math.PI / 2}));
-  }
-  g.add(prop('Food_Barrel_Empty', {x: .9, z: -.8, y: .3, s: .35}));
-  [[-.5, -.35, .4], [.35, .2, -.6], [-.3, .55, 2.4]].forEach(([x, z, r]) => g.add(prop(animal, {x, z, y: .3, s: .34, ry: r})));
-  return g;
+/** Charge le pack pré-rendu : un JSON + des images WebP. Renvoie false s'il manque. */
+async function loadPack(){
+  const r = await fetch(ROOT + 'assets/pack/pack.json', {cache: 'no-cache'}).catch(() => null);
+  if (!r || !r.ok) return false;
+  const P = await r.json(), dir = ROOT + 'assets/pack/', q = '?v=' + P.v;
+  const keys = Object.keys(P.spr); let done = 0;
+  const img = src => new Promise((ok, ko) => { const i = new Image(); i.decoding = 'async'; i.onload = () => ok(i); i.onerror = ko; i.src = src; });
+  await Promise.all(keys.map(async k => { const m = P.spr[k]; SPR[k] = {canvas: await img(dir + m.f + q), ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / keys.length); }));
+  for (const [k, f] of Object.entries(P.icon)) ICON[k] = dir + f + q;
+  for (const [k, f] of Object.entries(P.thumb)) thumbs[k] = dir + f + q;
+  portrait = dir + P.portrait + q; buildIcon = dir + P.buildIcon + q;
+  return true;
 }
-const field = (crop, stage) => fieldModel(crop, stage);
-function deco(type){
-  switch (type){
-    case 'tree': return prop('tree-decorated-snow', {s: .75});
-    case 'wildtree': return prop('tree-snow-a', {s: .85});
-    case 'wildtree2': return prop('tree-snow-b', {s: .8});
-    case 'lantern': return prop('lantern', {s: .7});
-    case 'bench': return prop('bench', {s: .75, ry: Math.PI / 4});
-    case 'gifts': return giftPile();
-    case 'candy': return prop('candycane_large', {s: .4});
-    case 'reindeer': return prop('reindeer', {s: .7, ry: .8});
-    default: return prop('snowman_A', {s: .32});
-  }
-}
-function house(len, hue){ const c = tint(cabin({len, front: ['cabin-window-a', 'door'], chimney: 1}), hue, 1.1); const g = new THREE.Group(); c.scale.setScalar(.82); g.add(c); return g; }
-function modelFor(type){
-  const b = BUILDINGS[type], mk = (t, lv, s = .78) => scaled(buildModel(t, lv).group, s);
-  switch (type){
-    case 'santa': return mk('hq', 12, 1.02);
-    case 'orders': { const g = mk('post', 6); g.add(prop('sled-long', {x: 1.1, z: 1.05, s: .8, ry: .6})); return g; }
-    case 'barn': return mk('storage', 6);
-    case 'bakery': return mk('bakery', 6);
-    case 'dairy': { const g = new THREE.Group(); g.add(scaled(plotBase(2), .78)); const c = tint(cabin({len: 2, front: ['cabin-window-b', 'door'], chimney: 1}), .58, 1.1); c.scale.setScalar(.82); c.position.set(-.2, .27, -.2); g.add(c); g.add(prop('carton', {x: 1.1, z: .9, y: .27, s: .9})); g.add(prop('cheese', {x: .6, z: 1.15, y: .27, s: .8})); return g; }
-    case 'sugarmill': return mk('sawmill', 6);
-    case 'pastry': return mk('bakery', 12);
-    case 'toyshop': return mk('workshop', 12);
-    case 'cabin': return house(1, [.985, .6, .13, .33][Math.floor(Math.random() * 4)]);
-    case 'bighouse': return house(2, .9);
-    case 'grocery': return mk('post', 3);
-    case 'school': { const g = new THREE.Group(); g.add(scaled(plotBase(2), .78)); const c = tint(cabin({len: 3, front: ['cabin-window-large', 'door'], chimney: 2}), .6, 1.2); c.scale.setScalar(.78); c.position.set(-.1, .27, 0); g.add(c); return g; }
-    case 'postoffice': return mk('wrap', 12);
-    case 'henhouse': return pen('animal-chick');
-    case 'cowshed': return pen('animal-cow');
-    case 'bunny': return pen('animal-bunny');
-    case 'path': return pathTile(1);
-    default: return deco(type);
-  }
-}
-function site(n){ const g = new THREE.Group(); g.add(scaled(plotBase(1), n / 3.6)); g.add(prop('Pallet_Wood', {y: .3, s: .5 * n / 3})); g.add(prop('Wood_Planks_Stack_Small', {x: -.3, z: -.3, y: .3, s: .4 * n / 3})); g.add(prop('Containers_Crate_Large', {x: .5, z: .4, y: .3, s: .25 * n / 3})); return g; }
-function forest(seed){
-  const g = new THREE.Group(); let r = seed;
-  const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
-  const kinds = ['tree-snow-a', 'tree-snow-b', 'tree-snow-c', 'tree'];
-  for (let i = 0; i < 34; i++) g.add(prop(kinds[Math.floor(rnd() * 4)], {x: (rnd() - .5) * 10, z: (rnd() - .5) * 10, s: .9 + rnd() * .9, ry: rnd() * 6}));
-  for (let i = 0; i < 5; i++) g.add(prop(rnd() < .5 ? 'rocks-medium' : 'snow-pile', {x: (rnd() - .5) * 9, z: (rnd() - .5) * 9, s: .8 + rnd() * .6}));
-  return g;
-}
-const thumbs = {}; let elfPortrait = '', buildIcon = '';
-if (cached){
-  Object.assign(SPR, cached.spr); Object.assign(ICON, cached.urls.ICON); Object.assign(thumbs, cached.urls.thumbs);
-  elfPortrait = cached.urls.elfPortrait; buildIcon = cached.urls.buildIcon;
-} else {
-  const jobs = [];
-  for (const type of Object.keys(BUILDINGS)) if (BUILDINGS[type].kind !== 'field') jobs.push(['b:' + type, () => modelFor(type)]);
-  jobs.push(['f:empty', () => field(null)], ['b:path2', () => pathTile(2)], ['b:path3', () => pathTile(3)], ['b:wildtree', () => deco('wildtree')], ['b:wildtree2', () => deco('wildtree2')]);
-  for (const c of Object.keys(CROPS)) for (const st of [0, 1]) jobs.push([`f:${c}:${st}`, () => field(c, st)]);
-  for (const n of [1, 2, 3, 4]) jobs.push(['site:' + n, () => site(n)]);
-  jobs.push(['forest:0', () => forest(7)], ['forest:1', () => forest(31)], ['forest:2', () => forest(77)]);
-  for (let v = 0; v < 3; v++) jobs.push(['elf:' + v, () => { const c = character('elf', elfLook(v)); c.root.scale.setScalar(.38); c.mixer.update(.5); return c.root; }]);
-  for (let i = 0; i < jobs.length; i++){
-    const [k, fn] = jobs[i];
-    SPR[k] = bake(fn(), {density: k.startsWith('forest') ? Math.min(DPR, 2) : BD});
-    bar(.55 + .35 * (i + 1) / jobs.length);
-    if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));
-  }
-  const url = c => { const u = c.toDataURL(); free(c); return u; };
-  const iconURL = (obj, size = 56) => url(bakeIcon(obj, size, DPR));
-  for (const [k, it] of Object.entries(ITEMS)) ICON[k] = iconURL(pickIcon(k, it.ic));
-  ICON.coins = iconURL(coinsModel());
-  ICON.xp = null;
-  elfPortrait = (() => { const c = character('elf', elfLook(1)); c.mixer.update(.6); return url(bakeIcon(c.root, 112, DPR)); })();
-  for (const type of Object.keys(BUILDINGS)) thumbs[type] = url(bakeIcon(type === 'field' ? field('wheat', 1) : modelFor(type), 96, DPR));
-  buildIcon = url(bakeIcon(prop('Wood_Planks_Stack_Medium'), 96, DPR));
-  disposeBaker();
-  $('#loadtxt').textContent = 'Finalisation…';
-  // les images partent dans la mémoire graphique (ImageBitmap) : les canvas sont libérés
-  await within(cachePut(), 8000); cacheAbort = true;
-  if (window.createImageBitmap) for (const [k, o] of Object.entries(SPR)){ try { const bm = await createImageBitmap(o.canvas); free(o.canvas); o.canvas = bm; } catch(e){} }
+const packed = !EXPORT && await loadPack().catch(() => false);
+if (!packed){
+  // secours (ou fabrication du pack) : pré-rendu sur l'appareil à partir des modèles 3D
+  $('#loadtxt').textContent = 'Préparation du village…';
+  const {bakeAll} = await import('./baker.js');
+  const out = await bakeAll({DPR, BD, bar, base: ROOT + 'assets/', extras: EXPORT});
+  const url = c => c.toDataURL('image/png');
+  Object.assign(SPR, out.SPR);
+  for (const [k, c] of Object.entries(out.ICON)) ICON[k] = url(c);
+  for (const [k, c] of Object.entries(out.thumbs)) thumbs[k] = url(c);
+  portrait = url(out.portrait); buildIcon = url(out.buildIcon);
+  if (EXPORT){ window.__export = out; throw new Error('export prêt'); }
 }
 clearInterval(tipTimer);
 bar(1);
 $('#h-coins img').src = ICON.coins;
 $('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-barn').src = thumbs.barn; $('#i-build').src = buildIcon;
+const elfPortrait = portrait;
 
 /* =====================================================================
    ÉTAT, SON
@@ -262,6 +171,7 @@ function deliver(i, el){
   T.take(S, od.items); S.coins += od.coins; fly('coins', od.coins, el); gainXp(od.xp, el);
   if (od.mat){ T.give(S, od.mat); setTimeout(() => fly(od.mat, 1, el), 300); }
   S.stats.orders++; T.track(S, 'orders'); S.orders[i] = {wait: now() + 12000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
+  if (tuto.active()) setTimeout(closePanel, 900);
 }
 function refreshOrders(){
   for (let i = 0; i < 9; i++){ const o = S.orders[i]; if (o?.wait && now() >= o.wait) S.orders[i] = T.makeOrder(S, i); }
@@ -439,7 +349,11 @@ cv.addEventListener('pointerdown', e => {
   const o = objAt(e.clientX, e.clientY);
   drag = {mode: 'pan', sx: e.clientX, sy: e.clientY, moved: 0, obj: o};
   if (ghost){ const t = toTile(e.clientX, e.clientY), b = BUILDINGS[ghost.type]; if (t.x >= ghost.x - .5 && t.x <= ghost.x + b.w + .5 && t.y >= ghost.y - .5 && t.y <= ghost.y + b.h + .5) drag.mode = 'ghost'; return; }
-  if (seedTool){ drag.mode = 'plant'; if (o && B(o).kind === 'field') plant(o, seedTool, {x: e.clientX, y: e.clientY}); return; }
+  // plateau de graines ouvert : un champ vide → on plante ; n'importe quoi d'autre → on ferme le plateau et on continue normalement
+  if (!$('#seeds').hidden){
+    if (seedTool && o && B(o).kind === 'field' && !o.crop){ drag.mode = 'plant'; plant(o, seedTool, {x: e.clientX, y: e.clientY}); return; }
+    closeSeeds();
+  }
   if (o && B(o).kind === 'field' && o.crop && now() >= o.ready){ drag.mode = 'harvest'; harvest(o, {x: e.clientX, y: e.clientY}); }
 });
 addEventListener('pointermove', e => {
@@ -533,7 +447,7 @@ function selectSeed(k){ seedTool = k; document.querySelectorAll('.seed').forEach
 function closeSeeds(){ document.body.classList.remove('seeding'); seedTool = null; $('#seeds').hidden = true; $('#seedhint').hidden = true; $('#seedhint').textContent = 'Choisis une graine, puis glisse sur les champs'; }
 
 /* ---------- panneaux ---------- */
-let panel = null, panelArg = null, panelHtml = '';
+let panel = null, panelArg = null, panelHtml = '', selOrder = 0;
 function openPanel(name, arg){ closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
 function closePanel(){ const was = panel; panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
 const hd = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
@@ -542,15 +456,23 @@ function renderPanel(){
   if (!panel) return;
   let h = '';
   if (panel === 'orders'){
-    h = hd('Commandes des enfants', 'Bureau du traîneau') + `<div class="orders">${S.orders.map((od, i) => od.items ? `<div class="order ${T.has(S, od.items) ? 'ok' : ''}"><small>${od.kid}</small><div class="lines">${need(od.items)}</div>
-      <div class="rw"><span>${icon('coins')}${od.coins}</span><span><i class="i xp">XP</i>${od.xp}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}</div>
-      <div class="ob"><button class="btn green sm" data-a="deliver" data-i="${i}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button><button class="mini" data-a="trash" data-i="${i}" aria-label="Remplacer">✕</button></div></div>`
-      : `<div class="order wait"><small>Nouvelle commande</small><b data-until="${od.wait}"></b></div>`).join('')}</div>`;
+    // comme l'hélicoptère de Township : une grille de petites vignettes + le détail de la commande choisie
+    if (!S.orders[selOrder]?.items){ const r = S.orders.findIndex(od => od.items && T.has(S, od.items)); selOrder = r >= 0 ? r : Math.max(0, S.orders.findIndex(od => od.items)); }
+    const od = S.orders[selOrder];
+    const tiles = S.orders.map((o, i) => o.items
+      ? `<button class="ot ${i === selOrder ? 'sel' : ''} ${T.has(S, o.items) ? 'ok' : ''}" data-a="osel" data-i="${i}">${Object.keys(o.items).slice(0, 3).map(k => `<img src="${ICON[k]}" alt="">`).join('')}${T.has(S, o.items) ? '<i class="ck"></i>' : ''}</button>`
+      : `<div class="ot wait"><b data-until="${o.wait}"></b></div>`).join('');
+    const detail = od?.items ? `<div class="od">
+        <div class="odh"><small>Commande de ${od.kid}</small><span class="rw"><span>${icon('coins')}${od.coins}</span><span><i class="i xp">XP</i>${od.xp}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}</span></div>
+        <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : ''}<b>${h}/${n}</b></div>`; }).join('')}</div>
+        <div class="oacts"><button class="trash" data-a="trash" data-i="${selOrder}" aria-label="Remplacer cette commande"></button><button class="btn green" data-a="deliver" data-i="${selOrder}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button></div>
+      </div>` : '<p class="meta">De nouvelles commandes arrivent…</p>';
+    h = hd('', 'Commandes') + detail + `<div class="otiles">${tiles}</div>`;
   }
   else if (panel === 'factory'){
     const o = panelArg, b = B(o), q = o.q || [];
     const slots = Array.from({length: o.slots || 3}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
-    h = hd('Usine', b.name) + `<p>${b.desc}</p><h3>File de production</h3><div class="slots">${slots}</div>
+    h = hd('', b.name) + `<h3>En production</h3><div class="slots">${slots}</div>
       ${q.some(j => j.end <= now()) ? '<button class="btn gold wide" data-a="fcollect">Récupérer</button>' : ''}
       <h3>Recettes</h3><div class="recipes">${Object.entries(b.recipes).map(([k, r]) => { const lock = S.lvl < r.lvl;
         return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, r.in) ? 'ok' : ''}" data-a="queue" data-k="${k}"><img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
@@ -565,9 +487,9 @@ function renderPanel(){
   }
   else if (panel === 'build'){
     const cat = panelArg || 'farm';
-    h = hd('Construire', 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
+    h = hd('', 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
       <div class="grid">${Object.entries(BUILDINGS).filter(([k, b]) => b.cat === cat).map(([k, b]) => { const why = T.buildBlock(S, k), hard = why && why !== 'Pas assez de pièces';
-        return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${b.desc}</span>${hard ? `<span class="why">${why}</span>` : `<span class="costs"><span class="chip ${S.coins < T.buildCost(S, k) ? 'bad' : ''}">${icon('coins')}${fmt(T.buildCost(S, k))}</span>${b.time ? `<span class="chip time">${fmtTime(b.time)}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
+        return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b>${b.kind === "house" ? `<span class="meta">+${b.pop} habitants</span>` : b.kind === "town" ? `<span class="meta">+${b.cap} places</span>` : ""}${hard ? `<span class="why">${why}</span>` : `<span class="costs"><span class="chip ${S.coins < T.buildCost(S, k) ? 'bad' : ''}">${icon('coins')}${fmt(T.buildCost(S, k))}</span>${b.time ? `<span class="chip time">${fmtTime(b.time)}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
   }
   else if (panel === 'expand'){
     const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n);
@@ -592,6 +514,7 @@ $('#sheet').addEventListener('click', e => {
   const a = b.dataset.a;
   if (a === 'close') return closePanel();
   if (a === 'deliver') return deliver(+b.dataset.i, b);
+  if (a === 'osel'){ selOrder = +b.dataset.i; sfx.tap(); return renderPanel(); }
   if (a === 'trash'){ S.orders[+b.dataset.i] = {wait: now() + 20000}; sfx.tap(); return renderPanel(); }
   if (a === 'queue') return queueRecipe(panelArg, b.dataset.k);
   if (a === 'fcollect'){ factoryCollect(panelArg, b); return renderPanel(); }
@@ -693,19 +616,19 @@ const firstField = () => S.objs.find(o => o.type === 'field');
 const rectOf = (pred, shrink = 0) => () => { const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o); const b = B(o); const a = toScreen(o.x, o.y + b.h), c = toScreen(o.x + b.w, o.y); return b.kind === 'field' ? {left: a.x, top: toScreen(o.x, o.y).y - 20, width: c.x - a.x, height: toScreen(o.x + b.w, o.y + b.h).y - toScreen(o.x, o.y).y + 20} : {left: r.left + r.width * .15, top: r.top + r.height * .15, width: r.width * .7, height: r.height * .7}; };
 const fieldsRect = () => { const fs = S.objs.filter(o => o.type === 'field').slice(0, 6); if (!fs.length) return null; let l = 1e9, t = 1e9, r = -1e9, b = -1e9; for (const o of fs){ for (const [x, y] of [[o.x, o.y], [o.x + 2, o.y], [o.x, o.y + 2], [o.x + 2, o.y + 2]]){ const p = toScreen(x, y); l = Math.min(l, p.x); r = Math.max(r, p.x); t = Math.min(t, p.y); b = Math.max(b, p.y); } } return {left: l, top: t - 30, width: r - l, height: b - t + 30}; };
 const STEPS = [
-  {say: "Bienvenue au Pôle Nord ! Le vieux Père Noël prend sa retraite et c'est <b>toi</b> qui reprends son village. Je suis Pépin, je vais t'aider !", tap: true},
-  {say: "Le blé est mûr. <b>Pose ton doigt sur un champ et glisse</b> sur les autres pour tout récolter d'un coup !", target: fieldsRect, wait: 'harvest', focus: [15, 17]},
-  {say: "Super ! Maintenant <b>touche un champ vide</b> pour replanter.", target: fieldsRect, wait: 'seeds'},
-  {say: "Choisis le <b>blé</b>. Ensuite, garde le doigt appuyé et <b>glisse sur les autres champs</b> pour tout planter !", target: () => document.querySelector('#seeds'), wait: 'planted'},
-  {say: "Les poules ont faim. <b>Touche le poulailler</b> pour leur donner du blé.", target: rectOf(o => o.type === 'henhouse'), wait: 'feed', focus: [26.5, 16.5]},
-  {say: "Les enfants passent commande au <b>Bureau du traîneau</b>. Touche-le !", target: rectOf(o => o.type === 'orders'), wait: 'open:orders', focus: [16.5, 26.5]},
-  {say: "Léa veut du blé. <b>Livre sa commande</b> pour gagner des pièces et de l'XP !", target: () => document.querySelector('[data-a="deliver"][data-i="0"]'), wait: 'deliver'},
-  {say: "Bravo ! Avec tes pièces, tu peux construire. Ferme cette fenêtre, puis touche <b>Construire</b> en bas à droite.", target: () => document.querySelector('#b-build'), wait: 'open:build'},
-  {say: "Ajoute un <b>champ</b> : plus de champs, plus de récoltes !", target: () => document.querySelector('[data-a="place"][data-k="field"]'), wait: 'placing'},
-  {say: "Choisis l'endroit en glissant le champ, puis touche <b>✓</b> pour valider.", target: () => document.querySelector('#pb-ok'), wait: 'placed'},
-  {say: "Tu as compris l'essentiel ! Récolte, nourris, fabrique, livre… Chaque niveau débloque de nouveaux bâtiments et de nouvelles recettes. À toi de jouer !", tap: true, end: true},
+  {say: "Ho ho ho ! Je prends ma retraite… <b>c'est toi le nouveau Père Noël</b> ! Je vais te montrer.", tap: true},
+  {say: "Le blé est mûr ! <b>Glisse ton doigt</b> sur les champs pour tout récolter.", target: fieldsRect, wait: 'harvest', focus: [15, 17]},
+  {say: "Bravo ! <b>Touche un champ vide</b> pour replanter.", target: fieldsRect, wait: 'seeds'},
+  {say: "<b>Glisse le blé</b> sur les champs vides.", target: () => document.querySelector('#seeds'), wait: 'planted'},
+  {say: "Les poules ont faim. <b>Touche le poulailler.</b>", target: rectOf(o => o.type === 'henhouse'), wait: 'feed', focus: [26.5, 16.5]},
+  {say: "Les enfants commandent des cadeaux. <b>Touche le bureau du traîneau.</b>", target: rectOf(o => o.type === 'orders'), wait: 'open:orders', focus: [16.5, 26.5]},
+  {say: "Tu as le blé de Léa : <b>livre sa commande !</b>", target: () => document.querySelector('.oacts .btn'), wait: 'deliver'},
+  {say: "Super ! Avec tes pièces, <b>construis un champ</b> de plus.", target: () => document.querySelector('#b-build'), wait: 'open:build'},
+  {say: "Choisis le <b>champ</b>.", target: () => document.querySelector('[data-a="place"][data-k="field"]'), wait: 'placing'},
+  {say: "Glisse-le où tu veux, puis touche <b>✓</b>.", target: () => document.querySelector('#pb-ok'), wait: 'placed'},
+  {say: "Parfait ! Suis les <b>tâches</b> en bas à gauche pour faire grandir ton village. À toi de jouer !", tap: true, end: true},
 ];
-const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, steps: STEPS, focusPlot: ([x, y]) => centerOn(x, y)});
+const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, steps: STEPS, name: 'Père Noël', focusPlot: ([x, y]) => centerOn(x, y)});
 function tutoEv(n){ tuto.event(n); }
 
 /* =====================================================================
@@ -732,4 +655,4 @@ addEventListener('pointerdown', () => sfx.tap(), {once: true});
 // entrée directe dans le village (pas de menu titre)
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()) setTimeout(() => tuto.start(), 700); }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud};
+window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp};

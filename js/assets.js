@@ -175,6 +175,7 @@ export function character(kind, look, {hat = false} = {}){
   const root = SkeletonUtils.clone(A.chars[kind]);
   recolor(root, kind + JSON.stringify(look), look);
   if (kind === 'santa') root.traverse(o => { if (o.name === 'Engineer_Goggles') o.visible = !hat; });
+  if (kind === 'elf') root.traverse(o => { if (o.name === 'RogueHooded_Mask') o.visible = false; }); // lutins à visage découvert
   if (hat){
     const head = root.getObjectByName('head');
     if (head){ const h = santaHat(); h.position.set(0, .62, -.02); h.scale.setScalar(1.15); head.add(h); }
