@@ -1,5 +1,6 @@
 // Chargement des modèles 3D (packs CC0 Kenney + KayKit), clonage, recoloration des personnages.
 import * as THREE from 'three';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -26,7 +27,7 @@ export async function loadAssets(base, onProgress){
   });
   for (const child of [...props.scene.children]) A.props[child.name] = child;
   for (const [k, g] of [['santa', santa], ['elf', elf]]) {
-    g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; tuneMaterial(o.material); } });
+    g.scene.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; tuneMaterial(o.material); } });
     A.chars[k] = g.scene;
   }
   for (const c of anims.animations) A.clips[c.name] = c;
@@ -185,4 +186,41 @@ export function character(kind, look, {hat = false} = {}){
   };
   play('Idle_A', 0);
   return {root, mixer, play, actions};
+}
+
+/* ------------------------------------------------------------------ */
+/* Fusion des pièces statiques : un chalet passe de ~40 objets à 1-2. */
+/* C'est ce qui rend le village fluide sur téléphone.                 */
+/* ------------------------------------------------------------------ */
+const ATTRS = ['position', 'normal', 'uv'];
+function toFloat(geo, matrix){
+  const g = new THREE.BufferGeometry(), n = geo.attributes.position.count;
+  for (const name of ATTRS){
+    const a = geo.attributes[name]; if (!a) continue;
+    const size = a.itemSize, arr = new Float32Array(n * size);
+    for (let i = 0; i < n; i++) for (let c = 0; c < size; c++) arr[i * size + c] = a.getComponent(i, c);
+    g.setAttribute(name, new THREE.BufferAttribute(arr, size));
+  }
+  if (geo.index) g.setIndex(Array.from(geo.index.array));
+  g.applyMatrix4(matrix);
+  return g;
+}
+export function mergeStatic(group){
+  group.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const byMat = new Map();
+  group.traverse(o => {
+    if (!o.isMesh || o.isSkinnedMesh || Array.isArray(o.material)) return;
+    const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+    if (!byMat.has(o.material)) byMat.set(o.material, []);
+    byMat.get(o.material).push(toFloat(o.geometry, m));
+  });
+  const out = new THREE.Group();
+  for (const [mat, geos] of byMat){
+    const has = k => geos.every(g => g.attributes[k]);
+    for (const g of geos) for (const k of ATTRS) if (!has(k)) g.deleteAttribute(k);
+    const mg = mergeGeometries(geos, false); if (!mg) continue;
+    const mesh = new THREE.Mesh(mg, mat); mesh.castShadow = true; mesh.receiveShadow = true; out.add(mesh);
+  }
+  return out;
 }

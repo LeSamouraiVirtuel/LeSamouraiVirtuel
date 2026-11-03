@@ -78,7 +78,7 @@ export function newState(){
       '0-0-2': {type: 'post', lv: 1, buf: 40},
     },
     toys: {}, letters: [], tickets: 3, ticketT: Date.now(),
-    quest: 0, stats: {wood: 0, crafted: 0, letters: 0, games: 0, builds: 0, coins: 0, advent: 0, sleigh: 0, snow: 0},
+    tuto: 0, quest: 0, stats: {wood: 0, crafted: 0, letters: 0, games: 0, builds: 0, coins: 0, advent: 0, sleigh: 0, snow: 0},
     daily: null, advent: {count: 0, last: ''}, best: {sleigh: 0, snow: 0}, t: Date.now(),
     ...extraState(),
   };

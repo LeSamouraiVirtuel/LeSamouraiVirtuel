@@ -1,7 +1,7 @@
 // Monde : terrain enneigé en terrasses, forêt, place du village, lumières, nuages sur les zones verrouillées.
 import * as THREE from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
-import {prop, propParts} from './assets.js';
+import {prop, propParts, mergeStatic} from './assets.js';
 
 export const ZD = 11, ZH = 1.7;
 export const COLS = [-4.9, 0, 4.9], ROWS = [2.75, -2.75];
@@ -56,7 +56,7 @@ export function createWorld(renderer){
   const fill = new THREE.DirectionalLight('#8fb6ff', .5); scene.add(fill, fill.target);
 
   /* ---------- terrain ---------- */
-  const W = 110, D = 170, geo = new THREE.PlaneGeometry(W, D, 200, 300);
+  const W = 110, D = 170, geo = new THREE.PlaneGeometry(W, D, 96, 150);
   geo.rotateX(-Math.PI / 2); geo.translate(0, 0, -D / 2 + 26);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
   const snow = new THREE.Color('#eef4fc'), shade = new THREE.Color('#8ea8d6'), blue = new THREE.Color('#cfdff0'), path = new THREE.Color('#cdb9a2'), plaza = new THREE.Color('#c9cfdc');
@@ -106,7 +106,7 @@ export function createWorld(renderer){
     if (ax < 8.6 && z > TOP_Z - 1 && z < 7) return;
     spots[Math.floor(rnd() * (rnd() < .85 ? 3 : 4))].push([x, groundY(x, z) - .05, z, s, rnd() * 6.28]);
   };
-  for (let i = 0; i < 420; i++){
+  for (let i = 0; i < 230; i++){
     const side = rnd() < .5 ? -1 : 1;
     const x = side * (8.8 + Math.pow(rnd(), 1.3) * 40), z = 24 - rnd() * 135;
     tryTree(x, z, .9 + rnd() * 1.1);
@@ -118,14 +118,17 @@ export function createWorld(renderer){
     const list = spots[ki]; if (!list.length) return;
     for (const part of propParts(k)){
       const im = new THREE.InstancedMesh(part.geometry, part.material, list.length);
-      im.castShadow = true; im.receiveShadow = true;
+      // la forêt ne projette pas d'ombre : elle est loin du village et c'était la moitié du coût de l'ombre
+      im.castShadow = false; im.receiveShadow = false;
       list.forEach(([x, y, z, s, r], i) => { dummy.position.set(x, y, z); dummy.rotation.set(0, r, 0); dummy.scale.setScalar(s); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix.clone().multiply(part.matrix)); });
       scene.add(im);
     }
   });
 
   /* ---------- rochers & décor ---------- */
-  const deco = (name, x, z, o = {}) => { const p = prop(name, {x, z, y: groundY(x, z) - (o.sink ?? 0), s: o.s ?? 1, ry: o.ry ?? rnd() * 6.28}); scene.add(p); return p; };
+  // décor statique : rangé dans un groupe puis fusionné en quelques objets à la fin (fluidité)
+  const decoGroup = new THREE.Group();
+  const deco = (name, x, z, o = {}) => { const p = prop(name, {x, z, y: groundY(x, z) - (o.sink ?? 0), s: o.s ?? 1, ry: o.ry ?? rnd() * 6.28}); (o.live ? scene : decoGroup).add(p); return p; };
   for (let k = 0; k < NZ; k++){
     for (const side of [-1, 1]){
       deco(rnd() < .5 ? 'rocks-large' : 'rocks-medium', side * (9 + rnd() * 1.5), zoneZ(k) - ZD / 2 + .5, {s: .8 + rnd() * .5, sink: .3});
@@ -134,7 +137,7 @@ export function createWorld(renderer){
   }
   // place du village
   const pz = ROWS[0];
-  const tree = deco('christmas_tree_decorated', 0, pz, {s: .55, ry: 0});
+  const tree = deco('christmas_tree_decorated', 0, pz, {s: .55, ry: 0, live: true});
   const ring = [[1.25, .7, 'present_A_red'], [-1.2, .8, 'present_B_green'], [.9, -1.1, 'present_C_yellow'], [-1, -1.05, 'present_D_blue'], [1.5, -.2, 'present_sphere_A_red']];
   for (const [x, z, n] of ring) deco(n, x, pz + z, {s: .45});
   deco('snowman_A', -2.6, pz + 1.6, {s: .5, ry: .5});
@@ -168,6 +171,8 @@ export function createWorld(renderer){
   }
   const glowTex = radialTexture('rgba(255,214,140,1)', 'rgba(255,190,90,0)');
   for (const p of lamps){ const s = new THREE.Sprite(new THREE.SpriteMaterial({map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .8})); s.position.copy(p); s.scale.setScalar(1.3); scene.add(s); }
+
+  scene.add(mergeStatic(decoGroup));
 
   /* ---------- nuages sur les zones verrouillées ---------- */
   const cloudTex = cloudTexture();
