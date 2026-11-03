@@ -12,7 +12,9 @@ import {fieldModel, pickIcon, coinsModel} from './models.js';
 const {ITEMS, CROPS, BUILDINGS} = T;
 const $ = s => document.querySelector(s);
 const BASE = new URL('../../assets/', import.meta.url).href;
-const DPR = Math.min(devicePixelRatio || 1, 2.5);
+const DPR = Math.min(devicePixelRatio || 1, 3);
+const ZOOM0 = 1.1;                                   // zoom par défaut : les images y sont affichées pixel pour pixel
+const BD = Math.min(DPR * ZOOM0, 3.4);                // densité du pré-rendu des bâtiments
 const TH = TW / 2;
 
 /* =====================================================================
@@ -23,9 +25,25 @@ let tipI = Math.floor(Math.random() * TIPS.length);
 const tip = () => { const e = $('#tip'); if (e) e.textContent = TIPS[tipI++ % TIPS.length]; };
 tip(); const tipTimer = setInterval(tip, 2600);
 const bar = p => { $('#loadbar i').style.width = Math.round(p * 100) + '%'; };
-await loadAssets(BASE, p => bar(p * .55));
-$('#loadtxt').textContent = 'Préparation du village…';
-await new Promise(r => setTimeout(r, 30));
+// Cache des images pré-rendues (IndexedDB) : dès la 2e ouverture, le village s'affiche en 1 à 2 secondes.
+const CACHE_V = `spr-1:${DPR}:${BD}`;   // à changer quand les modèles ou le rendu changent
+const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('vdp-sprites', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+async function cacheGet(){
+  try { const db = await idb(); const v = await new Promise((ok, ko) => { const q = db.transaction('c').objectStore('c').get(CACHE_V); q.onsuccess = () => ok(q.result); q.onerror = () => ko(q.error); });
+    if (!v) return null;
+    const keys = Object.keys(v.spr);
+    const bm = await Promise.all(keys.map(k => createImageBitmap(v.spr[k].blob)));
+    keys.forEach((k, i) => { v.spr[k].canvas = bm[i]; delete v.spr[k].blob; });
+    return v; } catch(e){ return null; }
+}
+async function cachePut(){
+  try { const spr = {};
+    for (const [k, o] of Object.entries(SPR)){ const blob = await new Promise(r => o.canvas.toBlob(r)); if (!blob) return; spr[k] = {blob, ax: o.ax, ay: o.ay, w: o.w, h: o.h}; }
+    const db = await idb(); const tx = db.transaction('c', 'readwrite'); const st = tx.objectStore('c'); st.clear(); st.put({spr, urls: {ICON, thumbs, elfPortrait, buildIcon}}, CACHE_V);
+  } catch(e){}
+}
+const cached = await cacheGet();
+if (!cached){ await loadAssets(BASE, p => bar(p * .55)); $('#loadtxt').textContent = 'Préparation du village…'; await new Promise(r => setTimeout(r, 30)); }
 
 /* =====================================================================
    PRÉ-RENDU DES SPRITES
@@ -77,29 +95,37 @@ function forest(seed){
   for (let i = 0; i < 5; i++) g.add(prop(rnd() < .5 ? 'rocks-medium' : 'snow-pile', {x: (rnd() - .5) * 9, z: (rnd() - .5) * 9, s: .8 + rnd() * .6}));
   return g;
 }
-const jobs = [];
-for (const type of Object.keys(BUILDINGS)) if (BUILDINGS[type].kind !== 'field') jobs.push(['b:' + type, () => modelFor(type)]);
-jobs.push(['f:empty', () => field(null)]);
-for (const c of Object.keys(CROPS)) for (const st of [0, 1]) jobs.push([`f:${c}:${st}`, () => field(c, st)]);
-for (const n of [1, 2, 3, 4]) jobs.push(['site:' + n, () => site(n)]);
-jobs.push(['forest:0', () => forest(7)], ['forest:1', () => forest(31)], ['forest:2', () => forest(77)]);
-for (let i = 0; i < jobs.length; i++){
-  const [k, fn] = jobs[i];
-  SPR[k] = bake(fn(), {density: Math.min(DPR, 2)});
-  bar(.55 + .35 * (i + 1) / jobs.length);
-  if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));
+const thumbs = {}; let elfPortrait = '', buildIcon = '';
+if (cached){
+  Object.assign(SPR, cached.spr); Object.assign(ICON, cached.urls.ICON); Object.assign(thumbs, cached.urls.thumbs);
+  elfPortrait = cached.urls.elfPortrait; buildIcon = cached.urls.buildIcon;
+} else {
+  const jobs = [];
+  for (const type of Object.keys(BUILDINGS)) if (BUILDINGS[type].kind !== 'field') jobs.push(['b:' + type, () => modelFor(type)]);
+  jobs.push(['f:empty', () => field(null)]);
+  for (const c of Object.keys(CROPS)) for (const st of [0, 1]) jobs.push([`f:${c}:${st}`, () => field(c, st)]);
+  for (const n of [1, 2, 3, 4]) jobs.push(['site:' + n, () => site(n)]);
+  jobs.push(['forest:0', () => forest(7)], ['forest:1', () => forest(31)], ['forest:2', () => forest(77)]);
+  for (let v = 0; v < 3; v++) jobs.push(['elf:' + v, () => { const c = character('elf', elfLook(v)); c.root.scale.setScalar(.38); c.mixer.update(.5); return c.root; }]);
+  for (let i = 0; i < jobs.length; i++){
+    const [k, fn] = jobs[i];
+    SPR[k] = bake(fn(), {density: k.startsWith('forest') ? Math.min(DPR, 2) : BD});
+    bar(.55 + .35 * (i + 1) / jobs.length);
+    if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));
+  }
+  const iconURL = (obj, size = 56) => bakeIcon(obj, size, DPR).toDataURL();
+  for (const [k, it] of Object.entries(ITEMS)) ICON[k] = iconURL(pickIcon(k, it.ic));
+  ICON.coins = iconURL(coinsModel());
+  ICON.xp = null;
+  elfPortrait = (() => { const c = character('elf', elfLook(1)); c.mixer.update(.6); return bakeIcon(c.root, 112, DPR).toDataURL(); })();
+  for (const type of Object.keys(BUILDINGS)) thumbs[type] = bakeIcon(type === 'field' ? field('wheat', 1) : modelFor(type), 96, DPR).toDataURL();
+  buildIcon = bakeIcon(prop('Wood_Planks_Stack_Medium'), 96, DPR).toDataURL();
+  setTimeout(cachePut, 4000);
 }
-const iconURL = (obj, size = 56) => bakeIcon(obj, size).toDataURL();
-for (const [k, it] of Object.entries(ITEMS)) ICON[k] = iconURL(pickIcon(k, it.ic));
-ICON.coins = iconURL(coinsModel());
-ICON.xp = null;
-const elfPortrait = (() => { const c = character('elf', elfLook(1)); c.mixer.update(.6); return bakeIcon(c.root, 112).toDataURL(); })();
-const thumbs = {};
-for (const type of Object.keys(BUILDINGS)) thumbs[type] = type === 'field' ? bakeIcon(field('wheat', 1), 96).toDataURL() : bakeIcon(modelFor(type), 96).toDataURL();
 clearInterval(tipTimer);
 bar(1);
 $('#h-coins img').src = ICON.coins;
-$('#i-orders').src = thumbs.orders; $('#i-barn').src = thumbs.barn; $('#i-build').src = bakeIcon(prop('Wood_Planks_Stack_Medium'), 96).toDataURL();
+$('#i-orders').src = thumbs.orders; $('#i-barn').src = thumbs.barn; $('#i-build').src = buildIcon;
 
 /* =====================================================================
    ÉTAT, SON
@@ -126,15 +152,24 @@ const iso = (tx, ty) => ({x: (tx - ty) * TW / 2, y: (tx + ty) * TH / 2});
 const toScreen = (tx, ty) => { const p = iso(tx, ty); return {x: (p.x - cam.x) * cam.z + W / 2, y: (p.y - cam.y) * cam.z + H / 2}; };
 function toTile(sx, sy){ const wx = (sx - W / 2) / cam.z + cam.x, wy = (sy - H / 2) / cam.z + cam.y; return {x: wy / TH + wx / TW, y: wy / TH - wx / TW}; }
 function centerOn(tx, ty){ const p = iso(tx, ty); cam.x = p.x; cam.y = p.y; }
-const startZoom = () => Math.min(1.3, Math.max(.95, W / 400));
+const startZoom = () => W < 600 ? ZOOM0 : Math.min(1.5, ZOOM0 * W / 600);
 cam.z = startZoom(); centerOn(20, 20);
 
 // sol : texture de neige, motif répété
+const PAT = Math.round(320 * DPR);   // motif de neige, généré directement en pixels de l'écran
 const snowPat = (() => {
-  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
-  x.fillStyle = '#eef3fb'; x.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 160; i++){ x.fillStyle = `rgba(${150 + Math.random() * 40},${175 + Math.random() * 40},235,${.05 + Math.random() * .1})`; x.beginPath(); x.ellipse(Math.random() * 256, Math.random() * 256, 6 + Math.random() * 26, 3 + Math.random() * 10, 0, 0, 7); x.fill(); }
-  for (let i = 0; i < 90; i++){ x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(Math.random() * 256, Math.random() * 256, 1.5, 1.5); }
+  const c = document.createElement('canvas'); c.width = c.height = PAT; const x = c.getContext('2d'), k = DPR;
+  const g = x.createLinearGradient(0, 0, PAT, PAT); g.addColorStop(0, '#f3f7fd'); g.addColorStop(.5, '#e9f0fa'); g.addColorStop(1, '#f3f7fd');
+  x.fillStyle = g; x.fillRect(0, 0, PAT, PAT);
+  const wrap = f => { for (const dx of [-PAT, 0, PAT]) for (const dy of [-PAT, 0, PAT]){ x.save(); x.translate(dx, dy); f(); x.restore(); } };
+  const R = (a, b) => a + Math.random() * (b - a);
+  for (let i = 0; i < 70; i++){ const px = R(0, PAT), py = R(0, PAT), rx = R(14, 46) * k, ry = R(5, 14) * k, c1 = `rgba(${R(140, 175) | 0},${R(170, 200) | 0},236,${R(.06, .14)})`;
+    wrap(() => { const gr = x.createRadialGradient(px, py, 0, px, py, rx); gr.addColorStop(0, c1); gr.addColorStop(1, 'rgba(160,190,236,0)'); x.fillStyle = gr; x.beginPath(); x.ellipse(px, py, rx, ry, 0, 0, 7); x.fill(); }); }
+  for (let i = 0; i < 40; i++){ const px = R(0, PAT), py = R(0, PAT), w = R(20, 60) * k;
+    wrap(() => { x.strokeStyle = 'rgba(255,255,255,.8)'; x.lineWidth = 1.5 * k; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + w / 2, py - 4 * k, px + w, py); x.stroke();
+      x.strokeStyle = 'rgba(150,175,220,.18)'; x.beginPath(); x.moveTo(px, py + 2 * k); x.quadraticCurveTo(px + w / 2, py - 2 * k, px + w, py + 2 * k); x.stroke(); }); }
+  for (let i = 0; i < 260; i++){ x.fillStyle = `rgba(255,255,255,${R(.6, 1)})`; const r = R(.5, 1.3) * k; x.beginPath(); x.arc(R(0, PAT), R(0, PAT), r, 0, 7); x.fill(); }
+  for (let i = 0; i < 30; i++){ x.fillStyle = 'rgba(190,225,255,.9)'; x.fillRect(R(0, PAT), R(0, PAT), 1.2 * k, 1.2 * k); }
   return ctx.createPattern(c, 'repeat');
 })();
 
@@ -238,7 +273,8 @@ function diamond(x, y, w, h, fill, stroke){
 }
 function drawSprite(key, cx, cy, alpha = 1){
   const s = SPR[key]; if (!s) return;
-  const x = cx - s.ax * cam.z, y = cy - s.ay * cam.z, w = s.w * cam.z, h = s.h * cam.z;
+  // positions alignées sur les pixels de l'écran : pas de flou de rééchantillonnage
+  const x = Math.round((cx - s.ax * cam.z) * DPR) / DPR, y = Math.round((cy - s.ay * cam.z) * DPR) / DPR, w = s.w * cam.z, h = s.h * cam.z;
   if (x > W || y > H || x + w < 0 || y + h < 0) return; // hors écran
   ctx.globalAlpha = alpha;
   ctx.drawImage(s.canvas, x, y, w, h);
@@ -267,9 +303,10 @@ function timerPill(cx, cy, text, prog){
   ctx.restore();
 }
 function draw(){
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.imageSmoothingQuality = 'high';
   // sol
-  ctx.save(); const o0 = toScreen(0, 0); ctx.translate(o0.x % 256, o0.y % 256); ctx.fillStyle = snowPat; ctx.fillRect(-256, -256, W + 512, H + 512); ctx.restore();
+  // sol : motif en pixels réels (transformation identité), qui suit la caméra
+  { const o0 = toScreen(0, 0), ox = Math.round(o0.x * DPR) % PAT, oy = Math.round(o0.y * DPR) % PAT; ctx.save(); ctx.setTransform(1, 0, 0, 1, ox, oy); ctx.fillStyle = snowPat; ctx.fillRect(-ox - PAT, -oy - PAT, cv.width + PAT * 2, cv.height + PAT * 2); ctx.restore(); }
   // terrain ouvert : léger liseré pour marquer la limite
   for (const k of S.chunks){ const [cx, cy] = k.split(',').map(Number); diamond(cx * T.CHUNK, cy * T.CHUNK, T.CHUNK, T.CHUNK, 'rgba(255,255,255,.35)', null); }
   // forêts : zones verrouillées + bordure de carte
@@ -319,8 +356,7 @@ function drawHint(o){
 }
 
 /* ---------- lutins qui se promènent ---------- */
-const elfSprites = [];
-for (let v = 0; v < 3; v++){ const c = character('elf', elfLook(v)); c.root.scale.setScalar(.38); c.mixer.update(.5); elfSprites.push(bake(c.root, {density: Math.min(DPR, 2)})); }
+const elfSprites = [0, 1, 2].map(v => SPR['elf:' + v]);
 const elves = Array.from({length: 4}, (_, i) => ({x: 18 + i, y: 21, tx: 18, ty: 21, v: i % 3, wait: Math.random() * 2}));
 function moveElves(dt){
   for (const e of elves){
@@ -358,7 +394,7 @@ cv.addEventListener('pointerdown', e => {
 addEventListener('pointermove', e => {
   const p = ptrs.get(e.pointerId); if (!p || !drag) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
-  if (drag.mode === 'pinch' && ptrs.size === 2){ const [a, b] = [...ptrs.values()]; cam.z = Math.max(.45, Math.min(2, drag.z0 * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0)); return; }
+  if (drag.mode === 'pinch' && ptrs.size === 2){ const [a, b] = [...ptrs.values()]; cam.z = Math.max(.55, Math.min(1.7, drag.z0 * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0)); return; }
   drag.moved += Math.abs(dx) + Math.abs(dy);
   if (drag.mode === 'pan'){ cam.x -= dx / cam.z; cam.y -= dy / cam.z; clampCam(); return; }
   if (drag.mode === 'ghost'){ const t = toTile(e.clientX, e.clientY), b = BUILDINGS[ghost.type]; ghost.x = Math.round(t.x - b.w / 2); ghost.y = Math.round(t.y - b.h / 2); updateGhostUI(); return; }
@@ -372,7 +408,7 @@ const endPtr = e => {
   if (d.mode === 'pan' && d.moved < 10 && e.type === 'pointerup') tap(d.obj, {x: e.clientX, y: e.clientY});
 };
 addEventListener('pointerup', endPtr); addEventListener('pointercancel', endPtr);
-cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.45, Math.min(2, cam.z * (1 - e.deltaY * .001))); }, {passive: false});
+cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.55, Math.min(1.7, cam.z * (1 - e.deltaY * .001))); }, {passive: false});
 function clampCam(){ const c = iso(T.MAP / 2, T.MAP / 2), r = T.MAP * TW * .45; cam.x = Math.max(c.x - r, Math.min(c.x + r, cam.x)); cam.y = Math.max(c.y - r * .5 - 200, Math.min(c.y + r * .5 + 200, cam.y)); }
 
 function tap(o, at){
