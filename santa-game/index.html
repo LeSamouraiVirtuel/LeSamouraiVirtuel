@@ -563,6 +563,22 @@ h2 .emb{width:30px;height:30px;margin-right:4px}
 </div>
 <div id="credits">Modèles 3D : Kenney &amp; KayKit (CC0)</div>
 
+<script>
+// Compatibilité avec les anciens iPhone (iOS 15 à 16.3) : fonctions récentes absentes de Safari
+if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', {value(i){ i = Math.trunc(i) || 0; if (i < 0) i += this.length; return this[i]; }, configurable: true, writable: true});
+if (window.CanvasRenderingContext2D && !CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r){
+    r = Math.min(Array.isArray(r) ? r[0] : r || 0, w / 2, h / 2);
+    this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath(); return this;
+  };
+}
+// Si le jeu ne démarre pas, on l'affiche au lieu de rester bloqué sur « Chargement »
+window.addEventListener('error', e => { const l = document.getElementById('loading'); if (l && !l.hidden) l.innerHTML = 'Le jeu n\'a pas pu démarrer sur cet appareil.<br><small style="font-weight:500">' + String(e.message || e).slice(0, 160) + '</small>'; });
+window.addEventListener('unhandledrejection', e => { const l = document.getElementById('loading'); if (l && !l.hidden) l.innerHTML = 'Le jeu n\'a pas pu démarrer sur cet appareil.<br><small style="font-weight:500">' + String(e.reason && e.reason.message || e.reason).slice(0, 160) + '</small>'; });
+</script>
+<!-- Les « import maps » n'existent qu'à partir d'iOS 16.4 : ce polyfill les ajoute aux versions plus anciennes -->
+<script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
 <script type="importmap">
 {"imports":{
   "three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
