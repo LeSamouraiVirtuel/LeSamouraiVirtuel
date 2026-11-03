@@ -136,3 +136,22 @@ export function pickIcon(key, ic){
     default: return prop(ic);
   }
 }
+
+/** Dalle d'allée 1×1 : pavés arrondis de tons chauds, joints sombres, un peu de neige sur les bords. */
+export function pathTile(seed = 1){
+  const g = new THREE.Group(), R = rnd(seed * 31 + 7);
+  const bed = mesh(new THREE.BoxGeometry(1, .05, 1), '#5d4a3e'); bed.position.y = .025; g.add(bed);
+  const tones = ['#b89a7a', '#a98b6c', '#c4a888', '#9d8064', '#b5937a'];
+  const n = 3, sz = 1 / n;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++){
+    const w = sz * .86, st = mesh(new THREE.BoxGeometry(w, .07, w), tones[Math.floor(R() * tones.length)], {roughness: .9});
+    st.position.set(-.5 + sz * (i + .5) + (R() - .5) * .03, .06, -.5 + sz * (j + .5) + (R() - .5) * .03); st.rotation.y = (R() - .5) * .12; g.add(st);
+    const top = mesh(new THREE.BoxGeometry(w * .8, .02, w * .8), '#ffffff', {roughness: .9, transparent: true, opacity: .12}); top.position.copy(st.position); top.position.y = .1; g.add(top);
+  }
+  return g;
+}
+export function giftPile(){
+  const g = new THREE.Group();
+  g.add(prop('present-a-cube', {x: -.15, z: .1, s: .9}), prop('present-b-rectangle', {x: .18, z: -.1, s: .85, ry: .6}), prop('present-a-round', {x: .05, z: .25, y: 0, s: .7}), prop('present-b-cube', {x: -.05, y: .3, z: -.05, s: .6, ry: .4}));
+  return g;
+}
