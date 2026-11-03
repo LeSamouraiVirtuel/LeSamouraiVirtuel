@@ -19,17 +19,17 @@ const q = s => document.querySelector(s);
 const bubble = id => q(`.bubble[data-id="${id}"]`);
 const plus = id => q(`.plus[data-id="${id}"]`);
 
-export function createTuto({getState, save, focusPlot, portrait, sfx, steps = STEPS}){
+export function createTuto({getState, save, focusPlot, portrait, sfx, steps = STEPS, name = 'Pépin'}){
   const STEPS_ = steps;
   const S = getState;
   const root = document.createElement('div'); root.id = 'tuto'; root.hidden = true;
   root.innerHTML = `<div class="tb t"></div><div class="tb r"></div><div class="tb b"></div><div class="tb l"></div>
     <div class="tring"></div><div class="thand"></div>
-    <div class="tbox"><img alt=""><div class="tname">Pépin</div><p></p><span class="tnext">Toucher pour continuer ▾</span><button class="tskip">Passer ›</button></div>`;
+    <div class="tbox"><img alt=""><div class="tname">${name}</div><p></p><span class="tnext">Toucher pour continuer ▾</span><button class="tskip">Passer ›</button></div>`;
   document.body.appendChild(root);
   root.querySelector('.tbox img').src = portrait;
   const [bt, br, bb, bl] = root.querySelectorAll('.tb'), ring = root.querySelector('.tring'), hand = root.querySelector('.thand'), box = root.querySelector('.tbox');
-  let step = null, raf = 0;
+  let step = null, raf = 0, pending = false;
 
   const active = () => S().tuto != null && S().tuto < STEPS_.length;
   function show(){
@@ -80,7 +80,8 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
     start(){ if (active()) show(); },
     active,
     // appelé par le jeu à chaque action : on avance si c'est l'action attendue
-    event(name){ if (active() && step && step.wait === name) setTimeout(next, name === 'close' ? 50 : 350); },
+    // une seule avance par étape, même si l'action se répète (glisser sur 6 champs = 6 récoltes)
+    event(name){ if (active() && step && step.wait === name && !pending){ pending = true; const at = step; setTimeout(() => { pending = false; if (step === at) next(); }, name === 'close' ? 50 : 350); } },
     skip: finish,
   };
 }

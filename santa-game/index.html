@@ -671,6 +671,57 @@ body.tutoring #quest2,body.tutoring #sideR,body.sheet-open #sideR,body.sheet-ope
 .dd.big{grid-column:span 3}
 .dd.today{border-color:var(--gold-d);background:linear-gradient(180deg,#fff7c4,#ffd84a);box-shadow:0 0 12px rgba(255,200,60,.8)}
 .dd.got{opacity:.5}
+
+/* ---------- écran de chargement (V2) : nuit de Noël, illustration, logo sur ruban ---------- */
+#intro{z-index:100;justify-content:flex-start;padding:calc(env(safe-area-inset-top,0px) + 5vh) 20px calc(env(safe-area-inset-bottom,0px) + 22px);overflow:hidden;
+  background:radial-gradient(ellipse 90% 45% at 50% 105%,#ffffff 0,#e8f1fc 55%,rgba(232,241,252,0) 56%),radial-gradient(circle at 78% 16%,rgba(255,250,220,.35) 0,rgba(255,250,220,0) 12%),linear-gradient(180deg,#071a4a 0,#173a8a 38%,#3f78cf 66%,#9cc8f2 100%)!important;transition:opacity .6s}
+#intro::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(1.5px 1.5px at 12% 14%,#fff 50%,transparent 51%),radial-gradient(1px 1px at 28% 8%,#fff 50%,transparent 51%),radial-gradient(2px 2px at 44% 21%,#fff 50%,transparent 51%),radial-gradient(1px 1px at 63% 6%,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 86% 26%,#fff 50%,transparent 51%),radial-gradient(1px 1px at 7% 33%,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 93% 9%,#fff 50%,transparent 51%),radial-gradient(1px 1px at 55% 30%,#fff 50%,transparent 51%),radial-gradient(1px 1px at 35% 36%,#fff 50%,transparent 51%);animation:twinkle 3s ease-in-out infinite alternate}
+@keyframes twinkle{to{opacity:.55}}
+#intro .moon{position:absolute;right:13%;top:calc(env(safe-area-inset-top,0px) + 9%);width:54px;height:54px;border-radius:50%;box-shadow:-10px 6px 0 0 #fff7d6;transform:rotate(-20deg);filter:drop-shadow(0 0 14px rgba(255,245,200,.7))}
+#intro .snowfall{position:absolute;inset:-20% 0 0;pointer-events:none;background-image:radial-gradient(3px 3px at 10% 10%,#fff 50%,transparent 51%),radial-gradient(2px 2px at 30% 40%,#fff 50%,transparent 51%),radial-gradient(3px 3px at 70% 20%,#fff 50%,transparent 51%),radial-gradient(2px 2px at 85% 60%,#fff 50%,transparent 51%),radial-gradient(2.5px 2.5px at 50% 75%,#fff 50%,transparent 51%),radial-gradient(2px 2px at 20% 85%,#fff 50%,transparent 51%);background-size:220px 220px;animation:snowdrop 7s linear infinite;opacity:.85}
+@keyframes snowdrop{to{background-position:30px 220px,-20px 220px,20px 220px,-30px 220px,10px 220px,-10px 220px}}
+#logo{position:relative;z-index:2}
+#logo small{display:none}
+#logo h1{position:relative;display:inline-block;margin:0;padding:10px 34px 14px;font-size:clamp(34px,10.5vw,58px);line-height:.92;color:#ffd84a;-webkit-text-stroke:7px #7a2a05;paint-order:stroke fill;text-shadow:0 5px 0 #5a1d03,0 10px 18px rgba(0,0,0,.35);
+  background:linear-gradient(180deg,#ff5a5f,#d81f33 55%,#a8142a);border:4px solid #6e0a16;border-radius:14px;box-shadow:inset 0 4px 0 rgba(255,255,255,.35),0 8px 0 #6e0a16,0 16px 26px rgba(0,0,0,.35)}
+#logo h1::before,#logo h1::after{content:"";position:absolute;top:22px;width:38px;height:calc(100% - 14px);background:#b8122a;border:4px solid #6e0a16;z-index:-1}
+#logo h1::before{left:-30px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,38% 50%)}
+#logo h1::after{right:-30px;clip-path:polygon(0 0,100% 0,62% 50%,100% 100%,0 100%)}
+#logo h1 span{font-size:.42em;margin-top:6px;-webkit-text-stroke:5px #6e0a16;text-shadow:0 3px 0 #4a0710}
+#hero{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 118px);width:min(118vw,620px);transform:translateX(-50%);z-index:1;filter:drop-shadow(0 18px 24px rgba(10,20,60,.35));animation:heroin 1s cubic-bezier(.2,1.3,.4,1) both}
+#hero[hidden]{display:none}
+@keyframes heroin{from{opacity:0;transform:translate(-50%,30px) scale(.94)}}
+#start{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);z-index:3;width:calc(100% - 40px)}
+#tip{color:#2a3a6a!important;text-shadow:none!important;font-size:14px!important}
+#loadbar{height:24px;border-radius:13px;border:3px solid #2a1a0e;background:#3a2414;box-shadow:0 4px 0 rgba(42,26,14,.35)}
+#loadbar i{background:linear-gradient(180deg,#fff2a0,#ffc72a 50%,#f0a00c);box-shadow:inset 0 2px 0 rgba(255,255,255,.6)}
+/* tant que le jeu charge, rien d'autre n'est visible */
+body:not(.playing) #hud2,body:not(.playing) .dock,body:not(.playing) #sideR,body:not(.playing) #quest2{visibility:hidden}
+/* commandes : détail en grand + vignettes */
+.od{background:linear-gradient(180deg,#fffaf0,#f6e8c6);border:2.5px solid var(--card-line);border-radius:16px;padding:10px 10px 12px;box-shadow:inset 0 2px 0 #fff}
+.odh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.odh small{font-family:var(--display);font-size:14px;color:var(--brown)}
+.odh .rw{display:flex;gap:10px;font-family:var(--display);font-size:18px;color:var(--ink-2)}
+.big{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:8px;justify-items:center}
+.bi{position:relative;width:100%;max-width:120px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;background:#fff;border:2px solid var(--card-line)}
+.bi img{width:68%;height:68%;object-fit:contain}
+.bi b{font-family:var(--display);font-size:18px;color:var(--red);-webkit-text-stroke:0}
+.bi.have b{color:var(--green-d)}
+i.ck{position:absolute;right:6px;top:6px;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 50% 30%,var(--green-l),var(--green));border:2px solid var(--green-o);box-shadow:0 2px 0 var(--green-o)}
+i.ck::after{content:"";position:absolute;left:7px;top:2px;width:6px;height:12px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg)}
+.oacts{display:flex;gap:10px;margin-top:12px;align-items:stretch}
+.oacts .btn{flex:1}
+.trash{width:56px;flex:none;border-radius:14px;border:2px solid var(--blue-o);background:center/26px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6'/%3E%3C/svg%3E"),linear-gradient(180deg,var(--blue-l),var(--blue));box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 4px 0 var(--blue-d),0 6px 0 var(--blue-o)}
+.trash:active{transform:translateY(3px)}
+.otiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.ot{position:relative;height:62px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:0;background:linear-gradient(180deg,#fdf3da,var(--card));border:2.5px solid var(--card-line)}
+.ot img{width:42px;height:42px;object-fit:contain;margin:0 -6px}
+.ot.ok{border-color:var(--green-d)}
+.ot.sel{border-color:var(--gold-d);background:linear-gradient(180deg,#fff7c4,#ffe27a);box-shadow:0 0 0 3px rgba(255,200,60,.45)}
+.ot i.ck{right:-6px;top:-6px;width:22px;height:22px}
+.ot i.ck::after{left:6px;top:2px;width:5px;height:10px}
+.ot.wait{border-style:dashed;background:rgba(255,255,255,.4)}
+.ot.wait b{font-family:var(--display);font-size:14px;color:var(--brown)}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
@@ -690,7 +741,9 @@ body.tutoring #quest2,body.tutoring #sideR,body.sheet-open #sideR,body.sheet-ope
 <div id="sheet" role="dialog" aria-live="polite"></div>
 <div id="toast"></div>
 <div id="intro">
-  <div id="logo"><small>Un jeu de Noël</small><h1>Le Village du Pôle<span>Deviens le Père Noël</span></h1></div>
+  <div class="snowfall"></div><div class="moon"></div>
+  <div id="logo"><h1>Le Village du Pôle<span>Deviens le Père Noël</span></h1></div>
+  <img id="hero" src="assets/pack/splash.webp" alt="" onerror="this.hidden=true">
   <div id="start">
     <div id="loading"><span id="tip"></span><div id="loadbar"><i></i></div><small id="loadtxt">Chargement du village…</small></div>
   </div>
