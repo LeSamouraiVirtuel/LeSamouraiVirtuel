@@ -1,0 +1,12 @@
+{
+  "name": "village-du-pole-tools",
+  "private": true,
+  "type": "module",
+  "description": "Asset build script for Le Village du Pôle",
+  "dependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
+    "sharp": "^0.35.0"
+  }
+}

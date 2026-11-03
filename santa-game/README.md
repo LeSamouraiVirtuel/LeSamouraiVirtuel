@@ -1,50 +1,57 @@
 # Le Village du Pôle — Deviens le Père Noël
 
-Prototype jouable d'un jeu mobile de construction de village (genre « base-builder » des pubs mobiles), en 3D low-poly avec Three.js.
+Jeu mobile de construction de village en 3D, du même genre que les jeux de gestion qu'on voit dans les pubs mobiles. Il tourne dans le navigateur du téléphone avec Three.js et peut être packagé en application avec Capacitor.
 
-## Jouer
+## Lancer le jeu
 
-Ouvre `index.html` dans un navigateur (téléphone ou ordinateur). Aucun build n'est nécessaire : Three.js est chargé depuis jsDelivr.
-
-Pour tester sur téléphone en local :
+Les modules JavaScript et les modèles 3D doivent être servis par un serveur web (ouvrir le fichier directement ne marche pas) :
 
 ```bash
 cd santa-game
-npx serve .        # puis ouvre l'adresse IP affichée depuis le téléphone (même Wi-Fi)
+npx serve .          # puis ouvre l'adresse affichée (depuis le téléphone : même Wi-Fi, IP de l'ordi)
 ```
+
+## Structure
+
+| Fichier | Rôle |
+|---|---|
+| `index.html` | Interface : HUD, panneaux, écran titre, styles |
+| `js/main.js` | Boucle de jeu, caméra, personnages, interactions, icônes 3D |
+| `js/game.js` | Règles : bâtiments, coûts, production, quêtes, sauvegarde |
+| `js/buildings.js` | Modèles des bâtiments par niveau (3 paliers + décorations) |
+| `js/world.js` | Terrain en terrasses, forêt, place du village, lumières, nuages |
+| `js/assets.js` | Chargement des modèles, recoloration du Père Noël et des lutins |
+| `assets/*.glb` | Modèles 3D compressés (générés par `tools/build-assets.mjs`) |
 
 ## Le jeu
 
-Tu commences comme petit lutin au pied de la montagne. En développant le village tu montes en rang jusqu'à devenir le Père Noël, et ton personnage change d'apparence (manteau vert → rouge, barbe, ventre).
+- Tu commences en lutin au pied de la montagne. Ton personnage change avec le niveau de la Maison du Père Noël : le manteau passe du vert au rouge, la barbe devient blanche, et il gagne le bonnet au niveau 6.
+- 7 bâtiments avec 10 niveaux chacun. L'apparence change par palier : socle en bois, puis en pierre, puis en pierre et or, avec un bâtiment plus grand et des décorations ajoutées à chaque niveau.
+- Chaque bâtiment a ses animations : roue de la scierie, train de jouets de l'atelier, lettres qui volent au-dessus du bureau de poste, rennes, cookie géant, fumée des cheminées.
+- Des lutins se promènent dans le village et vont travailler sur les chantiers en cours.
+- 4 terrasses sur la montagne, cachées sous les nuages jusqu'à ce qu'elles soient débloquées (Maison niveaux 2, 4 et 6).
+- Le traîneau part en tournée avec les cadeaux et rapporte des pièces et des étoiles.
+- 13 objectifs servent de tutoriel. La production continue hors ligne (jusqu'à 8 h) et la partie est sauvegardée automatiquement.
 
-**Ressources** : 🪙 pièces, 🪵 bois, 🍪 biscuits, 🎁 cadeaux, ⭐ esprit de Noël (score).
+**Contrôles** : glisser pour se déplacer, pincer ou molette pour zoomer, toucher une bulle pour récolter, toucher un bâtiment ou un « + » pour ouvrir sa fiche, toucher le Père Noël pour le saluer.
 
-| Bâtiment | Rôle | Débloqué |
-|---|---|---|
-| Maison du Père Noël | Bâtiment principal : limite le niveau des autres, augmente le stock, débloque les terrains | Départ |
-| Scierie | Produit du bois | Départ |
-| Bureau des lettres | Produit des pièces | Départ |
-| Four à biscuits | Produit des biscuits | Maison niv. 1 |
-| Atelier des lutins | Produit des cadeaux | Maison niv. 2 |
-| Entrepôt | Augmente le stock max | Maison niv. 2 |
-| Écurie des rennes | Débloque le traîneau, augmente les cadeaux par tournée | Maison niv. 3 |
+## Modèles 3D et licences
 
-- 10 niveaux par bâtiment, avec un coût ×1,65, une production ×1,45 et une durée de chantier ×1,55 par niveau.
-- 2 lutins bâtisseurs, donc 2 chantiers en même temps. Un chantier peut être accéléré avec des pièces.
-- 4 terrasses sur la montagne : Camp du bas (niv. 1), Pentes enneigées (niv. 3), Forêt des sapins (niv. 5), Sommet du Pôle (niv. 7).
-- La tournée en traîneau échange les cadeaux contre des pièces et des ⭐.
-- 13 objectifs guidés servent de tutoriel.
-- La production continue hors ligne (jusqu'à 8 h). La partie est sauvegardée automatiquement dans le navigateur.
+Tous les modèles viennent de packs **CC0** (domaine public, usage commercial libre) :
 
-**Contrôles** : glisser pour se déplacer, pincer (ou molette) pour zoomer, toucher une bulle pour récolter, toucher un bâtiment ou un « + » pour ouvrir sa fiche.
+- [Kenney](https://kenney.nl) : Holiday Kit, Fantasy Town Kit
+- [KayKit par Kay Lousberg](https://kaylousberg.com) : Holiday, Resource Bits, Adventurers (personnages et animations)
 
-## Équilibrage
+Pour regénérer les `.glb` à partir des packs d'origine (miroir : `github.com/series-ai/jam-ready-assets`) :
 
-Tous les chiffres sont en haut du script, dans `TYPES`, `QUESTS`, `ZONES` et les fonctions `rate`, `costOf`, `timeOf` et `storeCap`.
+```bash
+cd santa-game/tools && npm i
+node build-assets.mjs /chemin/vers/jam-ready-assets ../assets
+```
 
-## Prochaines étapes possibles
+## Prochaines étapes
 
-- Packager en vraie app iOS/Android avec Capacitor (le code web reste le même).
-- Remplacer les modèles en primitives par des modèles glTF (Blender, ou générés par IA puis retouchés).
-- Musique et effets sonores, événements quotidiens, coffres, rennes à collectionner.
-- Bande-annonce et pubs vidéo avec Remotion ou HyperFrames.
+- Packager en app iOS/Android avec Capacitor.
+- Musique et vrais effets sonores.
+- Événements quotidiens, coffres, rennes à collectionner.
+- Bande-annonce et pubs vidéo avec Remotion ou HyperFrames, à partir de captures du jeu.
