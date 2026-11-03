@@ -126,7 +126,7 @@ function harvest(o, at){
   if (!o.crop || now() < o.ready) return false;
   if (T.barnFull(S, 2)){ toastOnce('La grange est pleine ! Livre des commandes ou agrandis-la.'); return false; }
   const k = o.crop; o.crop = null; T.give(S, k, 2); S.stats.harvest++; T.track(S, 'harvest:' + k);
-  fly(k, 2, at); gainXp(ITEMS[k].xp, null);
+  fxHarvest(o, k, 2); gainXp(ITEMS[k].xp, null);
   if (Math.random() < T.dropChance){ const m = T.DROPS[Math.floor(Math.random() * (S.lvl >= 3 ? 5 : 3))]; T.give(S, m); setTimeout(() => fly(m, 1, at), 250); }
   sfx.collect(); tutoEv('harvest'); return true;
 }
@@ -177,7 +177,7 @@ function refreshOrders(){
   for (let i = 0; i < 9; i++){ const o = S.orders[i]; if (o?.wait && now() >= o.wait) S.orders[i] = T.makeOrder(S, i); }
 }
 function finishBuilds(){
-  for (const o of S.objs) if (o.build && now() >= o.build){ delete o.build; gainXp(Math.max(5, Math.round(T.buildCost(S, o.type) / 12)), null); sfx.level(); toast(`${B(o).name} construit !`); tutoEv('built'); }
+  for (const o of S.objs) if (o.build && now() >= o.build){ delete o.build; fxPoof(o); gainXp(Math.max(5, Math.round(T.buildCost(S, o.type) / 12)), null); sfx.level(); toast(`${B(o).name} construit !`); tutoEv('built'); }
 }
 
 /* =====================================================================
@@ -269,7 +269,9 @@ function draw(){
   for (const f of flakes){ ctx.beginPath(); ctx.arc(f.x * W, f.y * H, f.s * 1.6, 0, 7); ctx.fill(); }
   // vignette : bords légèrement assombris, le regard va au centre
   ctx.drawImage(vignette(), 0, 0, W, H);
+  drawFx(fxDt);
 }
+let fxDt = 0;
 let vig = null, vigW = 0, vigH = 0;
 function vignette(){ // calculée une fois en petite taille, puis étirée (dégradé doux : aucun flou visible)
   if (vigW !== W || vigH !== H){ vigW = W; vigH = H; vig = document.createElement('canvas'); vig.width = 128; vig.height = Math.round(128 * H / W); const x = vig.getContext('2d'), w = vig.width, h = vig.height;
@@ -311,6 +313,52 @@ function drawHint(o){
   if (b.kind === 'pen'){ if (o.ready && now() >= o.ready) bubble(r.cx, top, b.prod); else if (!o.ready) bubble(r.cx, top, b.feed, '?'); else timerPill(r.cx, top, fmtTime((o.ready - now()) / 1000), 1 - (o.ready - now()) / (b.ptime * 1000)); }
   if (b.kind === 'factory' && o.q?.length){ const d = o.q.filter(j => j.end <= now()); if (d.length) bubble(r.cx, top, d[0].item, d.length > 1 ? 'x' + d.length : ''); else { const j = o.q[0]; timerPill(r.cx, top, fmtTime((j.end - now()) / 1000), 1 - (j.end - now()) / (B(o).recipes[j.item].time * 1000)); } }
   if (b.kind === 'orders'){ const ok = S.orders.some(od => od.items && T.has(S, od.items)); if (ok) bubble(r.cx, top, 'coins', '!'); }
+}
+
+
+/* ---------- effets (comme la bande-annonce de Township) ---------- */
+// récolte : les produits jaillissent du champ et filent en traînée lumineuse vers la grange ; « +XP » qui monte
+const FX = [];
+const GLOW = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,250,200,.95)'); g.addColorStop(.35, 'rgba(255,220,90,.55)'); g.addColorStop(1, 'rgba(255,200,60,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c; })();
+function fxHarvest(o, k, n){
+  const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2), tr = $('#b-barn').getBoundingClientRect();
+  const tx = tr.left + tr.width / 2, ty = tr.top + tr.height * .4;
+  for (let i = 0; i < 4; i++){ const x0 = c.x + (Math.random() - .5) * 46 * cam.z, y0 = c.y - 8 * cam.z + (Math.random() - .5) * 16;
+    FX.push({k: 'item', url: ICON[k], x0, y0, cx: (x0 + tx) / 2 + (Math.random() - .5) * 120, cy: Math.min(y0, ty) - 90 - Math.random() * 80, tx, ty, t: -i * .07, d: .8, last: i === 3}); }
+  FX.push({k: 'txt', txt: '+' + n, x: c.x - 16, y: c.y - 28 * cam.z, t: 0, d: 1.1, col: '#fff'});
+  FX.push({k: 'xp', txt: '+' + ITEMS[k].xp, x: c.x + 30, y: c.y + 8, t: .12, d: 1.2});
+}
+// bâtiment terminé : nuage de poussière + étincelles
+function fxPoof(o){
+  const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2);
+  for (let i = 0; i < 14; i++){ const a = i / 14 * Math.PI * 2; FX.push({k: 'puff', x: c.x + Math.cos(a) * 20 * b.w, y: c.y + Math.sin(a) * 10 * b.w, vx: Math.cos(a) * 40, vy: Math.sin(a) * 20 - 30, r: 14 + Math.random() * 12, t: 0, d: .9}); }
+  for (let i = 0; i < 10; i++) FX.push({k: 'spark', x: c.x, y: c.y - 30, vx: (Math.random() - .5) * 260, vy: -120 - Math.random() * 160, t: 0, d: .9});
+}
+const ease = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+function drawFx(dt){
+  for (let i = FX.length - 1; i >= 0; i--){
+    const f = FX[i]; f.t += dt; if (f.t < 0) continue;
+    const u = Math.min(1, f.t / f.d);
+    if (f.k === 'item'){
+      const im = img(f.url); if (!im.complete) continue;
+      const pos = v => { const e = ease(v), m = 1 - e; return [m * m * f.x0 + 2 * m * e * f.cx + e * e * f.tx, m * m * f.y0 + 2 * m * e * f.cy + e * e * f.ty]; };
+      for (let j = 4; j >= 1; j--){ const [x, y] = pos(Math.max(0, u - j * .035)); const r = 22 - j * 3; ctx.globalAlpha = .5 - j * .1; ctx.drawImage(GLOW, x - r, y - r, r * 2, r * 2); }
+      const [x, y] = pos(u), sz = 34 * (u < .15 ? .6 + u * 2.6 : 1 - u * .35);
+      ctx.globalAlpha = 1; ctx.drawImage(GLOW, x - sz, y - sz, sz * 2, sz * 2); ctx.drawImage(im, x - sz / 2, y - sz / 2, sz, sz);
+      if (u >= 1 && f.last){ const e = $('#b-barn'); e.classList.remove('pulse'); void e.offsetWidth; e.classList.add('pulse'); }
+    } else if (f.k === 'txt' || f.k === 'xp'){
+      const y = f.y - 46 * ease(u); ctx.globalAlpha = u > .7 ? (1 - u) / .3 : 1;
+      ctx.font = '400 22px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = '#2a1a0e';
+      if (f.k === 'xp'){ ctx.fillStyle = '#3aa8ff'; ctx.beginPath(); ctx.arc(f.x - 20, y, 11, 0, 7); ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke(); ctx.lineWidth = 5; ctx.font = '400 10px "Lilita One", sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('XP', f.x - 20, y + 1); ctx.font = '400 20px "Lilita One", sans-serif'; ctx.strokeText(f.txt, f.x + 6, y); ctx.fillStyle = '#9be3ff'; ctx.fillText(f.txt, f.x + 6, y); }
+      else { ctx.strokeText(f.txt, f.x, y); ctx.fillStyle = f.col; ctx.fillText(f.txt, f.x, y); }
+    } else if (f.k === 'puff'){
+      f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = (1 - u) * .85; ctx.fillStyle = '#fbf6ee'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + u * 1.3), 0, 7); ctx.fill();
+    } else if (f.k === 'spark'){
+      f.vy += 420 * dt; f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = 1 - u; ctx.drawImage(GLOW, f.x - 12, f.y - 12, 24, 24);
+    }
+    ctx.globalAlpha = 1;
+    if (u >= 1) FX.splice(i, 1);
+  }
 }
 
 /* ---------- lutins qui se promènent ---------- */
@@ -407,7 +455,7 @@ function fly(k, n, from){
   const target = k === 'coins' ? $('#h-coins') : k === 'xp' ? $('#xpbar') : $('#b-barn');
   const r0 = from?.getBoundingClientRect ? from.getBoundingClientRect() : {left: (from?.x ?? W / 2) - 10, top: (from?.y ?? H / 2) - 10, width: 20, height: 20};
   const tr = target.getBoundingClientRect();
-  const cnt = Math.min(5, Math.max(1, Math.round(Math.log2(n + 1))));
+  const cnt = k === 'coins' ? Math.min(10, 3 + Math.round(Math.log2(n + 1))) : Math.min(5, Math.max(1, Math.round(Math.log2(n + 1))));
   for (let i = 0; i < cnt; i++){
     const d = document.createElement(k === 'xp' ? 'i' : 'img'); if (k !== 'xp') d.src = ICON[k]; d.className = 'fly' + (k === 'xp' ? ' xp' : ''); document.body.appendChild(d);
     const x0 = r0.left + r0.width / 2 - 18 + (Math.random() - .5) * 30, y0 = r0.top + r0.height / 2 - 18;
@@ -642,6 +690,7 @@ function frame(t){
   try { step(t, dt); } catch(e){ if (!frame.err){ frame.err = 1; console.error('frame', e && e.stack); window.showErr?.(e && e.message); } }
 }
 function step(t, dt){
+  fxDt = dt;
   refreshOrders(); finishBuilds(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
   draw();
