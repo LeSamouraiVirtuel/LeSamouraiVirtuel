@@ -22,7 +22,8 @@ const renderer = new THREE.WebGLRenderer({canvas, antialias: false, powerPrefere
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.NeutralToneMapping;
-const camera = new THREE.PerspectiveCamera(32, 1, .5, 280);
+const camera = new THREE.PerspectiveCamera(24, 1, 1, 520);
+const YAW = .42, PITCH_Y = .7, PITCH_H = .72;   // caméra fixe, tournée de 24°, plongée ~44° (cf. STYLE.md)
 let QUALITY = (() => { try { return localStorage.getItem('vdp-quality') || 'auto'; } catch(e){ return 'auto'; } })();
 
 await loadAssets(BASE, p => { $('#loadbar i').style.width = Math.round(p * 100) + '%'; });
@@ -47,7 +48,8 @@ const skinOf = cat => SKINS[cat][state.skins[cat]] || null;
    ICÔNES 3D (rendues une fois à partir des vrais modèles)
    ===================================================================== */
 const iconR = new THREE.WebGLRenderer({antialias: true, alpha: true, preserveDrawingBuffer: true});
-iconR.setPixelRatio(1); iconR.toneMapping = THREE.NeutralToneMapping; iconR.toneMappingExposure = 1.05;
+const ICON_PR = Math.min(3, Math.max(2, devicePixelRatio || 1));
+iconR.setPixelRatio(ICON_PR); iconR.toneMapping = THREE.NeutralToneMapping; iconR.toneMappingExposure = 1.05;
 const iconScene = new THREE.Scene();
 iconScene.environment = scene.environment; iconScene.environmentIntensity = .7;
 iconScene.add(new THREE.HemisphereLight('#ffffff', '#b8c8e8', 1.2));
@@ -69,6 +71,16 @@ function renderIcon(obj, {size = 128, yaw = .6, pitch = .45, pad = 1.15, focusY 
 }
 function coinStack(){
   const g = new THREE.Group();
+  const gold2 = new THREE.MeshStandardMaterial({color: '#ffcf3a', metalness: .35, roughness: .28, emissive: '#7a4a00', emissiveIntensity: .15});
+  const rim2 = new THREE.MeshStandardMaterial({color: '#e8a312', metalness: .35, roughness: .3});
+  const sh = new THREE.Shape(); for (let i = 0; i < 10; i++){ const r = i % 2 ? .13 : .3, a = i * Math.PI / 5 + Math.PI / 2; i ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r) : sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+  const starG = new THREE.ExtrudeGeometry(sh, {depth: .04, bevelEnabled: true, bevelSize: .02, bevelThickness: .02, bevelSegments: 1});
+  const mk = () => { const c = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .16, 40), [rim2, gold2, gold2]); body.rotation.x = Math.PI / 2; c.add(body);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.42, .035, 8, 40), rim2); ring.position.z = .08; c.add(ring);
+    const st = new THREE.Mesh(starG, rim2); st.position.z = .07; c.add(st); return c; };
+  [[-.18, -.28, -.2, .25], [.22, -.2, -.1, -.2], [0, .12, .12, .05]].forEach(([x, y, z, r]) => { const c = mk(); c.position.set(x, y, z); c.rotation.set(-.25, r, r * .4); g.add(c); });
+  return g;
   const gold = new THREE.MeshStandardMaterial({color: '#ffc531', metalness: .55, roughness: .3});
   const rim = new THREE.MeshStandardMaterial({color: '#e09a12', metalness: .5, roughness: .35});
   const face = new THREE.CylinderGeometry(.5, .5, .14, 32), edge = new THREE.TorusGeometry(.5, .05, 8, 32);
@@ -100,7 +112,7 @@ function charIcon(kind, look, opts = {}){
   return renderIcon(c.root, {size: 160, yaw: .25, pitch: .15, pad: 1.05});
 }
 const ICON = {
-  coins: renderIcon(coinStack(), {pitch: .5, yaw: .3}),
+  coins: renderIcon(coinStack(), {pitch: .15, yaw: 0, pad: 1.05}),
   wood: renderIcon(prop('Wood_Log_Stack'), {pitch: .5}),
   cookies: renderIcon(prop('cookie'), {pitch: .9}),
   fabric: renderIcon(prop('Textiles_Stack_Large_Colored'), {pitch: .5}),
@@ -466,6 +478,7 @@ $('#res').innerHTML = Object.keys(RES).map(k => `<div class="res" id="r-${k}"><i
 for (const [id, k] of [['d-letters', 'letter'], ['d-games', 'games'], ['d-hotte', 'hotte'], ['d-guild', 'guild'], ['d-shop', 'shop'], ['d-missions', 'missions'], ['d-advent', 'advent'], ['s-login', 'login'], ['s-event', 'event'], ['s-rank', 'trophy']]) $(`#${id} img`).src = ICON[k];
 $('#s-wardrobe img').src = skinIcon('santa', 'royal');
 $('#stars').addEventListener('click', () => { sfx.tap(); openPanel('shop'); });
+$('#veil').addEventListener('click', () => closeSheet());
 $('#avatar').addEventListener('click', () => { sfx.tap(); openPanel('profile'); });
 
 function renderHud(){
@@ -488,6 +501,7 @@ function renderHud(){
   badge('#s-login', F.loginReady() ? '!' : '');
   $('#s-login small').textContent = state.login.streak;
   const e = F.ev(); badge('#s-event', e.energy || '', R.pl() < 2);
+  { const mid = new Date(); mid.setHours(24, 0, 0, 0); const left = (mid - now) / 1000; $('#s-event .plate').textContent = left >= 3600 ? `${Math.floor(left / 3600)}H ${Math.floor(left % 3600 / 60)}M` : `${Math.ceil(left / 60)}M`; }
   const gifts = Object.values(state.gifts).reduce((a, b) => a + b, 0); badge('#d-hotte', gifts || '');
   const g = F.myGuild(); const wk = G.weekKey(); const tc = g ? G.TOUR_TIERS.filter((t, i) => (g.tour || 0) >= t && !(state.guildClaims[wk] || []).includes(i)).length : 0;
   badge('#d-guild', tc || '', R.pl() < G.GUILD_PL);
@@ -553,15 +567,17 @@ function levelUp(){
   for (const [k, T] of Object.entries(TOYS)) if (T.pl === L) news.push(T.name);
   const z = G.ZONES.findIndex(z => z.pl === L); if (z > 0) news.push(G.ZONES[z].name);
   if (G.looksOf(L) !== G.looksOf(L - 1)) news.push('nouveau rang');
-  setTimeout(() => showBanner(portrait(G.looksOf(L)), G.rankOf(L), `Niveau ${L} !`), 300);
-  if (news.length) setTimeout(() => toast('Débloqué : ' + news.join(', ')), 2500);
+  setTimeout(() => modal(`<div class="rays"></div><small>${G.rankOf(L)}</small><h2>Niveau ${L} !</h2>
+    <div class="glow"><img src="${portrait(G.looksOf(L))}" alt=""></div>
+    ${news.length ? `<p>Débloqué :</p><div class="costs">${news.map(n => `<span class="chip">${n}</span>`).join('')}</div>` : '<p>Continue à faire grandir ton village !</p>'}
+    <button class="btn green" data-m="close">Continuer</button>`, null, 'cere'), 300);
   if (z > 0) setTimeout(() => { cam.tz = zoneZ(z) + 4; }, 2600);
   state.tickets = Math.max(state.tickets, R.tMax());
 }
 
 /* ---------- panneau du bas ---------- */
 let sel = null, sheetHtml = '';
-function openSheet(id){ sel = id; document.body.classList.add('sheet-open'); sheetHtml = ''; renderSheet(); const p = plotPos(id); cam.tx = p.x * .6; cam.tz = p.z + cam.dist * .2; }
+function openSheet(id){ sel = id; document.body.classList.add('sheet-open'); sheetHtml = ''; renderSheet(); const p = plotPos(id); cam.tx = p.x * .6; cam.tz = p.z + 2; }
 function openPanel(name){ sel = name; sheetHtml = ''; document.body.classList.add('sheet-open'); renderSheet(); $('#sheet').scrollTop = 0; }
 function closeSheet(){ sel = null; sheetHtml = ''; document.body.classList.remove('sheet-open'); }
 function setSheet(html){ if (html !== sheetHtml){ const st = $('#sheet').scrollTop; sheetHtml = html; $('#sheet').innerHTML = html; $('#sheet').scrollTop = st; } patchSheet(); }
@@ -790,23 +806,25 @@ function updateOverlays(dt){
 /* =====================================================================
    CAMÉRA & CONTRÔLES
    ===================================================================== */
-const cam = {x: 0, z: 4, dist: 42, tx: 0, tz: 4, tdist: 42, yaw: 0, tyaw: 0};
-const homeDist = () => innerWidth / innerHeight < .7 ? 31 : 24;
+const cam = {x: 0, z: 4, dist: 74, tx: 0, tz: 4, tdist: 74, yaw: YAW, tyaw: YAW};
+const homeDist = () => innerWidth / innerHeight < .7 ? 54 : 42;
 const pointers = new Map(); let dragDist = 0, pinch0 = 0, dist0 = 0, introMode = true;
 canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, {x: e.clientX, y: e.clientY}); dragDist = 0; if (pointers.size === 2){ const [a, b] = [...pointers.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = cam.tdist; } });
 canvas.addEventListener('pointermove', e => {
   const prev = pointers.get(e.pointerId); if (!prev || introMode) return;
   const dx = e.clientX - prev.x, dy = e.clientY - prev.y; prev.x = e.clientX; prev.y = e.clientY;
-  if (pointers.size === 2){ const [a, b] = [...pointers.values()]; cam.tdist = THREE.MathUtils.clamp(dist0 * pinch0 / Math.hypot(a.x - b.x, a.y - b.y), 16, 56); dragDist = 99; return; }
+  if (pointers.size === 2){ const [a, b] = [...pointers.values()]; cam.tdist = THREE.MathUtils.clamp(dist0 * pinch0 / Math.hypot(a.x - b.x, a.y - b.y), 30, 96); dragDist = 99; return; }
   dragDist += Math.abs(dx) + Math.abs(dy);
-  const f = cam.dist / innerHeight * 1.05;
-  cam.tx = THREE.MathUtils.clamp(cam.tx - dx * f, -10, 10);
-  cam.tz = THREE.MathUtils.clamp(cam.tz - dy * f * 1.5, zoneZ(NZ - 1) - 4, 9);
+  // déplacement dans le repère de la caméra (tournée de YAW)
+  const f = cam.dist / innerHeight * .62, c = Math.cos(cam.yaw), sn = Math.sin(cam.yaw);
+  const rx = -dx * f, fz = dy * f * 1.35;
+  cam.tx = THREE.MathUtils.clamp(cam.tx + rx * c - fz * sn, -12, 12);
+  cam.tz = THREE.MathUtils.clamp(cam.tz - rx * sn - fz * c, zoneZ(NZ - 1) - 4, 9);
   cam.x = cam.tx; cam.z = cam.tz;
 });
 const endPtr = e => { const had = pointers.delete(e.pointerId); if (had && !pointers.size && dragDist < 10 && e.type === 'pointerup' && !introMode) tap(e.clientX, e.clientY); };
 canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
-canvas.addEventListener('wheel', e => { e.preventDefault(); cam.tdist = THREE.MathUtils.clamp(cam.tdist * (1 + e.deltaY * .001), 16, 56); }, {passive: false});
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.tdist = THREE.MathUtils.clamp(cam.tdist * (1 + e.deltaY * .001), 30, 96); }, {passive: false});
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function tap(x, y){
   ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
@@ -823,12 +841,13 @@ function tap(x, y){
 let level = 'high';
 function applyQuality(q){
   level = q;
-  const pr = q === 'high' ? Math.min(devicePixelRatio, 1.6) : q === 'medium' ? Math.min(devicePixelRatio, 1.25) : 1;
+  // rendu à la densité réelle de l'écran : c'est ce qui rend l'image nette sur iPhone (densité x3)
+  const dpr = devicePixelRatio || 1, pr = q === 'high' ? Math.min(dpr, 2.6) : q === 'medium' ? Math.min(dpr, 2) : Math.min(dpr, 1.5);
   renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
   renderer.shadowMap.enabled = q !== 'low'; world.sun.shadow.mapSize.setScalar(q === 'high' ? 2048 : 1024); world.sun.shadow.map?.dispose(); world.sun.shadow.map = null;
   post.setQuality(q); post.setSize(innerWidth, innerHeight, pr);
 }
-function resize(){ camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < .7 ? 40 : 30; camera.updateProjectionMatrix(); applyQuality(level); }
+function resize(){ camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < .7 ? 26 : 19; camera.updateProjectionMatrix(); applyQuality(level); }
 level = QUALITY === 'auto' ? 'high' : QUALITY;
 addEventListener('resize', resize); resize();
 
@@ -855,11 +874,11 @@ function frame(){
   for (const id of ALL_PLOTS) syncPlot(id);
   syncElves();
 
-  if (introMode) cam.tyaw = Math.sin(t * .15) * .35;
+  if (introMode) cam.tyaw = YAW + Math.sin(t * .15) * .3;
   cam.x += (cam.tx - cam.x) * Math.min(1, dt * 6); cam.z += (cam.tz - cam.z) * Math.min(1, dt * 6); cam.dist += (cam.tdist - cam.dist) * Math.min(1, dt * 6); cam.yaw += (cam.tyaw - cam.yaw) * Math.min(1, dt * 3);
   const gy = groundY(0, cam.z - 3) * .9;
   focus.set(cam.x, gy, cam.z - 3);
-  camera.position.set(cam.x + Math.sin(cam.yaw) * cam.dist * .62, gy + cam.dist * .82, cam.z - 3 + Math.cos(cam.yaw) * cam.dist * .62);
+  camera.position.set(cam.x + Math.sin(cam.yaw) * cam.dist * PITCH_H, gy + cam.dist * PITCH_Y, cam.z - 3 + Math.cos(cam.yaw) * cam.dist * PITCH_H);
   camera.lookAt(focus);
   world.update(t, dt, focus, R.openZones());
 
@@ -898,7 +917,7 @@ addEventListener('pagehide', save);
 /* ---------- écran titre ---------- */
 if (saved){ $('#play').textContent = 'Continuer'; $('#reset').hidden = false; }
 $('#play').addEventListener('click', () => {
-  introMode = false; cam.tyaw = 0; cam.tz = 3; cam.tdist = homeDist();
+  introMode = false; cam.tyaw = YAW; cam.tz = 3; cam.tdist = homeDist();
   $('#intro').classList.add('hide'); document.body.classList.add('playing'); sfx.bells();
   setTimeout(() => { if (F.loginReady()) openPanel('login'); }, 1400);
   setTimeout(() => $('#intro').remove(), 700);

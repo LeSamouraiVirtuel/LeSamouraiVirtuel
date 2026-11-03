@@ -51,7 +51,7 @@ function tuneMaterial(m){
   m.userData.tuned = true;
   addRim(m);
   if ('roughness' in m) { m.roughness = Math.max(.55, m.roughness ?? 1); m.metalness = Math.min(.15, m.metalness ?? 0); }
-  if (m.map) m.map.anisotropy = 4;
+  if (m.map) m.map.anisotropy = 8;
 }
 
 export const hasProp = name => !!A.props[name];

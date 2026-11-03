@@ -1,5 +1,5 @@
-// Post-traitement : bloom, étalonnage (saturation, contraste, ombres froides /
-// lumières chaudes), vignette et léger flou de profondeur (tilt-shift) en haut et en bas de l'écran.
+// Post-traitement : rendu anti-crénelé (MSAA x4), léger halo sur les lumières, étalonnage
+// (saturation, contraste, ombres froides / lumières chaudes) et vignette discrète. Aucun flou : l'image reste nette.
 import * as THREE from 'three';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
@@ -10,7 +10,7 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 const GradeShader = {
   uniforms: {
     tDiffuse: {value: null}, res: {value: new THREE.Vector2(1, 1)},
-    sat: {value: 1.14}, con: {value: 1.08}, vig: {value: .38}, tilt: {value: 1}, focus: {value: .52},
+    sat: {value: 1.26}, con: {value: 1.08}, vig: {value: .22}, tilt: {value: 1}, focus: {value: .52},
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
@@ -24,9 +24,7 @@ const GradeShader = {
       return c / tot;
     }
     void main(){
-      float d = abs(vUv.y - focus);
-      float b = tilt * smoothstep(.24, .58, d) * 2.6;
-      vec3 c = b > .05 ? blur(vUv, b) : texture2D(tDiffuse, vUv).rgb;
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
       float l = dot(c, vec3(.299, .587, .114));
       c = mix(vec3(l), c, sat);
       c = (c - .5) * con + .5;
@@ -39,9 +37,10 @@ const GradeShader = {
 
 export function createPost(renderer, scene, camera){
   const size = renderer.getSize(new THREE.Vector2());
-  const composer = new EffectComposer(renderer);
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, {type: THREE.HalfFloatType, samples: 4});
+  const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), .32, .55, .9);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), .18, .3, .95);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GradeShader);
@@ -53,7 +52,6 @@ export function createPost(renderer, scene, camera){
     setQuality(q){
       quality = q;
       bloom.enabled = q !== 'low';
-      grade.uniforms.tilt.value = q === 'low' ? 0 : 1;
     },
     setSize(w, h, pr){
       composer.setPixelRatio(pr); composer.setSize(w, h);

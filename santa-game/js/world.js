@@ -41,7 +41,7 @@ export function groundY(x, z){
 export function createWorld(renderer){
   const scene = new THREE.Scene();
   scene.background = skyTexture();
-  scene.fog = new THREE.Fog('#bcd6f5', 60, 140);
+  scene.fog = new THREE.Fog('#bcd6f5', 110, 280);
   const pm = new THREE.PMREMGenerator(renderer);
   scene.environment = pm.fromScene(new RoomEnvironment(), .04).texture;
   scene.environmentIntensity = .26;
@@ -59,7 +59,7 @@ export function createWorld(renderer){
   const W = 110, D = 170, geo = new THREE.PlaneGeometry(W, D, 200, 300);
   geo.rotateX(-Math.PI / 2); geo.translate(0, 0, -D / 2 + 26);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
-  const snow = new THREE.Color('#dfe8f8'), shade = new THREE.Color('#6d8bc8'), blue = new THREE.Color('#adc4ea'), path = new THREE.Color('#cdb9a2'), plaza = new THREE.Color('#c9cfdc');
+  const snow = new THREE.Color('#eef4fc'), shade = new THREE.Color('#8ea8d6'), blue = new THREE.Color('#cfdff0'), path = new THREE.Color('#cdb9a2'), plaza = new THREE.Color('#c9cfdc');
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i++){
     const x = pos.getX(i), z = pos.getZ(i), y = groundY(x, z);
@@ -268,15 +268,15 @@ function snowTextures(){
   }
   cx.putImageData(cd, 0, 0); nx.putImageData(nd, 0, 0);
   const map = new THREE.CanvasTexture(cc), nrm = new THREE.CanvasTexture(nc);
-  for (const t of [map, nrm]){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(26, 40); t.anisotropy = 4; }
+  for (const t of [map, nrm]){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(26, 40); t.anisotropy = 8; }
   map.colorSpace = THREE.SRGBColorSpace;
   return [map, nrm];
 }
 // pavés avec de la neige dans les joints
 export function cobbleTexture(){
   const c = document.createElement('canvas'); c.width = 128; c.height = 256; const x = c.getContext('2d'), R = mulberry(21);
-  x.fillStyle = '#6f6a78'; x.fillRect(0, 0, 128, 256);
-  const cols = ['#9a8470', '#a8907a', '#8c7562', '#b39b82', '#7f6b5a', '#97806c'];
+  x.fillStyle = '#b59a72'; x.fillRect(0, 0, 128, 256);
+  const cols = ['#d6c49c', '#cdb88e', '#e0cfa8', '#c8b590', '#d9c7a0', '#c2ad84'];
   for (let row = 0; row < 8; row++){
     const off = row % 2 ? 21 : 0;
     for (let col = -1; col < 3; col++){
@@ -288,7 +288,7 @@ export function cobbleTexture(){
       if (R() < .22){ x.fillStyle = 'rgba(240,246,255,.9)'; x.beginPath(); x.ellipse(px + R() * w, py + R() * hh, 6 + R() * 6, 3 + R() * 3, 0, 0, 7); x.fill(); }
     }
   }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
 export function blobTexture(){
   const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
