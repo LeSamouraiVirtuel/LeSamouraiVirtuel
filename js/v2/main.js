@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import {loadAssets, prop, tint, character, elfLook} from '../assets.js';
 import {buildModel, cabin, plotBase} from '../buildings.js';
-import {bake, bakeIcon, TW} from './bake.js';
+import {bake, bakeIcon, TW, free, disposeBaker} from './bake.js';
 import {createTuto} from '../tuto.js';
 import * as T from './town.js';
 import {fieldModel, pickIcon, coinsModel, pathTile, giftPile} from './models.js';
@@ -14,7 +14,7 @@ const $ = s => document.querySelector(s);
 const BASE = new URL('../../assets/', import.meta.url).href;
 const DPR = Math.min(devicePixelRatio || 1, 3);
 const ZOOM0 = 1.1;                                   // zoom par défaut : les images y sont affichées pixel pour pixel
-const BD = Math.min(DPR * ZOOM0, 3.4);                // densité du pré-rendu des bâtiments
+const BD = Math.min(DPR * ZOOM0, 3);                // densité du pré-rendu des bâtiments
 const TH = TW / 2;
 
 /* =====================================================================
@@ -26,23 +26,27 @@ const tip = () => { const e = $('#tip'); if (e) e.textContent = TIPS[tipI++ % TI
 tip(); const tipTimer = setInterval(tip, 2600);
 const bar = p => { $('#loadbar i').style.width = Math.round(p * 100) + '%'; };
 // Cache des images pré-rendues (IndexedDB) : dès la 2e ouverture, le village s'affiche en 1 à 2 secondes.
-const CACHE_V = `spr-2:${DPR}:${BD}`;   // à changer quand les modèles ou le rendu changent
+const CACHE_V = `spr-4:${DPR}:${BD}`;   // à changer quand les modèles ou le rendu changent
 const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('vdp-sprites', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
 async function cacheGet(){
   try { const db = await idb(); const v = await new Promise((ok, ko) => { const q = db.transaction('c').objectStore('c').get(CACHE_V); q.onsuccess = () => ok(q.result); q.onerror = () => ko(q.error); });
     if (!v) return null;
     const keys = Object.keys(v.spr);
-    const bm = await Promise.all(keys.map(k => createImageBitmap(v.spr[k].blob)));
-    keys.forEach((k, i) => { v.spr[k].canvas = bm[i]; delete v.spr[k].blob; });
+    const bm = await Promise.all(keys.map(k => createImageBitmap(new Blob([v.spr[k].buf], {type: 'image/png'}))));
+    keys.forEach((k, i) => { v.spr[k].canvas = bm[i]; delete v.spr[k].buf; });
     return v; } catch(e){ return null; }
 }
+let cacheAbort = false;
 async function cachePut(){
   try { const spr = {};
-    for (const [k, o] of Object.entries(SPR)){ const blob = await new Promise(r => o.canvas.toBlob(r)); if (!blob) return; spr[k] = {blob, ax: o.ax, ay: o.ay, w: o.w, h: o.h}; }
-    const db = await idb(); const tx = db.transaction('c', 'readwrite'); const st = tx.objectStore('c'); st.clear(); st.put({spr, urls: {ICON, thumbs, elfPortrait, buildIcon}}, CACHE_V);
+    for (const [k, o] of Object.entries(SPR)){ const blob = await new Promise(r => o.canvas.toBlob(r)); if (!blob) return; spr[k] = {buf: await blob.arrayBuffer(), ax: o.ax, ay: o.ay, w: o.w, h: o.h}; }
+    if (cacheAbort) return;
+    const db = await idb(); if (cacheAbort) return; const tx = db.transaction('c', 'readwrite'); const st = tx.objectStore('c'); st.clear(); st.put({spr, urls: {ICON, thumbs, elfPortrait, buildIcon}}, CACHE_V);
   } catch(e){}
 }
-const cached = await cacheGet();
+// garde-fou : si le stockage ne répond pas (certains navigateurs), on n'attend pas plus de 5 s
+const within = (pr, ms) => Promise.race([pr, new Promise(r => setTimeout(() => r(null), ms))]);
+const cached = await within(cacheGet(), 5000);
 if (!cached){ await loadAssets(BASE, p => bar(p * .55)); $('#loadtxt').textContent = 'Préparation du village…'; await new Promise(r => setTimeout(r, 30)); }
 
 /* =====================================================================
@@ -126,14 +130,19 @@ if (cached){
     bar(.55 + .35 * (i + 1) / jobs.length);
     if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));
   }
-  const iconURL = (obj, size = 56) => bakeIcon(obj, size, DPR).toDataURL();
+  const url = c => { const u = c.toDataURL(); free(c); return u; };
+  const iconURL = (obj, size = 56) => url(bakeIcon(obj, size, DPR));
   for (const [k, it] of Object.entries(ITEMS)) ICON[k] = iconURL(pickIcon(k, it.ic));
   ICON.coins = iconURL(coinsModel());
   ICON.xp = null;
-  elfPortrait = (() => { const c = character('elf', elfLook(1)); c.mixer.update(.6); return bakeIcon(c.root, 112, DPR).toDataURL(); })();
-  for (const type of Object.keys(BUILDINGS)) thumbs[type] = bakeIcon(type === 'field' ? field('wheat', 1) : modelFor(type), 96, DPR).toDataURL();
-  buildIcon = bakeIcon(prop('Wood_Planks_Stack_Medium'), 96, DPR).toDataURL();
-  setTimeout(cachePut, 4000);
+  elfPortrait = (() => { const c = character('elf', elfLook(1)); c.mixer.update(.6); return url(bakeIcon(c.root, 112, DPR)); })();
+  for (const type of Object.keys(BUILDINGS)) thumbs[type] = url(bakeIcon(type === 'field' ? field('wheat', 1) : modelFor(type), 96, DPR));
+  buildIcon = url(bakeIcon(prop('Wood_Planks_Stack_Medium'), 96, DPR));
+  disposeBaker();
+  $('#loadtxt').textContent = 'Finalisation…';
+  // les images partent dans la mémoire graphique (ImageBitmap) : les canvas sont libérés
+  await within(cachePut(), 8000); cacheAbort = true;
+  if (window.createImageBitmap) for (const [k, o] of Object.entries(SPR)){ try { const bm = await createImageBitmap(o.canvas); free(o.canvas); o.canvas = bm; } catch(e){} }
 }
 clearInterval(tipTimer);
 bar(1);
@@ -707,7 +716,7 @@ function frame(t){
   requestAnimationFrame(frame);
   // horloge de l'image : jamais négative (le 1er horodatage peut précéder la fin du chargement)
   const dt = Math.max(0, Math.min(.05, (t - last) / 1000)); last = Math.max(last, t);
-  try { step(t, dt); } catch(e){ if (!frame.err){ frame.err = 1; console.error('frame', e && e.stack); } }
+  try { step(t, dt); } catch(e){ if (!frame.err){ frame.err = 1; console.error('frame', e && e.stack); window.showErr?.(e && e.message); } }
 }
 function step(t, dt){
   refreshOrders(); finishBuilds(); moveElves(dt);

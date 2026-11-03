@@ -25,7 +25,7 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
   const root = document.createElement('div'); root.id = 'tuto'; root.hidden = true;
   root.innerHTML = `<div class="tb t"></div><div class="tb r"></div><div class="tb b"></div><div class="tb l"></div>
     <div class="tring"></div><div class="thand"></div>
-    <div class="tbox"><img alt=""><div class="tname">Pépin</div><p></p><span class="tnext">Toucher pour continuer ▾</span></div>`;
+    <div class="tbox"><img alt=""><div class="tname">Pépin</div><p></p><span class="tnext">Toucher pour continuer ▾</span><button class="tskip">Passer ›</button></div>`;
   document.body.appendChild(root);
   root.querySelector('.tbox img').src = portrait;
   const [bt, br, bb, bl] = root.querySelectorAll('.tb'), ring = root.querySelector('.tring'), hand = root.querySelector('.thand'), box = root.querySelector('.tbox');
@@ -73,6 +73,7 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
     show();
   }
   function finish(){ S().tuto = STEPS_.length; save(); root.hidden = true; document.body.classList.remove('tutoring'); cancelAnimationFrame(raf); step = null; }
+  root.querySelector('.tskip').addEventListener('click', e => { e.stopPropagation(); finish(); sfx.tap(); });
   root.addEventListener('click', e => { if (step?.tap && (e.target.closest('.tbox') || e.target.classList.contains('tb'))){ if (step.end) { finish(); sfx.level(); } else next(); } });
 
   return {
