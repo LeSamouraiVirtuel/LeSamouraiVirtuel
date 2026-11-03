@@ -23,7 +23,8 @@ npx serve .          # puis ouvre l'adresse affichée (depuis le téléphone : m
 | `js/game.js` | Règles : bâtiments, jouets, lettres, missions, calendrier, niveaux, sauvegarde |
 | `js/buildings.js` | Modèles des bâtiments par niveau (3 paliers + décorations) |
 | `js/world.js` | Terrain en terrasses, forêt, place du village, lumières, nuages |
-| `js/assets.js` | Chargement des modèles, recoloration du Père Noël et des lutins |
+| `js/assets.js` | Chargement des modèles, recoloration du Père Noël et des lutins, liseré de lumière |
+| `js/post.js` | Post-traitement : bloom, étalonnage des couleurs, vignette, flou de profondeur |
 | `assets/*.glb` | Modèles 3D compressés (générés par `tools/build-assets.mjs`) |
 
 ## Le jeu
@@ -75,6 +76,14 @@ Le jeu ne se termine pas. Comme dans Township ou Hay Day, il y a toujours quelqu
 La production continue hors ligne (jusqu'à 8 h) et la partie est sauvegardée automatiquement.
 
 **Contrôles** : glisser pour se déplacer, pincer ou molette pour zoomer, toucher une bulle pour récolter, toucher un bâtiment ou un « + » pour ouvrir sa fiche.
+
+## Rendu
+
+- Lumière de fin d'après-midi : soleil chaud et rasant, ciel froid, contraste chaud/froid.
+- Liseré de lumière sur les contours des modèles, ombres douces au pied des bâtiments.
+- Neige texturée en relief, chemins pavés, clôtures, sapins, étang gelé.
+- Post-traitement : bloom sur les lumières, saturation et contraste, ombres bleutées et lumières chaudes, vignette, léger flou de profondeur en haut et en bas.
+- Qualité automatique : le jeu baisse les effets si le téléphone n'arrive pas à suivre. Réglage manuel dans le profil (Auto, Haute, Moyenne, Basse).
 
 ## Modèles 3D et licences
 

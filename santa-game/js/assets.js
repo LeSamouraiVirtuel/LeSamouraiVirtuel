@@ -32,9 +32,24 @@ export async function loadAssets(base, onProgress){
   for (const c of anims.animations) A.clips[c.name] = c;
 }
 
+// Liseré de lumière chaude sur les contours (effet « rim light ») : détache les volumes du fond.
+export function addRim(m, strength = .38, color = '#fff0d0'){
+  if (!m || m.userData.rim) return;
+  m.userData.rim = true;
+  const col = new THREE.Color(color);
+  m.onBeforeCompile = sh => {
+    sh.uniforms.rimColor = {value: col}; sh.uniforms.rimStrength = {value: strength};
+    sh.fragmentShader = 'uniform vec3 rimColor; uniform float rimStrength;\n' + sh.fragmentShader.replace('#include <dithering_fragment>',
+      `float rimF = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.6);
+       gl_FragColor.rgb += rimColor * rimF * rimStrength * (0.6 + 0.4 * gl_FragColor.g);
+       #include <dithering_fragment>`);
+  };
+  m.customProgramCacheKey = () => 'rim' + strength;
+}
 function tuneMaterial(m){
   if (!m || m.userData.tuned) return;
   m.userData.tuned = true;
+  addRim(m);
   if ('roughness' in m) { m.roughness = Math.max(.55, m.roughness ?? 1); m.metalness = Math.min(.15, m.metalness ?? 0); }
   if (m.map) m.map.anisotropy = 4;
 }
@@ -83,7 +98,7 @@ export function tint(root, hue, sat = 1){
   root.traverse(o => {
     if (!o.isMesh || !o.material.map) return;
     const k = o.material.uuid + hue + sat;
-    if (!tintedMats.has(k)){ const m = o.material.clone(); m.map = hueShiftTexture(o.material.map, hue, sat); tintedMats.set(k, m); }
+    if (!tintedMats.has(k)){ const m = o.material.clone(); m.map = hueShiftTexture(o.material.map, hue, sat); m.userData.rim = false; addRim(m); tintedMats.set(k, m); }
     o.material = tintedMats.get(k);
   });
   return root;
@@ -112,7 +127,7 @@ function recolor(root, key, edits){
     const base = o.material.map; if (!base) return;
     const k = key + base.uuid;
     if (!texCache.has(k)) texCache.set(k, paintPalette(base, edits));
-    o.material = o.material.clone(); o.material.map = texCache.get(k);
+    o.material = o.material.clone(); o.material.map = texCache.get(k); o.material.userData.rim = false; addRim(o.material);
   });
 }
 const mix = (a, b, t) => '#' + new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString();

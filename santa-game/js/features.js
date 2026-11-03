@@ -310,6 +310,7 @@ export function installFeatures(C){
     return `${header(G.rankOf(s.pl), esc(s.pseudo))}
       <div class="prof"><img src="${C.portraitNow()}" alt=""><div><b>Niveau ${s.pl}</b><small>${fmt(s.xp)} / ${fmt(G.xpNeed(s.pl))} XP</small><button class="mini" data-a="pseudo">Changer de pseudo</button></div></div>
       <div class="stats">${row('Série de connexions', `${s.login.streak} jours (record ${s.login.best})`)}${row('Album', `${have} / ${total}`)}${row('Lettres envoyées', fmt(s.stats.letters))}${row('Jouets fabriqués', fmt(s.stats.crafted))}${row('Cadeaux livrés', fmt(s.stats.delivered || 0))}${row('XP cette semaine', fmt(week().xp))}${row('Réseau', C.net.mode === 'online' ? 'En ligne (page partagée)' : 'Démo hors ligne')}</div>
+      <h3>Qualité graphique</h3><div class="tabs">${[['auto', 'Auto'], ['high', 'Haute'], ['medium', 'Moyenne'], ['low', 'Basse']].map(([k, l]) => `<button class="${(localStorage.getItem('vdp-quality') || 'auto') === k ? 'on' : ''}" data-a="quality" data-v="${k}">${l}</button>`).join('')}</div>
       <button class="btn green wide" data-a="wardrobe">Garde-robe</button>`;
   }
   function editPseudo(){
@@ -415,6 +416,7 @@ export function installFeatures(C){
     shop: () => C.openPanel('shop'), wardrobe: () => C.openPanel('wardrobe'), hotte: () => C.openPanel('hotte'),
     equip: b => equip(b.dataset.k), buySkin: b => buySkin(b.dataset.k),
     pseudo: () => editPseudo(),
+    quality: b => { window.__setQuality?.(b.dataset.v); C.sfx.tap(); },
     gJoin: b => C.net.joinGuild(b.dataset.g).then(() => { C.sfx.bells(); C.save(); C.rerender(); }),
     gLeave: () => C.modal(`<h2>Quitter la guilde ?</h2><p>Tes points de la semaine restent acquis pour la guilde.</p><div class="acts"><button class="btn grey" data-m="close">Rester</button><button class="btn green" data-m="ok">Quitter</button></div>`, a => { if (a === 'ok') C.net.leaveGuild().then(() => { C.save(); C.rerender(); }); }),
     gDelete: () => C.modal(`<h2>Dissoudre la guilde ?</h2><p>Elle disparaîtra de la liste pour tout le monde.</p><div class="acts"><button class="btn grey" data-m="close">Annuler</button><button class="btn green" data-m="ok">Dissoudre</button></div>`, a => { if (a === 'ok') C.net.deleteGuild().then(() => { C.save(); C.rerender(); }); }),

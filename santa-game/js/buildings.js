@@ -2,7 +2,8 @@
 // L'apparence change par palier (niv. 1-3, 4-6, 7-10) et chaque niveau ajoute une décoration.
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {prop, tint} from './assets.js';
+import {prop, tint, addRim} from './assets.js';
+import {cobbleTexture} from './world.js';
 
 const HALF_PI = Math.PI / 2;
 export const tierOf = lv => lv >= 12 ? 3 : lv >= 5 ? 2 : 1;
@@ -47,23 +48,32 @@ export function cabin({len = 2, front = ['cabin-window-a', 'door'], back = ['cab
 /* ------------------------------------------------------------------ */
 /* Socle du terrain : bois (palier 1), pierre (2), pierre + or (3)     */
 /* ------------------------------------------------------------------ */
-const baseGeo = new RoundedBoxGeometry(3.7, .28, 3.7, 3, .12);
-const rimGeo = new RoundedBoxGeometry(3.86, .16, 3.86, 3, .08);
+const baseGeo = new RoundedBoxGeometry(3.6, .2, 3.6, 3, .1);
+const rimGeo = new RoundedBoxGeometry(3.92, .34, 3.92, 3, .1);
+// socles : neige tassée bordée de pavés (palier 1), de pierres grises (2), de pierres et d'or (3)
+const stoneTex = (() => { const t = cobbleTexture(); t.repeat.set(4, .5); return t; })();
+const greyStone = (() => { const t = cobbleTexture(); t.repeat.set(4, .5); return t; })();
+const snowTop = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  x.fillStyle = '#eef3fb'; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 260; i++){ x.fillStyle = `rgba(${150 + Math.random() * 40},${170 + Math.random() * 40},220,${Math.random() * .18})`; x.beginPath(); x.ellipse(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 8, 1 + Math.random() * 4, Math.random() * 3, 0, 7); x.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
 const BASE_MATS = {
-  1: [new THREE.MeshStandardMaterial({color: '#c98b55', roughness: .85}), new THREE.MeshStandardMaterial({color: '#9a6236', roughness: .9})],
-  2: [new THREE.MeshStandardMaterial({color: '#cfd6e3', roughness: .9}), new THREE.MeshStandardMaterial({color: '#8b97ad', roughness: .9})],
-  3: [new THREE.MeshStandardMaterial({color: '#e7ecf5', roughness: .8}), new THREE.MeshStandardMaterial({color: '#f2b632', roughness: .45, metalness: .35})],
+  1: [new THREE.MeshStandardMaterial({map: snowTop, color: '#ffffff', roughness: .9}), new THREE.MeshStandardMaterial({map: stoneTex, color: '#ffe9cc', roughness: .85})],
+  2: [new THREE.MeshStandardMaterial({map: snowTop, color: '#f4f7ff', roughness: .9}), new THREE.MeshStandardMaterial({map: greyStone, color: '#c9d3e6', roughness: .85})],
+  3: [new THREE.MeshStandardMaterial({map: snowTop, color: '#ffffff', roughness: .9}), new THREE.MeshStandardMaterial({color: '#f2b632', roughness: .35, metalness: .45})],
 };
-const skinMats = new Map();
+for (const pair of Object.values(BASE_MATS)) pair.forEach(m => addRim(m, .3));
 export function plotBase(tier, skin = null){
   const g = new THREE.Group();
   let [top, rim] = BASE_MATS[tier];
   if (skin?.top){
-    if (!skinMats.has(skin.top)) skinMats.set(skin.top, [new THREE.MeshStandardMaterial({color: skin.top, roughness: .6}), new THREE.MeshStandardMaterial({color: skin.rim, roughness: .4, metalness: skin.rim === '#f2b632' ? .4 : 0})]);
+    if (!skinMats.has(skin.top)){ const pair = [new THREE.MeshStandardMaterial({color: skin.top, roughness: .6}), new THREE.MeshStandardMaterial({color: skin.rim, roughness: .4, metalness: skin.rim === '#f2b632' ? .4 : 0})]; pair.forEach(m => addRim(m, .3)); skinMats.set(skin.top, pair); }
     [top, rim] = skinMats.get(skin.top);
   }
-  const r = new THREE.Mesh(rimGeo, rim); r.position.y = .08; r.receiveShadow = true; g.add(r);
-  const b = new THREE.Mesh(baseGeo, top); b.position.y = .2; b.receiveShadow = true; g.add(b);
+  const r = new THREE.Mesh(rimGeo, rim); r.position.y = .17; r.receiveShadow = true; r.castShadow = true; g.add(r);
+  const b = new THREE.Mesh(baseGeo, top); b.position.y = .26; b.receiveShadow = true; g.add(b);
   return g;
 }
 export const BASE_Y = .34;

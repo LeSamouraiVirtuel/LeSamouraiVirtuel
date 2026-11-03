@@ -40,40 +40,62 @@ export function groundY(x, z){
 
 export function createWorld(renderer){
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog('#cfe2f8', 70, 150);
+  scene.background = skyTexture();
+  scene.fog = new THREE.Fog('#bcd6f5', 60, 140);
   const pm = new THREE.PMREMGenerator(renderer);
   scene.environment = pm.fromScene(new RoomEnvironment(), .04).texture;
-  scene.environmentIntensity = .25;
+  scene.environmentIntensity = .26;
 
-  const hemi = new THREE.HemisphereLight('#cfe2ff', '#7d93bd', .6); scene.add(hemi);
-  const sun = new THREE.DirectionalLight('#ffeed6', 3.1);
+  // lumière : soleil chaud et rasant + ciel froid -> contraste chaud/froid et relief
+  const hemi = new THREE.HemisphereLight('#b7d2ff', '#4f6398', .42); scene.add(hemi);
+  const sun = new THREE.DirectionalLight('#fff0dc', 3.8);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, {left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80});
-  sun.shadow.bias = -.0004; sun.shadow.normalBias = .03; sun.shadow.radius = 3;
+  Object.assign(sun.shadow.camera, {left: -20, right: 20, top: 20, bottom: -20, near: 1, far: 80});
+  sun.shadow.bias = -.0003; sun.shadow.normalBias = .025; sun.shadow.radius = 4;
   scene.add(sun, sun.target);
+  const fill = new THREE.DirectionalLight('#8fb6ff', .5); scene.add(fill, fill.target);
 
   /* ---------- terrain ---------- */
   const W = 110, D = 170, geo = new THREE.PlaneGeometry(W, D, 200, 300);
   geo.rotateX(-Math.PI / 2); geo.translate(0, 0, -D / 2 + 26);
   const pos = geo.attributes.position, colors = new Float32Array(pos.count * 3);
-  const snow = new THREE.Color('#e4edf9'), shade = new THREE.Color('#9fb6dc'), path = new THREE.Color('#e3d6c6'), plaza = new THREE.Color('#d5dbe8');
+  const snow = new THREE.Color('#dfe8f8'), shade = new THREE.Color('#6d8bc8'), blue = new THREE.Color('#adc4ea'), path = new THREE.Color('#cdb9a2'), plaza = new THREE.Color('#c9cfdc');
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i++){
     const x = pos.getX(i), z = pos.getZ(i), y = groundY(x, z);
     pos.setY(i, y);
     const slope = Math.min(1, (Math.abs(groundY(x + .3, z) - y) + Math.abs(groundY(x, z + .3) - y)) * 2.2);
-    c.copy(snow).lerp(shade, slope * .8 + (fbm(x * .5, z * .5) - .5) * .12);
+    c.copy(snow).lerp(blue, Math.min(1, Math.max(0, fbm(x * .16 + 3, z * .16) - .3) * 2.2)).lerp(shade, Math.min(1, slope * .95));
     const vLane = Math.abs(Math.abs(x) - LANE_X) < .62 && z < 6.5 && z > TOP_Z + 1;
     const zk = Math.round(-z / ZD), hLane = zk >= 0 && zk < NZ && Math.abs(z - zoneZ(zk)) < .62 && Math.abs(x) < 7.8;
-    if (vLane || hLane) c.lerp(path, .8);
     const pd = Math.hypot(x, z - ROWS[0]);
     if (pd < 2.6) c.lerp(plaza, .9 * (1 - smooth(2.2, 2.6, pd)));
     colors.set([c.r, c.g, c.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({vertexColors: true, roughness: .95, metalness: 0}));
+  const [snowMap, snowNormal] = snowTextures();
+  const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({vertexColors: true, map: snowMap, normalMap: snowNormal, normalScale: new THREE.Vector2(.9, .9), roughness: .78, metalness: 0}));
   ground.receiveShadow = true; scene.add(ground);
+
+  /* ---------- chemins pavés ---------- */
+  const cobble = cobbleTexture();
+  const pathMat = new THREE.MeshStandardMaterial({map: cobble, roughness: .9, polygonOffset: true, polygonOffsetFactor: -2});
+  const ribbon = pts => {
+    const w = .55, verts = [], uvs = [], idx = []; let len = 0;
+    pts.forEach(([x, z], i) => {
+      const [nx, nz] = i < pts.length - 1 ? [pts[i + 1][0] - x, pts[i + 1][1] - z] : [x - pts[i - 1][0], z - pts[i - 1][1]];
+      const l = Math.hypot(nx, nz), px = -nz / l * w, pz = nx / l * w;
+      if (i) len += Math.hypot(x - pts[i - 1][0], z - pts[i - 1][1]);
+      for (const sgn of [-1, 1]){ const vx = x + px * sgn, vz = z + pz * sgn; verts.push(vx, groundY(vx, vz) + .04, vz); uvs.push((sgn + 1) / 2, len / 1.24); }
+      if (i){ const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, pathMat); m.receiveShadow = true; scene.add(m);
+  };
+  for (const lx of [-LANE_X, LANE_X]){ const pts = []; for (let z = 7; z >= TOP_Z + 1; z -= .5) pts.push([lx, z]); ribbon(pts); }
+  { const pts = []; for (let z = -.6; z <= .9; z += .5) pts.push([0, z]); ribbon(pts); }
+  for (let k = 0; k < NZ; k++){ for (const [a, b] of [[-7.8, -LANE_X - .6], [LANE_X + .6, 7.8], [-LANE_X + .6, LANE_X - .6]]){ const pts = []; for (let x = a; x <= b + .01; x += .5) pts.push([x, zoneZ(k)]); ribbon(pts); } }
 
   /* ---------- forêt (instanciée) ---------- */
   const rnd = mulberry(11);
@@ -118,6 +140,26 @@ export function createWorld(renderer){
   deco('snowman_A', -2.6, pz + 1.6, {s: .5, ry: .5});
   deco('bench', 2.4, pz + 1.8, {s: 1.1, ry: -.4});
   deco('candycane_large', -2.3, pz - 1.6, {s: .28, ry: .3});
+  // clôtures au bord des terrasses, buissons et tas de neige pour remplir le décor
+  for (let k = 0; k < NZ; k++){
+    const fz = zoneZ(k) + ZD / 2 - .35;
+    for (const [a, b] of [[-8.4, -LANE_X - .9], [LANE_X + .9, 8.4], [-LANE_X + .9, LANE_X - .9]]) for (let x = a; x + 1.1 <= b + .05; x += 1.1) deco('cabin-fence', x + 1.1, fz, {ry: 0, s: 1});
+    for (const side of [-1, 1]){
+      for (const [dz, kind, sc] of [[3.6, 'tree', .95], [1.4, 'tree-snow-b', .8], [-1.6, 'tree', .85], [-3.6, 'tree-snow-a', .9]]) deco(kind, side * (7.75 + rnd() * .3), zoneZ(k) + dz, {s: sc});
+      deco('snow-pile', side * 7.6, zoneZ(k) - 4.5, {s: 1.3});
+      deco('snow-pile', side * 1.2, zoneZ(k) + 4.9, {s: 1});
+    }
+  }
+  // étang gelé et patineurs au premier plan
+  const pondZ = 12, pondX = -4.5;
+  const ice = new THREE.Mesh(new THREE.CircleGeometry(3.4, 48), new THREE.MeshStandardMaterial({color: '#bfe3ff', roughness: .08, metalness: .25, envMapIntensity: 1.6}));
+  ice.rotation.x = -Math.PI / 2; ice.scale.set(1.4, 1, 1); ice.position.set(pondX, groundY(pondX, pondZ) + .05, pondZ); ice.receiveShadow = true; scene.add(ice);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(3.4, .22, 8, 48), new THREE.MeshStandardMaterial({color: '#ffffff', roughness: .9}));
+  rim.rotation.x = -Math.PI / 2; rim.scale.set(1.4, 1, 1); rim.position.copy(ice.position); scene.add(rim);
+  deco('snowman', pondX + 4.6, pondZ - 1.2, {s: 1.1, ry: -.6}); deco('bench', pondX + 1.5, pondZ - 3.3, {s: 1.1, ry: 0});
+  deco('lantern', pondX - 4.9, pondZ - 1.6, {s: .75}); deco('tree-decorated-snow', pondX + 6.5, pondZ + 1, {s: .9});
+  deco('rocks-medium', pondX - 5, pondZ + 1.5, {s: .7, sink: .2}); deco('sled', pondX + 3.4, pondZ + 2, {s: 1.1, ry: .8});
+  for (const [x, z, n] of [[4.5, 10.5, 'snowman_B'], [6.5, 13, 'tree-snow-a'], [2.5, 14, 'tree-snow-b'], [7.5, 9, 'present_D_blue']]) deco(n, x, z, {s: n.includes('tree') ? 1.2 : n === 'snowman_B' ? .55 : .5});
   // lampadaires le long du chemin
   const lamps = [];
   for (let k = 0; k < NZ; k++) for (const [x, dz] of [[-LANE_X - .75, ZD / 2 - .6], [LANE_X + .75, ZD / 2 - .6], [-7.6, .75], [7.6, .75]]){
@@ -150,7 +192,8 @@ export function createWorld(renderer){
   scene.add(flakes);
 
   function update(t, dt, focus, openZones){
-    sun.position.set(focus.x - 9, focus.y + 18, focus.z + 12); sun.target.position.copy(focus);
+    sun.position.set(focus.x - 16, focus.y + 12, focus.z + 9); sun.target.position.copy(focus);
+    fill.position.set(focus.x + 10, focus.y + 8, focus.z - 6); fill.target.position.copy(focus);
     for (let k = 1; k < NZ; k++){
       const open = openZones > k;
       for (const m of clouds[k]){
@@ -189,4 +232,66 @@ function cloudTexture(){
     x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/* ---------- textures procédurales ---------- */
+function skyTexture(){
+  const c = document.createElement('canvas'); c.width = 4; c.height = 256; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#4f8fe0'); g.addColorStop(.45, '#8cc0f5'); g.addColorStop(.8, '#d7e8fb'); g.addColorStop(1, '#ffe9d6');
+  x.fillStyle = g; x.fillRect(0, 0, 4, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// neige : bosses et cristaux (carte de couleur + carte de normales)
+function snowTextures(){
+  const N = 256, h = new Float32Array(N * N), R = mulberry(9);
+  const tile = (x, y) => h[((y + N) % N) * N + (x + N) % N];
+  for (let o = 0; o < 4; o++){
+    const f = 4 << o, amp = 1 / (1 + o * 1.6), g = [];
+    for (let i = 0; i <= f; i++){ g[i] = []; for (let j = 0; j <= f; j++) g[i][j] = R(); }
+    for (let i = 0; i <= f; i++){ g[i][f] = g[i][0]; g[f][i] = g[0][i]; }
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++){
+      const fx = x / N * f, fy = y / N * f, ix = Math.floor(fx), iy = Math.floor(fy), u = fx - ix, v = fy - iy, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+      h[y * N + x] += amp * ((g[iy][ix] * (1 - su) + g[iy][ix + 1] * su) * (1 - sv) + (g[iy + 1][ix] * (1 - su) + g[iy + 1][ix + 1] * su) * sv);
+    }
+  }
+  const cc = document.createElement('canvas'); cc.width = cc.height = N; const cx = cc.getContext('2d'), cd = cx.createImageData(N, N);
+  const nc = document.createElement('canvas'); nc.width = nc.height = N; const nx = nc.getContext('2d'), nd = nx.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++){
+    const i = (y * N + x) * 4, v = h[y * N + x];
+    const sparkle = R() > .996 ? 30 : 0;
+    const l = Math.min(255, 228 + (v - 1) * 26 + sparkle);
+    cd.data[i] = l - 6; cd.data[i + 1] = l - 2; cd.data[i + 2] = 255; cd.data[i + 3] = 255;
+    const dx = (tile(x + 1, y) - tile(x - 1, y)) * 3, dy = (tile(x, y + 1) - tile(x, y - 1)) * 3;
+    const len = Math.hypot(dx, dy, 1);
+    nd.data[i] = (-dx / len * .5 + .5) * 255; nd.data[i + 1] = (-dy / len * .5 + .5) * 255; nd.data[i + 2] = (1 / len * .5 + .5) * 255; nd.data[i + 3] = 255;
+  }
+  cx.putImageData(cd, 0, 0); nx.putImageData(nd, 0, 0);
+  const map = new THREE.CanvasTexture(cc), nrm = new THREE.CanvasTexture(nc);
+  for (const t of [map, nrm]){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(26, 40); t.anisotropy = 4; }
+  map.colorSpace = THREE.SRGBColorSpace;
+  return [map, nrm];
+}
+// pavés avec de la neige dans les joints
+export function cobbleTexture(){
+  const c = document.createElement('canvas'); c.width = 128; c.height = 256; const x = c.getContext('2d'), R = mulberry(21);
+  x.fillStyle = '#6f6a78'; x.fillRect(0, 0, 128, 256);
+  const cols = ['#9a8470', '#a8907a', '#8c7562', '#b39b82', '#7f6b5a', '#97806c'];
+  for (let row = 0; row < 8; row++){
+    const off = row % 2 ? 21 : 0;
+    for (let col = -1; col < 3; col++){
+      const px = col * 42 + off + 3, py = row * 32 + 3, w = 36 + R() * 4, hh = 26;
+      x.fillStyle = cols[Math.floor(R() * cols.length)];
+      x.beginPath(); x.roundRect(px, py, w, hh, 9); x.fill();
+      x.fillStyle = 'rgba(255,255,255,.22)'; x.beginPath(); x.roundRect(px + 4, py + 3, w - 12, 7, 4); x.fill();
+      x.fillStyle = 'rgba(40,30,30,.18)'; x.beginPath(); x.roundRect(px + 2, py + hh - 6, w - 4, 5, 3); x.fill();
+      if (R() < .22){ x.fillStyle = 'rgba(240,246,255,.9)'; x.beginPath(); x.ellipse(px + R() * w, py + R() * hh, 6 + R() * 6, 3 + R() * 3, 0, 0, 7); x.fill(); }
+    }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+export function blobTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 20, 64, 64, 64); g.addColorStop(0, 'rgba(20,30,70,.55)'); g.addColorStop(.6, 'rgba(20,30,70,.25)'); g.addColorStop(1, 'rgba(20,30,70,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }

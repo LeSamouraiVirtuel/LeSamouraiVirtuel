@@ -1,7 +1,8 @@
 // Le Village du Pôle — boucle principale, scène, personnages, interactions et interface.
 import * as THREE from 'three';
 import {loadAssets, prop, character, santaLook, elfLook} from './assets.js';
-import {createWorld, groundY, plotPos, ALL_PLOTS, HQ_ID, zoneZ, zoneY, LANE_X, NZ, radialTexture} from './world.js';
+import {createWorld, groundY, plotPos, ALL_PLOTS, HQ_ID, zoneZ, zoneY, LANE_X, NZ, radialTexture, blobTexture} from './world.js';
+import {createPost} from './post.js';
 import {buildModel, scaffold, constructionSite} from './buildings.js';
 import {openMinigame, GAMES} from './minigames.js';
 import {createNet} from './net.js';
@@ -17,18 +18,21 @@ const {TYPES, RES, TOYS, RARITY, SKINS} = G;
    RENDU
    ===================================================================== */
 const canvas = $('#c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true, powerPreference: 'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({canvas, antialias: false, powerPreference: 'high-performance'});
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.NeutralToneMapping;
 const camera = new THREE.PerspectiveCamera(32, 1, .5, 280);
+let QUALITY = (() => { try { return localStorage.getItem('vdp-quality') || 'auto'; } catch(e){ return 'auto'; } })();
 
 await loadAssets(BASE, p => { $('#loadbar i').style.width = Math.round(p * 100) + '%'; });
 $('#loading').hidden = true; $('#play').hidden = false;
 
 const world = createWorld(renderer);
 const scene = world.scene;
+const post = createPost(renderer, scene, camera);
+const blobMat = new THREE.MeshBasicMaterial({map: blobTexture(), transparent: true, depthWrite: false});
+const blobGeo = new THREE.PlaneGeometry(5.2, 5.2).rotateX(-Math.PI / 2);
 
 /* =====================================================================
    ÉTAT
@@ -214,6 +218,7 @@ function syncPlot(id){
   if (p.lv > 0){ const m = buildModel(p.type, p.lv, skinOf('bases')); v.holder.add(m.group); v.inner = m.group; v.anim = m.anim; v.smoke = m.smoke; v.top = m.top; }
   else { const c = constructionSite(skinOf('bases')); v.holder.add(c); v.inner = c; v.top = 2.4; }
   if (p.upEnd) v.holder.add(scaffold(Math.max(2.2, v.top - .4)));
+  const blob = new THREE.Mesh(blobGeo, blobMat); blob.position.y = .02; blob.renderOrder = 1; blob.userData.noAO = true; v.holder.add(blob);
   if (p.lv > prevLv && v.ready){ v.pop = 0; burst(v.holder.position.clone().add(new THREE.Vector3(0, 1.6, 0)), 34); }
   v.lv = p.lv; v.ready = true;
 }
@@ -786,7 +791,7 @@ function updateOverlays(dt){
    CAMÉRA & CONTRÔLES
    ===================================================================== */
 const cam = {x: 0, z: 4, dist: 42, tx: 0, tz: 4, tdist: 42, yaw: 0, tyaw: 0};
-const homeDist = () => innerWidth / innerHeight < .7 ? 38 : 27;
+const homeDist = () => innerWidth / innerHeight < .7 ? 31 : 24;
 const pointers = new Map(); let dragDist = 0, pinch0 = 0, dist0 = 0, introMode = true;
 canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, {x: e.clientX, y: e.clientY}); dragDist = 0; if (pointers.size === 2){ const [a, b] = [...pointers.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = cam.tdist; } });
 canvas.addEventListener('pointermove', e => {
@@ -815,7 +820,16 @@ function tap(x, y){
   if (p && R.ready(p) && sel !== id){ collect(id, ovs[id].el.firstElementChild); return; }
   sfx.tap(); openSheet(id);
 }
-function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < .7 ? 45 : 32; camera.updateProjectionMatrix(); }
+let level = 'high';
+function applyQuality(q){
+  level = q;
+  const pr = q === 'high' ? Math.min(devicePixelRatio, 1.6) : q === 'medium' ? Math.min(devicePixelRatio, 1.25) : 1;
+  renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
+  renderer.shadowMap.enabled = q !== 'low'; world.sun.shadow.mapSize.setScalar(q === 'high' ? 2048 : 1024); world.sun.shadow.map?.dispose(); world.sun.shadow.map = null;
+  post.setQuality(q); post.setSize(innerWidth, innerHeight, pr);
+}
+function resize(){ camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < .7 ? 40 : 30; camera.updateProjectionMatrix(); applyQuality(level); }
+level = QUALITY === 'auto' ? 'high' : QUALITY;
 addEventListener('resize', resize); resize();
 
 /* =====================================================================
@@ -860,12 +874,23 @@ function frame(){
   for (const o of sparks){ if (o.life <= 0) continue; o.life -= dt * .9; o.v.y -= 10 * dt; o.s.position.addScaledVector(o.v, dt); o.s.material.rotation += dt * 6; o.s.material.opacity = Math.min(1, o.life * 2); if (o.life <= 0) o.s.visible = false; }
 
   updateCharacters(dt);
-  renderer.render(scene, camera);
+  post.render(); perf(dt);
   updateOverlays(dt);
   renderHud();
   sheetT -= dt; if (sel && sheetT <= 0){ sheetT = .25; renderSheet(); }
   saveT -= dt; if (saveT <= 0){ saveT = 5; save(); }
 }
+// qualité automatique : on baisse si le téléphone n'arrive pas à suivre
+let perfT = 0, perfN = 0, perfSum = 0;
+function perf(dt){
+  if (QUALITY !== 'auto' || introMode || level === 'low') return;
+  perfT += dt; perfN++; perfSum += dt;
+  if (perfT > 4){
+    const avg = perfSum / perfN; perfT = perfN = perfSum = 0;
+    if (avg > 1 / 30) applyQuality(level === 'high' ? 'medium' : 'low');
+  }
+}
+window.__setQuality = q => { QUALITY = q; try { localStorage.setItem('vdp-quality', q); } catch(e){} applyQuality(q === 'auto' ? 'high' : q); };
 frame();
 addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pagehide', save);
