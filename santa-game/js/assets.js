@@ -9,9 +9,17 @@ const A = {props: {}, chars: {}, clips: {}};
 export async function loadAssets(base, onProgress){
   const files = ['props', 'santa', 'elf', 'anims'];
   const done = new Array(files.length).fill(0);
-  const res = await Promise.all(files.map((f, i) => loader.loadAsync(`${base}${f}.glb`, e => {
-    if (e.total) { done[i] = e.loaded / e.total; onProgress?.(done.reduce((a, b) => a + b) / files.length); }
-  })));
+  const tick = (i, v) => { done[i] = v; onProgress?.(done.reduce((a, b) => a + b) / files.length); };
+  const res = await Promise.all(files.map(async (f, i) => {
+    try {
+      return await loader.loadAsync(`${base}${f}.glb`, e => { if (e.total) tick(i, e.loaded / e.total); });
+    } catch (err) {
+      // Hébergements qui ne servent pas les .glb : même fichier, encodé en base64 dans un module JS.
+      const m = await import(`${base}${f}.js`);
+      const bin = Uint8Array.from(atob(m.default), c => c.charCodeAt(0));
+      const g = await loader.parseAsync(bin.buffer, base); tick(i, 1); return g;
+    }
+  }));
   const [props, santa, elf, anims] = res;
   props.scene.traverse(o => {
     if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; tuneMaterial(o.material); }
