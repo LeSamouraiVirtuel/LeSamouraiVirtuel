@@ -647,6 +647,29 @@ body.sheet-open .dock,body.placing .dock{opacity:0;pointer-events:none}
 .recipe .need{width:58px}
 .recipe .need>img{width:30px;height:30px}
 .recipe .need b{font-size:12px}
+#sideR{position:fixed;right:max(8px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 100px);z-index:4;display:flex;flex-direction:column;gap:18px;transition:opacity .25s}
+#sideR button{position:relative;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,#ffffff,#f3e3c0 70%,#e2c896);border:2.5px solid #fff;box-shadow:0 0 0 2px var(--wood-d),0 4px 0 2px var(--wood-d),0 8px 12px rgba(10,16,40,.3)}
+#sideR img{width:54px;height:54px;object-fit:contain;margin-top:-6px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.25))}
+#sideR small{position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);font-family:var(--display);font-size:11.5px;color:#fff;white-space:nowrap;padding:0 6px;border-radius:7px;background:linear-gradient(180deg,#2b3d5e,#18233a);border:1.5px solid rgba(255,255,255,.25)}
+#quest2{position:fixed;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 96px);z-index:4;width:min(210px,54vw);text-align:left;padding:13px 9px 7px;border-radius:14px;display:flex;flex-direction:column;gap:5px;
+  background:linear-gradient(180deg,rgba(255,250,236,.97),rgba(246,230,191,.97));border:2.5px solid var(--wood-d);box-shadow:inset 0 0 0 2px var(--wood),0 4px 0 var(--wood-d),0 8px 14px rgba(10,16,40,.3);transition:opacity .25s}
+#quest2:empty{display:none}
+#quest2 .tag{position:absolute;left:10px;top:-11px;padding:0 10px 1px;font-family:var(--display);font-size:12px;text-transform:uppercase;color:#fff;border-radius:6px;background:linear-gradient(180deg,#ff6b78,#d81f33);border:2px solid var(--red-o);-webkit-text-stroke:2px var(--red-o);paint-order:stroke fill}
+#quest2 b{font-size:13.5px;line-height:1.2;color:var(--ink-2)}
+#quest2 .qbar{position:relative;display:block;height:16px;border-radius:8px;background:#5a3a1e;border:2px solid var(--wood-d);overflow:hidden}
+#quest2 .qbar i{display:block;height:100%;background:linear-gradient(180deg,#c3f7c9,#5bd46a 50%,#2fae48)}
+#quest2 .qbar em{position:absolute;inset:0;text-align:center;font:400 11px/12px var(--display);font-style:normal;color:#fff;-webkit-text-stroke:2px var(--ink);paint-order:stroke fill}
+#quest2 .chip{font-size:12px;padding:0 6px 0 2px}
+#quest2 .claim{flex:1;text-align:center;padding:4px;border-radius:9px;font-family:var(--display);font-size:15px;text-transform:uppercase;color:#fff;-webkit-text-stroke:2.5px var(--green-o);paint-order:stroke fill;background:linear-gradient(180deg,var(--green-l),var(--green));border:2px solid var(--green-o);box-shadow:0 3px 0 var(--green-d)}
+#quest2.done{animation:wiggle 2.4s ease-in-out infinite}
+body.tutoring #quest2,body.tutoring #sideR,body.sheet-open #sideR,body.sheet-open #quest2,body.placing #sideR,body.placing #quest2,body.seeding #quest2{opacity:0;pointer-events:none}
+.daily{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%}
+.dd{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 3px;border-radius:12px;background:linear-gradient(180deg,#fdf3da,var(--card));border:2px solid var(--card-line)}
+.dd small{font-size:11px!important}
+.dd .chip{font-size:11.5px;padding:0 5px 0 1px}
+.dd.big{grid-column:span 3}
+.dd.today{border-color:var(--gold-d);background:linear-gradient(180deg,#fff7c4,#ffd84a);box-shadow:0 0 12px rgba(255,200,60,.8)}
+.dd.got{opacity:.5}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
@@ -656,6 +679,8 @@ body.sheet-open .dock,body.placing .dock{opacity:0;pointer-events:none}
 </div>
 <nav id="dockL" class="l dock"><button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Commandes</b><span class="badge stroke" hidden>0</span></button></nav>
 <nav id="dockR" class="dock"><button id="b-barn"><img class="ico" id="i-barn" alt=""><small>0/50</small><b>Grange</b></button><button id="b-build" class="big"><img class="ico" id="i-build" alt=""><b>Construire</b></button></nav>
+<nav id="sideR"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button></nav>
+<button id="quest2"></button>
 <div id="seeds" hidden></div>
 <div id="seedhint" hidden>Choisis une graine, puis glisse sur les champs</div>
 <div id="placebar" hidden><button class="btn red" id="pb-no" aria-label="Annuler">✕</button><button class="btn green" id="pb-ok" aria-label="Valider">✓</button></div>

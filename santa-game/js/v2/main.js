@@ -7,7 +7,7 @@ import {buildModel, cabin, plotBase} from '../buildings.js';
 import {bake, bakeIcon, TW} from './bake.js';
 import {createTuto} from '../tuto.js';
 import * as T from './town.js';
-import {fieldModel, pickIcon, coinsModel} from './models.js';
+import {fieldModel, pickIcon, coinsModel, pathTile, giftPile} from './models.js';
 
 const {ITEMS, CROPS, BUILDINGS} = T;
 const $ = s => document.querySelector(s);
@@ -26,7 +26,7 @@ const tip = () => { const e = $('#tip'); if (e) e.textContent = TIPS[tipI++ % TI
 tip(); const tipTimer = setInterval(tip, 2600);
 const bar = p => { $('#loadbar i').style.width = Math.round(p * 100) + '%'; };
 // Cache des images pré-rendues (IndexedDB) : dès la 2e ouverture, le village s'affiche en 1 à 2 secondes.
-const CACHE_V = `spr-1:${DPR}:${BD}`;   // à changer quand les modèles ou le rendu changent
+const CACHE_V = `spr-2:${DPR}:${BD}`;   // à changer quand les modèles ou le rendu changent
 const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('vdp-sprites', 1); r.onupgradeneeded = () => r.result.createObjectStore('c'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
 async function cacheGet(){
   try { const db = await idb(); const v = await new Promise((ok, ko) => { const q = db.transaction('c').objectStore('c').get(CACHE_V); q.onsuccess = () => ok(q.result); q.onerror = () => ko(q.error); });
@@ -62,7 +62,19 @@ function pen(animal){
   return g;
 }
 const field = (crop, stage) => fieldModel(crop, stage);
-function deco(type){ return type === 'tree' ? prop('tree-decorated-snow', {s: .75}) : type === 'lantern' ? prop('lantern', {s: .65}) : prop('snowman_A', {s: .32}); }
+function deco(type){
+  switch (type){
+    case 'tree': return prop('tree-decorated-snow', {s: .75});
+    case 'wildtree': return prop('tree-snow-a', {s: .85});
+    case 'wildtree2': return prop('tree-snow-b', {s: .8});
+    case 'lantern': return prop('lantern', {s: .7});
+    case 'bench': return prop('bench', {s: .75, ry: Math.PI / 4});
+    case 'gifts': return giftPile();
+    case 'candy': return prop('candycane_large', {s: .4});
+    case 'reindeer': return prop('reindeer', {s: .7, ry: .8});
+    default: return prop('snowman_A', {s: .32});
+  }
+}
 function house(len, hue){ const c = tint(cabin({len, front: ['cabin-window-a', 'door'], chimney: 1}), hue, 1.1); const g = new THREE.Group(); c.scale.setScalar(.82); g.add(c); return g; }
 function modelFor(type){
   const b = BUILDINGS[type], mk = (t, lv, s = .78) => scaled(buildModel(t, lv).group, s);
@@ -83,6 +95,7 @@ function modelFor(type){
     case 'henhouse': return pen('animal-chick');
     case 'cowshed': return pen('animal-cow');
     case 'bunny': return pen('animal-bunny');
+    case 'path': return pathTile(1);
     default: return deco(type);
   }
 }
@@ -102,7 +115,7 @@ if (cached){
 } else {
   const jobs = [];
   for (const type of Object.keys(BUILDINGS)) if (BUILDINGS[type].kind !== 'field') jobs.push(['b:' + type, () => modelFor(type)]);
-  jobs.push(['f:empty', () => field(null)]);
+  jobs.push(['f:empty', () => field(null)], ['b:path2', () => pathTile(2)], ['b:path3', () => pathTile(3)], ['b:wildtree', () => deco('wildtree')], ['b:wildtree2', () => deco('wildtree2')]);
   for (const c of Object.keys(CROPS)) for (const st of [0, 1]) jobs.push([`f:${c}:${st}`, () => field(c, st)]);
   for (const n of [1, 2, 3, 4]) jobs.push(['site:' + n, () => site(n)]);
   jobs.push(['forest:0', () => forest(7)], ['forest:1', () => forest(31)], ['forest:2', () => forest(77)]);
@@ -125,7 +138,7 @@ if (cached){
 clearInterval(tipTimer);
 bar(1);
 $('#h-coins img').src = ICON.coins;
-$('#i-orders').src = thumbs.orders; $('#i-barn').src = thumbs.barn; $('#i-build').src = buildIcon;
+$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-barn').src = thumbs.barn; $('#i-build').src = buildIcon;
 
 /* =====================================================================
    ÉTAT, SON
@@ -182,6 +195,8 @@ function cropStage(o){ if (!o.crop) return null; return now() >= o.ready ? 1 : 0
 function spriteKey(o){
   if (o.build) return 'site:' + Math.min(4, B(o).w);
   if (B(o).kind === 'field') return o.crop ? `f:${o.crop}:${cropStage(o)}` : 'f:empty';
+  if (o.type === 'path') return ['b:path', 'b:path2', 'b:path3'][(o.x * 7 + o.y * 13) % 3];
+  if (o.wild) return (o.x + o.y) % 3 ? 'b:wildtree' : 'b:wildtree2';
   return 'b:' + o.type;
 }
 function gainXp(n, from){
@@ -192,7 +207,7 @@ function gainXp(n, from){
 function harvest(o, at){
   if (!o.crop || now() < o.ready) return false;
   if (T.barnFull(S, 2)){ toastOnce('La grange est pleine ! Livre des commandes ou agrandis-la.'); return false; }
-  const k = o.crop; o.crop = null; T.give(S, k, 2); S.stats.harvest++;
+  const k = o.crop; o.crop = null; T.give(S, k, 2); S.stats.harvest++; T.track(S, 'harvest:' + k);
   fly(k, 2, at); gainXp(ITEMS[k].xp, null);
   if (Math.random() < T.dropChance){ const m = T.DROPS[Math.floor(Math.random() * (S.lvl >= 3 ? 5 : 3))]; T.give(S, m); setTimeout(() => fly(m, 1, at), 250); }
   sfx.collect(); tutoEv('harvest'); return true;
@@ -201,13 +216,13 @@ function plant(o, crop, at){
   if (o.crop || o.build) return false;
   const c = CROPS[crop];
   if (S.coins < c.cost){ toastOnce('Pas assez de pièces'); return false; }
-  S.coins -= c.cost; o.crop = crop; o.ready = now() + c.time * 1000; sfx.pop(); tutoEv('plant'); return true;
+  S.coins -= c.cost; o.crop = crop; o.ready = now() + c.time * 1000; T.track(S, 'plant:' + crop); sfx.pop(); tutoEv('plant'); return true;
 }
 function penTap(o, at){
   const b = B(o);
   if (o.ready && now() >= o.ready){ // récolte des produits
     if (T.barnFull(S, b.slots)){ toast('La grange est pleine !'); return; }
-    T.give(S, b.prod, b.slots); o.ready = 0; fly(b.prod, b.slots, at); gainXp(ITEMS[b.prod].xp * b.slots, at); sfx.collect(); tutoEv('collectPen'); return;
+    T.give(S, b.prod, b.slots); T.track(S, 'collect:' + b.prod, b.slots); o.ready = 0; fly(b.prod, b.slots, at); gainXp(ITEMS[b.prod].xp * b.slots, at); sfx.collect(); tutoEv('collectPen'); return;
   }
   if (o.ready){ toast(`${b.name} : encore ${fmtTime((o.ready - now()) / 1000)}`); return; }
   if ((S.inv[b.feed] || 0) < b.slots){ sfx.err(); toast(`Il faut ${b.slots} ${ITEMS[b.feed].name.toLowerCase()} pour nourrir les animaux`); return; }
@@ -217,7 +232,7 @@ function factoryCollect(o, at){
   const done = (o.q || []).filter(j => j.end <= now());
   if (!done.length) return false;
   const got = new Set();
-  for (const j of done){ if (T.barnFull(S)){ toastOnce('La grange est pleine !'); break; } T.give(S, j.item); got.add(j); gainXp(ITEMS[j.item].xp, null); fly(j.item, 1, at); S.stats.made++; }
+  for (const j of done){ if (T.barnFull(S)){ toastOnce('La grange est pleine !'); break; } T.give(S, j.item); got.add(j); gainXp(ITEMS[j.item].xp, null); fly(j.item, 1, at); S.stats.made++; T.track(S, 'make:' + j.item); }
   o.q = o.q.filter(j => !got.has(j));
   if (got.size){ sfx.collect(); tutoEv('collectFactory'); }
   return true;
@@ -237,7 +252,7 @@ function deliver(i, el){
   if (!T.has(S, od.items)){ sfx.err(); toast('Il te manque des produits'); return; }
   T.take(S, od.items); S.coins += od.coins; fly('coins', od.coins, el); gainXp(od.xp, el);
   if (od.mat){ T.give(S, od.mat); setTimeout(() => fly(od.mat, 1, el), 300); }
-  S.stats.orders++; S.orders[i] = {wait: now() + 12000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
+  S.stats.orders++; T.track(S, 'orders'); S.orders[i] = {wait: now() + 12000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
 }
 function refreshOrders(){
   for (let i = 0; i < 9; i++){ const o = S.orders[i]; if (o?.wait && now() >= o.wait) S.orders[i] = T.makeOrder(S, i); }
@@ -316,20 +331,44 @@ function draw(){
     if (S.chunks.includes(`${cx},${cy}`)) continue;
     items.push({d: (cx + cy + 1) * T.CHUNK, f: () => { const c = toScreen((cx + .5) * T.CHUNK, (cy + .5) * T.CHUNK); drawSprite('forest:' + Math.abs((cx * 7 + cy * 3) % 3), c.x, c.y); if (cx >= 0 && cy >= 0 && cx < n && cy < n && isNextToOpen(cx, cy)) sign(c.x, c.y, cx, cy); }});
   }
+  // allées : posées au sol, avant tout le reste
+  for (const o of S.objs) if (o.type === 'path' && ghost?.move !== o) drawObj(o);
   for (const o of S.objs){
     const b = B(o);
-    if (ghost?.move === o) continue;
+    if (ghost?.move === o || o.type === 'path') continue;
     items.push({d: o.x + o.y + (b.w + b.h) / 2, f: () => drawObj(o)});
   }
   for (const e of elves) items.push({d: e.x + e.y, f: () => drawElf(e)});
   if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : 'b:' + ghost.type, c.x, c.y, .85); }}); }
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
-  // indicateurs au-dessus des bâtiments
+  // noms des bâtiments, puis indicateurs au-dessus
+  for (const o of S.objs) plate(o);
   for (const o of S.objs) drawHint(o);
   // neige qui tombe
   ctx.fillStyle = 'rgba(255,255,255,.85)';
   for (const f of flakes){ ctx.beginPath(); ctx.arc(f.x * W, f.y * H, f.s * 1.6, 0, 7); ctx.fill(); }
+  // vignette : bords légèrement assombris, le regard va au centre
+  ctx.drawImage(vignette(), 0, 0, W, H);
+}
+let vig = null, vigW = 0, vigH = 0;
+function vignette(){ // calculée une fois en petite taille, puis étirée (dégradé doux : aucun flou visible)
+  if (vigW !== W || vigH !== H){ vigW = W; vigH = H; vig = document.createElement('canvas'); vig.width = 128; vig.height = Math.round(128 * H / W); const x = vig.getContext('2d'), w = vig.width, h = vig.height;
+    const g = x.createRadialGradient(w / 2, h * .45, Math.min(w, h) * .35, w / 2, h * .45, Math.hypot(w, h) * .62); g.addColorStop(0, 'rgba(20,30,70,0)'); g.addColorStop(1, 'rgba(20,30,70,.28)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }
+  return vig;
+}
+const PLATE = new Set(['factory', 'pen', 'orders', 'barn', 'hq', 'town']);
+function plate(o){
+  const b = B(o); if (!PLATE.has(b.kind) || cam.z < .7 || o.build) return;
+  const p = toScreen(o.x + b.w, o.y + b.h);
+  if (p.x < -100 || p.x > W + 100 || p.y < -40 || p.y > H + 40) return;
+  const label = b.name;
+  ctx.save(); ctx.translate(p.x, p.y - 12);
+  ctx.font = '400 13px "Lilita One", sans-serif'; const w = ctx.measureText(label).width + 18;
+  ctx.fillStyle = 'rgba(28,24,40,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -11, w, 22, 6); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 0, 1);
+  ctx.restore();
 }
 const isOpen = (cx, cy) => S.chunks.includes(`${cx},${cy}`);
 const isNextToOpen = (cx, cy) => isOpen(cx - 1, cy) || isOpen(cx + 1, cy) || isOpen(cx, cy - 1) || isOpen(cx, cy + 1);
@@ -357,12 +396,15 @@ function drawHint(o){
 
 /* ---------- lutins qui se promènent ---------- */
 const elfSprites = [0, 1, 2].map(v => SPR['elf:' + v]);
-const elves = Array.from({length: 4}, (_, i) => ({x: 18 + i, y: 21, tx: 18, ty: 21, v: i % 3, wait: Math.random() * 2}));
+const elves = Array.from({length: 9}, (_, i) => ({x: 13 + i * 2, y: 22, tx: 13 + i * 2, ty: 22, v: i % 3, wait: Math.random() * 3}));
 function moveElves(dt){
   for (const e of elves){
     const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy);
-    if (d < .05){ e.wait -= dt; if (e.wait <= 0){ const ch = S.chunks[Math.floor(Math.random() * S.chunks.length)].split(',').map(Number); e.tx = ch[0] * T.CHUNK + 1 + Math.random() * (T.CHUNK - 2); e.ty = ch[1] * T.CHUNK + 1 + Math.random() * (T.CHUNK - 2); e.wait = 2 + Math.random() * 4; } }
-    else { const st = Math.min(d, dt * 1.1); e.x += dx / d * st; e.y += dy / d * st; }
+    if (d < .05){ e.wait -= dt; if (e.wait <= 0){ // les lutins marchent le long des allées, d'une dalle voisine à l'autre
+        const here = S.objs.filter(o => o.type === 'path' && Math.abs(o.x + .5 - e.x) + Math.abs(o.y + .5 - e.y) <= 1.6 && !(Math.abs(o.x + .5 - e.x) < .1 && Math.abs(o.y + .5 - e.y) < .1));
+        const all = here.length ? here : S.objs.filter(o => o.type === 'path');
+        if (all.length){ const t = all[Math.floor(Math.random() * all.length)]; e.tx = t.x + .5; e.ty = t.y + .5; e.wait = Math.random() < .15 ? 1 + Math.random() * 3 : 0; } } }
+    else { const st = Math.min(d, dt * .9); e.x += dx / d * st; e.y += dy / d * st; }
     e.walk = d >= .05;
   }
 }
@@ -464,6 +506,8 @@ function hud(){
   $('#b-barn').classList.toggle('full', T.barnUsed(S) >= T.barnCap(S));
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
   const bd = $('#b-orders .badge'); bd.textContent = ready; bd.hidden = !ready;
+  $('#b-daily .badge').hidden = !T.dailyReady(S);
+  renderQuest();
 }
 
 /* ---------- graines (plateau qui apparaît quand on touche un champ vide) ---------- */
@@ -472,12 +516,12 @@ function openSeeds(o){
   const el = $('#seeds');
   el.innerHTML = Object.entries(CROPS).map(([k, c]) => { const lock = S.lvl < c.lvl;
     return `<button class="seed ${lock ? 'locked' : ''}" data-crop="${k}" ${lock ? 'disabled' : ''}><img src="${ICON[k]}" alt="" draggable="false"><b>${lock ? 'Niv. ' + c.lvl : fmtTime(c.time)}</b>${c.cost && !lock ? `<small>${icon('coins')}${c.cost}</small>` : ''}</button>`; }).join('');
-  el.hidden = false; seedTool = null;
+  el.hidden = false; seedTool = null; document.body.classList.add('seeding');
   el.querySelectorAll('.seed').forEach(b => b.addEventListener('pointerdown', ev => { selectSeed(b.dataset.crop); plant(o, b.dataset.crop, {x: ev.clientX, y: ev.clientY}); ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY}); drag = {mode: 'plant', moved: 0, obj: o, fromSeed: true}; }));
   $('#seedhint').hidden = false; tutoEv('seeds');
 }
 function selectSeed(k){ seedTool = k; document.querySelectorAll('.seed').forEach(b => b.classList.toggle('on', b.dataset.crop === k)); $('#seedhint').textContent = `Glisse sur les champs vides pour planter : ${ITEMS[k].name.toLowerCase()}`; }
-function closeSeeds(){ seedTool = null; $('#seeds').hidden = true; $('#seedhint').hidden = true; $('#seedhint').textContent = 'Choisis une graine, puis glisse sur les champs'; }
+function closeSeeds(){ document.body.classList.remove('seeding'); seedTool = null; $('#seeds').hidden = true; $('#seedhint').hidden = true; $('#seedhint').textContent = 'Choisis une graine, puis glisse sur les champs'; }
 
 /* ---------- panneaux ---------- */
 let panel = null, panelArg = null, panelHtml = '';
@@ -529,7 +573,7 @@ function renderPanel(){
   }
   else if (panel === 'info'){
     const o = panelArg, b = B(o);
-    h = hd(b.kind === 'house' ? `+${b.pop} habitants` : b.kind === 'town' ? `+${b.cap} places` : '', b.name) + `<p>${b.desc}</p><div class="acts"><button class="btn blue" data-a="move">Déplacer</button>${b.kind === 'deco' ? '<button class="btn red" data-a="sell">Vendre</button>' : ''}</div>`;
+    h = hd(b.kind === 'house' ? `+${b.pop} habitants` : b.kind === 'town' ? `+${b.cap} places` : '', o.wild ? 'Sapin enneigé' : b.name) + `<p>${o.wild ? 'Un sapin de la forêt. Coupe-le pour faire de la place.' : b.desc}</p><div class="acts">${o.wild ? '' : '<button class="btn blue" data-a="move">Déplacer</button>'}${b.kind === 'deco' || b.kind === 'path' ? `<button class="btn red" data-a="sell">${o.wild ? 'Couper' : 'Vendre'}</button>` : ''}</div>`;
   }
   if (h !== panelHtml){ panelHtml = h; $('#sheet').innerHTML = h; }
   for (const n of $('#sheet').querySelectorAll('[data-until]')) n.textContent = fmtTime((+n.dataset.until - now()) / 1000);
@@ -542,13 +586,13 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'trash'){ S.orders[+b.dataset.i] = {wait: now() + 20000}; sfx.tap(); return renderPanel(); }
   if (a === 'queue') return queueRecipe(panelArg, b.dataset.k);
   if (a === 'fcollect'){ factoryCollect(panelArg, b); return renderPanel(); }
-  if (a === 'barnup'){ const up = T.barnUpCost(S); if (!T.has(S, up)) return; T.take(S, up); S.barnLvl++; sfx.level(); toast(`Grange agrandie : ${T.barnCap(S)} places`); return renderPanel(); }
+  if (a === 'barnup'){ const up = T.barnUpCost(S); if (!T.has(S, up)) return; T.take(S, up); S.barnLvl++; T.track(S, 'barnup'); sfx.level(); toast(`Grange agrandie : ${T.barnCap(S)} places`); return renderPanel(); }
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
-  if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); S.coins -= c.coins; T.take(S, {axe: c.axe, saw: c.saw}); S.chunks.push(`${cx},${cy}`); gainXp(30 + n * 20, b); sfx.level(); toast('Nouveau terrain !'); closePanel(); save(); return; }
+  if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); S.coins -= c.coins; T.take(S, {axe: c.axe, saw: c.saw}); S.chunks.push(`${cx},${cy}`); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); toast('Nouveau terrain !'); closePanel(); save(); return; }
   if (a === 'speed'){ const o = panelArg, st = Math.max(1, Math.ceil((o.build - now()) / 60000)); if (S.stars < st){ sfx.err(); return toast("Pas assez d'étoiles"); } S.stars -= st; o.build = now(); closePanel(); tutoEv('speed'); return; }
   if (a === 'move'){ const o = panelArg; closePanel(); ghost = {type: o.type, x: o.x, y: o.y, move: o}; showGhostUI(); return; }
-  if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); S.coins += Math.round(BUILDINGS[o.type].cost / 2); closePanel(); return; }
+  if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (!o.wild) S.coins += Math.round(BUILDINGS[o.type].cost / 2); else gainXp(1, null); closePanel(); return; }
 });
 
 /* ---------- placement d'un nouveau bâtiment ---------- */
@@ -574,7 +618,9 @@ $('#pb-ok').addEventListener('click', () => {
     if (b.time){ o.build = now() + b.time * 1000; o.btotal = b.time * 1000; }
     if (b.kind === 'factory') o.q = [];
     if (b.kind === 'deco') gainXp(b.cost >= 60 ? 3 : b.cost >= 30 ? 2 : 1, null);
-    S.objs.push(o); sfx.build(); tutoEv('placed');
+    S.objs.push(o); T.track(S, 'build:' + o.type); sfx.build(); tutoEv('placed');
+    if (o.type === 'path' && S.coins >= T.buildCost(S, 'path')){ // les allées se posent à la suite, comme les routes de Township
+      const nx = ghost.x + (ghost.dir || 1), ny = ghost.y; ghost = {type: 'path', x: fits('path', nx, ny) ? nx : ghost.x, y: ny, dir: ghost.dir}; save(); updateGhostUI(); return; }
   }
   ghost = null; $('#placebar').hidden = true; document.body.classList.remove('placing'); save();
 });
@@ -583,6 +629,39 @@ $('#b-build').addEventListener('click', () => { sfx.tap(); openPanel('build', 'f
 $('#b-barn').addEventListener('click', () => { sfx.tap(); openPanel('barn'); });
 $('#b-orders').addEventListener('click', () => { sfx.tap(); const o = S.objs.find(o => o.type === 'orders'); centerOn(o.x + 1.5, o.y + 1.5); openPanel('orders'); });
 $('#veil').addEventListener('click', () => closePanel());
+
+/* ---------- tâche en cours (carte en bas à gauche) ---------- */
+let questHtml = '';
+function rewardChips(r){ return Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<span class="chip">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join(''); }
+function renderQuest(){
+  const {q, v, done} = T.questProgress(S);
+  const h = `<span class="tag">Tâche</span><b>${q.t}</b><span class="qbar"><i style="width:${v / q.n * 100}%"></i><em>${v} / ${q.n}</em></span><span class="costs">${done ? '<span class="claim">Récupérer</span>' : rewardChips(q.r)}</span>`;
+  if (h !== questHtml){ questHtml = h; $('#quest2').innerHTML = h; $('#quest2').classList.toggle('done', done); }
+}
+function giveReward(r, el){
+  if (r.coins){ S.coins += r.coins; fly('coins', r.coins, el); }
+  if (r.stars){ S.stars += r.stars; }
+  for (const k of Object.keys(r)) if (ITEMS[k]){ T.give(S, k, r[k]); fly(k, r[k], el); }
+  if (r.xp) gainXp(r.xp, el);
+  sfx.collect(); save();
+}
+$('#quest2').addEventListener('click', e => {
+  const el = $('#quest2'), r = T.questClaim(S);
+  if (r){ giveReward(r, el); toast('Tâche terminée !'); questHtml = ''; renderQuest(); }
+  else { sfx.tap(); const {q} = T.questProgress(S); toast(q.t); }
+});
+/* ---------- cadeau du jour (série de 7 jours) ---------- */
+function openDaily(){
+  const ready = T.dailyReady(S), next = ready ? (S.daily.last === dayKey(now() - 864e5) ? S.daily.streak : 0) % 7 : (S.daily.streak - 1) % 7;
+  const m = $('#modal'); m.className = 'glow';
+  m.querySelector('.mcard').innerHTML = `<small>Reviens chaque jour !</small><h2 class="stroke">Cadeau du jour</h2>
+    <div class="daily">${T.DAILY.map((r, i) => `<div class="dd ${i < next || (!ready && i === next) ? 'got' : ''} ${i === next && ready ? 'today' : ''} ${i === 6 ? 'big' : ''}"><small>Jour ${i + 1}</small><div class="costs">${rewardChips(r)}</div></div>`).join('')}</div>
+    ${ready ? '<button class="btn green" data-m="claim">Récupérer</button>' : '<p>Reviens demain pour la suite de ta série !</p><button class="btn blue" data-m="close">OK</button>'}`;
+  m.hidden = false;
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; if (b.dataset.m === 'claim'){ const r = T.dailyClaim(S); if (r) giveReward(r, b); } m.hidden = true; };
+}
+const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+$('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 
 /* ---------- montée de niveau ---------- */
 function levelUp(){
@@ -609,8 +688,8 @@ const STEPS = [
   {say: "Le blé est mûr. <b>Pose ton doigt sur un champ et glisse</b> sur les autres pour tout récolter d'un coup !", target: fieldsRect, wait: 'harvest', focus: [15, 17]},
   {say: "Super ! Maintenant <b>touche un champ vide</b> pour replanter.", target: fieldsRect, wait: 'seeds'},
   {say: "Choisis le <b>blé</b>. Ensuite, garde le doigt appuyé et <b>glisse sur les autres champs</b> pour tout planter !", target: () => document.querySelector('#seeds'), wait: 'planted'},
-  {say: "Les poules ont faim. <b>Touche le poulailler</b> pour leur donner du blé.", target: rectOf(o => o.type === 'henhouse'), wait: 'feed', focus: [25.5, 16.5]},
-  {say: "Les enfants passent commande au <b>Bureau du traîneau</b>. Touche-le !", target: rectOf(o => o.type === 'orders'), wait: 'open:orders', focus: [17.5, 26.5]},
+  {say: "Les poules ont faim. <b>Touche le poulailler</b> pour leur donner du blé.", target: rectOf(o => o.type === 'henhouse'), wait: 'feed', focus: [26.5, 16.5]},
+  {say: "Les enfants passent commande au <b>Bureau du traîneau</b>. Touche-le !", target: rectOf(o => o.type === 'orders'), wait: 'open:orders', focus: [16.5, 26.5]},
   {say: "Léa veut du blé. <b>Livre sa commande</b> pour gagner des pièces et de l'XP !", target: () => document.querySelector('[data-a="deliver"][data-i="0"]'), wait: 'deliver'},
   {say: "Bravo ! Avec tes pièces, tu peux construire. Ferme cette fenêtre, puis touche <b>Construire</b> en bas à droite.", target: () => document.querySelector('#b-build'), wait: 'open:build'},
   {say: "Ajoute un <b>champ</b> : plus de champs, plus de récoltes !", target: () => document.querySelector('[data-a="place"][data-k="field"]'), wait: 'placing'},
@@ -626,7 +705,11 @@ function tutoEv(n){ tuto.event(n); }
 let last = performance.now(), hudT = 0, saveT = 0, panelT = 0;
 function frame(t){
   requestAnimationFrame(frame);
-  const dt = Math.min(.05, (t - last) / 1000); last = t;
+  // horloge de l'image : jamais négative (le 1er horodatage peut précéder la fin du chargement)
+  const dt = Math.max(0, Math.min(.05, (t - last) / 1000)); last = Math.max(last, t);
+  try { step(t, dt); } catch(e){ if (!frame.err){ frame.err = 1; console.error('frame', e && e.stack); } }
+}
+function step(t, dt){
   refreshOrders(); finishBuilds(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
   draw();
@@ -640,4 +723,4 @@ addEventListener('pointerdown', () => sfx.tap(), {once: true});
 // entrée directe dans le village (pas de menu titre)
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()) setTimeout(() => tuto.start(), 700); }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON};
+window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud};

@@ -73,6 +73,11 @@ export const BUILDINGS = {
   tree:     {name: 'Sapin décoré', kind: 'deco', w: 1, h: 1, cost: 30, lvl: 1, cat: 'deco', desc: '+2 XP'},
   lantern:  {name: 'Lampadaire', kind: 'deco', w: 1, h: 1, cost: 20, lvl: 2, cat: 'deco', desc: '+1 XP'},
   snowman:  {name: 'Bonhomme de neige', kind: 'deco', w: 1, h: 1, cost: 60, lvl: 3, cat: 'deco', desc: '+3 XP'},
+  path:     {name: 'Allée pavée', kind: 'path', w: 1, h: 1, cost: 5, lvl: 1, cat: 'deco', desc: 'Relie tes bâtiments.'},
+  bench:    {name: 'Banc', kind: 'deco', w: 1, h: 1, cost: 40, lvl: 2, cat: 'deco', desc: '+2 XP'},
+  gifts:    {name: 'Pile de cadeaux', kind: 'deco', w: 1, h: 1, cost: 80, lvl: 3, cat: 'deco', desc: '+4 XP'},
+  candy:    {name: "Sucre d'orge géant", kind: 'deco', w: 1, h: 1, cost: 50, lvl: 4, cat: 'deco', desc: '+3 XP'},
+  reindeer: {name: 'Renne', kind: 'deco', w: 1, h: 1, cost: 150, lvl: 5, cat: 'deco', desc: '+6 XP'},
   // bâtiments uniques déjà présents au départ
   orders:   {name: 'Bureau du traîneau', kind: 'orders', w: 3, h: 3, unique: true, desc: 'Les enfants passent commande : livre-les pour gagner pièces et XP.'},
   barn:     {name: 'Grange', kind: 'barn', w: 3, h: 3, unique: true, desc: 'Stocke tes récoltes et tes produits.'},
@@ -106,19 +111,37 @@ export function newTown(){
     v: 4, coins: 250, stars: 15, xp: 0, lvl: 1, barnLvl: 1,
     inv: {wheat: 6, plank: 1, nail: 1},
     objs: [], chunks: [...START_CHUNKS], orders: [], tuto: 0, t: Date.now(), stats: {orders: 0, harvest: 0, made: 0},
+    cnt: {}, quest: {i: 0, base: {}}, daily: {last: '', streak: 0},
   };
-  const add = (type, x, y, extra = {}) => s.objs.push({id: nid(), type, x, y, ...extra});
+  // pose un objet seulement si la place est libre (le décor remplit les trous sans écraser les bâtiments)
+  const free = (type, x, y) => { const b = BUILDINGS[type]; return !s.objs.some(o => { const ob = BUILDINGS[o.type]; return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; }); };
+  const add = (type, x, y, extra = {}) => { if (free(type, x, y)) s.objs.push({id: nid(), type, x, y, ...extra}); };
   add('santa', 19, 18);
-  add('orders', 16, 25);
+  add('orders', 15, 25);
   add('barn', 25, 24);
   for (const [x, y] of [[13, 15], [15, 15], [13, 17], [15, 17], [13, 19], [15, 19]]) add('field', x, y, {crop: 'wheat', ready: Date.now() - 1000});
-  add('henhouse', 24, 15, {fed: 0, ready: 0});
-  add('cabin', 20, 23); add('cabin', 22, 23);
-  for (const [x, y] of [[18, 22], [24, 20], [12, 23], [27, 18]]) add('tree', x, y);
+  add('henhouse', 25, 15, {fed: 0, ready: 0});
+  add('cabin', 20, 24); add('cabin', 22, 24);
+  // allées : une grande rue et des embranchements vers chaque bâtiment
+  for (let x = 12; x <= 31; x++) add('path', x, 22);
+  for (let y = 14; y <= 21; y++) add('path', 23, y);
+  for (let y = 14; y <= 21; y++) add('path', 17, y);
+  for (let y = 23; y <= 29; y++) add('path', 19, y);
+  for (let x = 14; x <= 29; x++) add('path', x, 29);
+  for (let y = 23; y <= 28; y++) add('path', 24, y);
+  for (let x = 24; x <= 28; x++) add('path', x, 18);
+  // décor de départ : on doit avoir l'impression d'un village vivant dès la première seconde
+  for (const [t, x, y] of [['lantern', 18, 21], ['lantern', 22, 23], ['lantern', 16, 23], ['lantern', 25, 21], ['lantern', 18, 28], ['lantern', 25, 28], ['lantern', 29, 23],
+    ['bench', 21, 23], ['bench', 16, 21], ['gifts', 18, 17], ['gifts', 23, 23], ['reindeer', 18, 26], ['reindeer', 20, 28], ['snowman', 28, 20], ['snowman', 13, 23], ['candy', 22, 17], ['candy', 18, 23]]) add(t, x, y);
+  let r = 11; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 140; i++){ // sapins le long des bords et dans les recoins
+    const edge = rnd() < .7, x = edge ? (rnd() < .5 ? 11 + Math.floor(rnd() * 2) : 31 + Math.floor(rnd() * 2)) : 11 + Math.floor(rnd() * 22), y = edge && rnd() < .5 ? 11 + Math.floor(rnd() * 22) : (rnd() < .5 ? 11 + Math.floor(rnd() * 3) : 30 + Math.floor(rnd() * 3));
+    add('tree', edge && rnd() < .5 ? x : 11 + Math.floor(rnd() * 22), y, {wild: 1});
+  }
   s.orders = Array.from({length: 9}, (_, i) => i < 4 ? makeOrder(s, i) : {wait: Date.now() + (i - 3) * 8000});
   return s;
 }
-export function loadTown(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4) return s; } catch(e){} return null; }
+export function loadTown(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4){ s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; return s; } } catch(e){} return null; }
 export function saveTown(s){ s.t = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){} }
 export function clearTown(){ try { localStorage.removeItem(KEY); } catch(e){} }
 
@@ -128,9 +151,10 @@ export const barnUsed = s => Object.entries(s.inv).reduce((a, [k, n]) => a + (IT
 export const barnUpCost = s => ({plank: 1 + s.barnLvl, nail: 1 + s.barnLvl, paint: s.barnLvl});
 export const pop = s => s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'house' && !o.build ? BUILDINGS[o.type].pop : 0), 0);
 export const popCap = s => 40 + s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'town' && !o.build ? BUILDINGS[o.type].cap : 0), 0);
-export const countOf = (s, type) => s.objs.filter(o => o.type === type).length;
+export const countOf = (s, type) => s.objs.filter(o => o.type === type && !o.wild).length;
 export function buildCost(s, type){
   const b = BUILDINGS[type], n = countOf(s, type);
+  if (b.kind === 'deco' || b.kind === 'path') return b.cost;
   if (b.kind === 'field') return Math.round(b.cost + n * b.costStep + Math.max(0, n - 10) * 15);
   if (b.costStep) return b.cost + n * b.costStep;
   return Math.round(b.cost * Math.pow(1.6, n));
@@ -189,3 +213,60 @@ export function makeOrder(s, salt = 0){
 // une chance d'obtenir un matériau en récoltant (comme les outils de Township)
 export const dropChance = .06;
 export const DROPS = ['plank', 'nail', 'paint', 'axe', 'saw'];
+
+/* ===================== TÂCHES (fil d'objectifs, comme les quêtes de Township) ===================== */
+// k : compteur suivi (track) ; 'lvl' = niveau atteint. La récompense arrive à chaque tâche terminée.
+export const QUESTS = [
+  {t: 'Récolte 6 champs de blé', k: 'harvest:wheat', n: 6, r: {coins: 25, xp: 6}},
+  {t: 'Livre 2 commandes du traîneau', k: 'orders', n: 2, r: {coins: 40, xp: 8}},
+  {t: 'Ramasse les œufs du poulailler', k: 'collect:egg', n: 3, r: {coins: 30, xp: 6}},
+  {t: 'Construis 2 champs', k: 'build:field', n: 2, r: {coins: 40, xp: 8}},
+  {t: 'Atteins le niveau 2', k: 'lvl', n: 2, r: {coins: 50, stars: 2}},
+  {t: 'Construis la boulangerie', k: 'build:bakery', n: 1, r: {coins: 60, xp: 10}},
+  {t: 'Fabrique 3 pains', k: 'make:bread', n: 3, r: {coins: 50, xp: 10}},
+  {t: 'Plante 4 champs de carottes', k: 'plant:carrot', n: 4, r: {coins: 40, xp: 8}},
+  {t: "Construis l'épicerie du village", k: 'build:grocery', n: 1, r: {coins: 80, stars: 2}},
+  {t: 'Construis un chalet de lutin', k: 'build:cabin', n: 1, r: {coins: 60, xp: 10}},
+  {t: 'Livre 6 commandes', k: 'orders', n: 6, r: {coins: 120, xp: 20}},
+  {t: 'Atteins le niveau 3', k: 'lvl', n: 3, r: {coins: 100, stars: 3}},
+  {t: "Construis l'étable", k: 'build:cowshed', n: 1, r: {coins: 100, xp: 15}},
+  {t: 'Fabrique 4 biscuits', k: 'make:cookie', n: 4, r: {coins: 90, xp: 15}},
+  {t: 'Récolte 10 champs de maïs', k: 'harvest:corn', n: 10, r: {coins: 90, xp: 15}},
+  {t: 'Atteins le niveau 4', k: 'lvl', n: 4, r: {coins: 150, stars: 3}},
+  {t: 'Construis la laiterie', k: 'build:dairy', n: 1, r: {coins: 150, xp: 20}},
+  {t: 'Fabrique 3 crèmes', k: 'make:cream', n: 3, r: {coins: 120, xp: 20}},
+  {t: 'Agrandis la grange', k: 'barnup', n: 1, r: {coins: 150, stars: 2}},
+  {t: 'Dégage un nouveau terrain', k: 'expand', n: 1, r: {coins: 200, stars: 5}},
+];
+const GEN = [['orders', 'Livre %n commandes', 5], ['harvest', 'Récolte %n champs', 20], ['make', 'Fabrique %n produits en usine', 8], ['collect', 'Ramasse %n produits des animaux', 12]];
+export function questAt(s, i){
+  if (i < QUESTS.length) return QUESTS[i];
+  const j = i - QUESTS.length, g = GEN[j % GEN.length], n = g[2] + Math.floor(j / GEN.length) * Math.ceil(g[2] / 2);
+  return {t: g[1].replace('%n', n), k: g[0], n, r: {coins: 60 + s.lvl * 25, xp: 10 + s.lvl * 4, stars: j % 3 === 2 ? 2 : 0}};
+}
+export function track(s, key, n = 1){
+  s.cnt[key] = (s.cnt[key] || 0) + n;
+  const base = key.split(':')[0]; if (base !== key) s.cnt[base] = (s.cnt[base] || 0) + n;
+}
+export function questProgress(s){
+  const q = questAt(s, s.quest.i);
+  const v = q.k === 'lvl' ? s.lvl : (s.cnt[q.k] || 0) - (s.quest.base[q.k] || 0);
+  return {q, v: Math.min(q.n, v), done: v >= q.n};
+}
+export function questClaim(s){
+  const {q, done} = questProgress(s); if (!done) return null;
+  s.quest.i++; const nq = questAt(s, s.quest.i); s.quest.base = {[nq.k]: s.cnt[nq.k] || 0};
+  return q.r;
+}
+
+/* ===================== CADEAU DU JOUR (série de 7 jours) ===================== */
+export const DAILY = [{coins: 50}, {coins: 80, plank: 1}, {stars: 3}, {coins: 150, nail: 1}, {coins: 200, paint: 1}, {stars: 5, axe: 1}, {stars: 10, coins: 300, saw: 1}];
+const day = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+export const dailyReady = s => s.daily.last !== day();
+export function dailyClaim(s){
+  if (!dailyReady(s)) return null;
+  const yest = day(Date.now() - 864e5);
+  s.daily.streak = s.daily.last === yest ? s.daily.streak + 1 : 1;
+  s.daily.last = day();
+  return DAILY[(s.daily.streak - 1) % 7];
+}
