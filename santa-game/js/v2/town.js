@@ -122,6 +122,14 @@ export function newTown(){
   for (const [x, y] of [[13, 15], [15, 15], [13, 17], [15, 17], [13, 19], [15, 19]]) add('field', x, y, {crop: 'wheat', ready: Date.now() - 1000});
   add('henhouse', 25, 15, {fed: 0, ready: 0});
   add('cabin', 20, 24); add('cabin', 22, 24);
+  decorate(s);
+  s.orders = Array.from({length: 9}, (_, i) => i < 4 ? makeOrder(s, i) : {wait: Date.now() + (i - 3) * 8000});
+  return s;
+}
+// allées et décor du village de départ (aussi ajoutés aux anciennes parties qui n'en ont pas)
+export function decorate(s){
+  const free = (type, x, y) => { const b = BUILDINGS[type]; return !s.objs.some(o => { const ob = BUILDINGS[o.type]; return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; }); };
+  const add = (type, x, y, extra = {}) => { if (free(type, x, y)) s.objs.push({id: nid(), type, x, y, ...extra}); };
   // allées : une grande rue et des embranchements vers chaque bâtiment
   for (let x = 12; x <= 31; x++) add('path', x, 22);
   for (let y = 14; y <= 21; y++) add('path', 23, y);
@@ -138,10 +146,8 @@ export function newTown(){
     const edge = rnd() < .7, x = edge ? (rnd() < .5 ? 11 + Math.floor(rnd() * 2) : 31 + Math.floor(rnd() * 2)) : 11 + Math.floor(rnd() * 22), y = edge && rnd() < .5 ? 11 + Math.floor(rnd() * 22) : (rnd() < .5 ? 11 + Math.floor(rnd() * 3) : 30 + Math.floor(rnd() * 3));
     add('tree', edge && rnd() < .5 ? x : 11 + Math.floor(rnd() * 22), y, {wild: 1});
   }
-  s.orders = Array.from({length: 9}, (_, i) => i < 4 ? makeOrder(s, i) : {wait: Date.now() + (i - 3) * 8000});
-  return s;
 }
-export function loadTown(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4){ s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; return s; } } catch(e){} return null; }
+export function loadTown(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4){ s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; if (!s.objs.some(o => o.type === 'path')) decorate(s); return s; } } catch(e){} return null; }
 export function saveTown(s){ s.t = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){} }
 export function clearTown(){ try { localStorage.removeItem(KEY); } catch(e){} }
 
