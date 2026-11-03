@@ -3,6 +3,7 @@
 // (tools/export-pack.mjs → assets/pack/). Le téléphone ne fait que télécharger des images et les poser sur un
 // canvas 2D : chargement rapide, fluide, net, et aucune 3D à calculer sur l'appareil.
 import {createTuto} from '../tuto.js';
+import {openMinigame, GAMES} from '../minigames.js';
 import * as T from './town.js';
 
 const {ITEMS, CROPS, BUILDINGS} = T;
@@ -55,7 +56,7 @@ if (!packed){
 clearInterval(tipTimer);
 bar(1);
 $('#h-coins img').src = ICON.coins;
-$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-barn').src = thumbs.barn; $('#i-build').src = buildIcon;
+$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-games').src = ICON.mg_sleigh; $('#i-barn').src = thumbs.barn; $('#i-build').src = buildIcon;
 const elfPortrait = portrait;
 
 /* =====================================================================
@@ -120,7 +121,7 @@ function spriteKey(o){
 function gainXp(n, from){
   const up = T.addXp(S, n);
   if (from) fly('xp', n, from);
-  if (up) setTimeout(levelUp, 500);
+  if (up){ for (let L = S.lvl - up + 1; L <= S.lvl; L++) lvQueue.push(L); if (!lvShowing) setTimeout(nextLevelUp, 500); }
 }
 function harvest(o, at){
   if (!o.crop || now() < o.ready) return false;
@@ -153,7 +154,7 @@ function factoryCollect(o, at){
   for (const j of done){ if (T.barnFull(S)){ toastOnce('La grange est pleine !'); break; } T.give(S, j.item); got.add(j); gainXp(ITEMS[j.item].xp, null); fly(j.item, 1, at); S.stats.made++; T.track(S, 'make:' + j.item); }
   o.q = o.q.filter(j => !got.has(j));
   if (got.size){ sfx.collect(); tutoEv('collectFactory'); }
-  return true;
+  return got.size > 0;
 }
 function queueRecipe(o, item){
   const r = B(o).recipes[item];
@@ -177,7 +178,7 @@ function refreshOrders(){
   for (let i = 0; i < 9; i++){ const o = S.orders[i]; if (o?.wait && now() >= o.wait) S.orders[i] = T.makeOrder(S, i); }
 }
 function finishBuilds(){
-  for (const o of S.objs) if (o.build && now() >= o.build){ delete o.build; fxPoof(o); gainXp(Math.max(5, Math.round(T.buildCost(S, o.type) / 12)), null); sfx.level(); toast(`${B(o).name} construit !`); tutoEv('built'); }
+  for (const o of S.objs) if (o.build && now() >= o.build){ delete o.build; fxPoof(o); if (panel === 'site' && panelArg === o) closePanel(); gainXp(Math.max(5, Math.round(T.buildCost(S, o.type) / 12)), null); sfx.level(); toast(`${B(o).name} construit !`); tutoEv('built'); }
 }
 
 /* =====================================================================
@@ -478,6 +479,7 @@ function hud(){
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
   const bd = $('#b-orders .badge'); bd.textContent = ready; bd.hidden = !ready;
   $('#b-daily .badge').hidden = !T.dailyReady(S);
+  { const g = tickets(), bg = $('#b-games .badge'); bg.textContent = g.tickets; bg.hidden = !g.tickets; }
   renderQuest();
 }
 
@@ -526,6 +528,12 @@ function renderPanel(){
         return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, r.in) ? 'ok' : ''}" data-a="queue" data-k="${k}"><img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
         ${lock ? `<span class="why">Niveau ${r.lvl}</span>` : `<span class="lines">${need(r.in)}</span><span class="meta">${fmtTime(r.time)} · ${icon('coins')}${ITEMS[k].v}</span>`}</button>`; }).join('')}</div>`;
   }
+  else if (panel === 'games'){
+    const g = tickets();
+    h = hd('', 'Mini-jeux') + `<div class="tix"><span>${'<i class="tk"></i>'.repeat(g.tickets)}${'<i class="tk off"></i>'.repeat(TMAX - g.tickets)}</span><small>${g.tickets < TMAX ? `+1 ticket dans <b data-until="${g.t + TEVERY}"></b>` : 'Tickets au maximum'}</small></div>
+      <div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
+      <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
+  }
   else if (panel === 'barn'){
     const up = T.barnUpCost(S), list = Object.entries(S.inv).filter(([k, n]) => n > 0);
     h = hd(`Grange · ${T.barnUsed(S)} / ${T.barnCap(S)}`, 'Grange') + `<h3>Récoltes et produits</h3><div class="stock">${list.filter(([k]) => !ITEMS[k].mat).map(([k, n]) => `<div class="st"><img src="${ICON[k]}" alt=""><b>${n}</b><small>${ITEMS[k].name}</small></div>`).join('') || '<p class="meta">Vide</p>'}</div>
@@ -561,6 +569,7 @@ $('#sheet').addEventListener('click', e => {
   const b = e.target.closest('[data-a]'); if (!b) return;
   const a = b.dataset.a;
   if (a === 'close') return closePanel();
+  if (a === 'play') return playGame(b.dataset.k);
   if (a === 'deliver') return deliver(+b.dataset.i, b);
   if (a === 'osel'){ selOrder = +b.dataset.i; sfx.tap(); return renderPanel(); }
   if (a === 'trash'){ S.orders[+b.dataset.i] = {wait: now() + 20000}; sfx.tap(); return renderPanel(); }
@@ -570,9 +579,9 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
   if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); S.coins -= c.coins; T.take(S, {axe: c.axe, saw: c.saw}); S.chunks.push(`${cx},${cy}`); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); toast('Nouveau terrain !'); closePanel(); save(); return; }
-  if (a === 'speed'){ const o = panelArg, st = Math.max(1, Math.ceil((o.build - now()) / 60000)); if (S.stars < st){ sfx.err(); return toast("Pas assez d'étoiles"); } S.stars -= st; o.build = now(); closePanel(); tutoEv('speed'); return; }
+  if (a === 'speed'){ if (!panelArg.build) return closePanel(); const o = panelArg, st = Math.max(1, Math.ceil((o.build - now()) / 60000)); if (S.stars < st){ sfx.err(); return toast("Pas assez d'étoiles"); } S.stars -= st; o.build = now(); closePanel(); tutoEv('speed'); return; }
   if (a === 'move'){ const o = panelArg; closePanel(); ghost = {type: o.type, x: o.x, y: o.y, move: o}; showGhostUI(); return; }
-  if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (!o.wild) S.coins += Math.round(BUILDINGS[o.type].cost / 2); else gainXp(1, null); closePanel(); return; }
+  if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (o.wild) gainXp(1, null); else if (!o.free) S.coins += Math.round(BUILDINGS[o.type].cost / 2); closePanel(); return; }
 });
 
 /* ---------- placement d'un nouveau bâtiment ---------- */
@@ -632,7 +641,7 @@ $('#quest2').addEventListener('click', e => {
 });
 /* ---------- cadeau du jour (série de 7 jours) ---------- */
 function openDaily(){
-  const ready = T.dailyReady(S), next = ready ? (S.daily.last === dayKey(now() - 864e5) ? S.daily.streak : 0) % 7 : (S.daily.streak - 1) % 7;
+  const ready = T.dailyReady(S), next = ready ? (S.daily.last === T.yesterday() ? S.daily.streak : 0) % 7 : (S.daily.streak - 1) % 7;
   const m = $('#modal'); m.className = 'glow';
   m.querySelector('.mcard').innerHTML = `<small>Reviens chaque jour !</small><h2 class="stroke">Cadeau du jour</h2>
     <div class="daily">${T.DAILY.map((r, i) => `<div class="dd ${i < next || (!ready && i === next) ? 'got' : ''} ${i === next && ready ? 'today' : ''} ${i === 6 ? 'big' : ''}"><small>Jour ${i + 1}</small><div class="costs">${rewardChips(r)}</div></div>`).join('')}</div>
@@ -642,10 +651,44 @@ function openDaily(){
 }
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
+$('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
+
+/* ---------- mini-jeux (Tournée de Noël, Bataille de boules de neige) ---------- */
+const TMAX = 3, TEVERY = 15 * 60e3;   // 3 tickets, 1 de plus toutes les 15 minutes
+function tickets(){
+  S.games ||= {tickets: TMAX, t: now(), best: {}};
+  const g = S.games;
+  if (g.tickets >= TMAX){ g.t = now(); return g; }
+  const n = Math.floor((now() - g.t) / TEVERY);
+  if (n > 0){ g.tickets = Math.min(TMAX, g.tickets + n); g.t += n * TEVERY; }
+  return g;
+}
+function gameReward(k, score){
+  const m = 1 + S.lvl * .15;
+  const r = k === 'sleigh' ? {coins: Math.round(score * 2.5 * m), xp: Math.round((6 + score / 5) * m), stars: score >= 160 ? 3 : score >= 80 ? 1 : 0}
+                            : {coins: Math.round(score * 6 * m), xp: Math.round((6 + score) * m), stars: score >= 45 ? 2 : score >= 25 ? 1 : 0};
+  if (score >= (k === 'sleigh' ? 60 : 20)) r[T.DROPS[Math.floor(Math.random() * T.DROPS.length)]] = 1;
+  return r;
+}
+function playGame(k){
+  const g = tickets();
+  if (g.tickets < 1){ sfx.err(); return toast(`Plus de tickets : le prochain dans ${fmtTime((g.t + TEVERY - now()) / 1000)}`); }
+  if (g.tickets === TMAX) g.t = now();
+  g.tickets--; save(); closePanel(); document.body.classList.add('in-game');
+  openMinigame(k, {
+    icons: {sleigh: ICON.mg_sleigh, gift: ICON.mg_gift, elf: ICON.mg_elf, deer: ICON.mg_deer, gold: ICON.mg_gold},
+    sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: kk => S.games.best[kk] || 0, setBest: (kk, v) => { S.games.best[kk] = v; save(); },
+    chipsHtml: rewardChips, reward: gameReward,
+    grant: (rw, el) => { giveReward(rw, el); T.track(S, 'games'); },
+    onScore: () => {}, onClose: () => { document.body.classList.remove('in-game'); },
+  });
+}
 
 /* ---------- montée de niveau ---------- */
-function levelUp(){
-  const L = S.lvl, news = T.unlocksAt(L);
+let lvQueue = [], lvShowing = false;
+function nextLevelUp(){ const L = lvQueue.shift(); if (L) levelUp(L); }
+function levelUp(L){
+  lvShowing = true; const news = T.unlocksAt(L);
   sfx.level();
   const m = $('#modal'); m.className = 'cere';
   m.querySelector('.mcard').innerHTML = `<div class="rays"></div><small>Bravo !</small><h2>Niveau ${L} !</h2><div class="glow"><img src="${elfPortrait}" alt=""></div>
@@ -653,7 +696,7 @@ function levelUp(){
     <div class="costs"><span class="chip">${icon('coins')}+${20 + L * 10}</span><span class="chip"><i class="i star"></i>+1</span></div>
     <button class="btn green" data-m="close">Continuer</button>`;
   m.hidden = false; S.coins += 20 + L * 10; S.stars += 1;
-  m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; };
+  m.onclick = e => { if (e.target.closest('[data-m]')){ m.hidden = true; lvShowing = false; if (lvQueue.length) setTimeout(nextLevelUp, 250); } };
   save();
 }
 
@@ -702,6 +745,6 @@ requestAnimationFrame(frame);
 addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pointerdown', () => sfx.tap(), {once: true});
 // entrée directe dans le village (pas de menu titre)
-setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()) setTimeout(() => tuto.start(), 700); }, 400);
+setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {3: 2, 6: 5, 8: 7, 9: 7}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp};

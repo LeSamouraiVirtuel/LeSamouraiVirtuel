@@ -111,7 +111,7 @@ export function newTown(){
     v: 4, coins: 250, stars: 15, xp: 0, lvl: 1, barnLvl: 1,
     inv: {wheat: 6, plank: 1, nail: 1},
     objs: [], chunks: [...START_CHUNKS], orders: [], tuto: 0, t: Date.now(), stats: {orders: 0, harvest: 0, made: 0},
-    cnt: {}, quest: {i: 0, base: {}}, daily: {last: '', streak: 0},
+    cnt: {}, quest: {i: 0, base: {}}, daily: {last: '', streak: 0}, decorated: 1,
   };
   // pose un objet seulement si la place est libre (le décor remplit les trous sans écraser les bâtiments)
   const free = (type, x, y) => { const b = BUILDINGS[type]; return !s.objs.some(o => { const ob = BUILDINGS[o.type]; return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; }); };
@@ -129,7 +129,7 @@ export function newTown(){
 // allées et décor du village de départ (aussi ajoutés aux anciennes parties qui n'en ont pas)
 export function decorate(s){
   const free = (type, x, y) => { const b = BUILDINGS[type]; return !s.objs.some(o => { const ob = BUILDINGS[o.type]; return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; }); };
-  const add = (type, x, y, extra = {}) => { if (free(type, x, y)) s.objs.push({id: nid(), type, x, y, ...extra}); };
+  const add = (type, x, y, extra = {}) => { if (free(type, x, y)) s.objs.push({id: nid(), type, x, y, free: 1, ...extra}); };
   // allées : une grande rue et des embranchements vers chaque bâtiment
   for (let x = 12; x <= 31; x++) add('path', x, 22);
   for (let y = 14; y <= 21; y++) add('path', 23, y);
@@ -147,7 +147,11 @@ export function decorate(s){
     add('tree', edge && rnd() < .5 ? x : 11 + Math.floor(rnd() * 22), y, {wild: 1});
   }
 }
-export function loadTown(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4){ s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; if (!s.objs.some(o => o.type === 'path')) decorate(s); return s; } } catch(e){} return null; }
+export function loadTown(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4){ s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; if (!s.decorated){ if (!s.objs.some(o => o.type === 'path')) decorate(s); s.decorated = 1; }
+      s.stars = +s.stars || 0; s.coins = +s.coins || 0;
+      // anciennes parties : compteurs de construction reconstitués depuis le village
+      for (const t of Object.keys(BUILDINGS)) if (!s.cnt['build:' + t]){ const n = s.objs.filter(o => o.type === t && !o.free && !o.wild).length; if (n) s.cnt['build:' + t] = n; }
+      return s; } } catch(e){} return null; }
 export function saveTown(s){ s.t = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){} }
 export function clearTown(){ try { localStorage.removeItem(KEY); } catch(e){} }
 
@@ -172,14 +176,16 @@ export const maxOf = (s, type) => {
   if (b.kind === 'pen') return 1 + Math.floor(s.lvl / 8);
   if (b.kind === 'factory') return 1;
   if (b.kind === 'town') return 1;
+  if (b.kind === 'path') return Infinity;
   return 99;
 };
 export function buildBlock(s, type){
   const b = BUILDINGS[type];
   if (s.lvl < b.lvl) return `Niveau ${b.lvl}`;
   if (countOf(s, type) >= maxOf(s, type)) return b.kind === 'field' ? 'Plus de champs à ce niveau' : 'Déjà construit';
-  if (b.kind === 'house' && pop(s) + b.pop > popCap(s)) return 'Il faut plus de place : construis un bâtiment du village';
-  if (b.pop && pop(s) < b.pop) return `Il faut ${b.pop} habitants`;
+  const popAll = s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'house' ? BUILDINGS[o.type].pop : 0), 0);
+  if (b.kind === 'house' && popAll + b.pop > popCap(s)) return 'Il faut plus de place : construis un bâtiment du village';
+  if (b.kind === 'factory' && b.pop && pop(s) < b.pop) return `Il faut ${b.pop} habitants`;
   if (s.coins < buildCost(s, type)) return 'Pas assez de pièces';
   return null;
 }
@@ -198,11 +204,14 @@ export function addXp(s, n){
 const KIDS = ['Léa', 'Hugo', 'Inès', 'Noah', 'Jade', 'Lucas', 'Chloé', 'Adam', 'Manon', 'Gabriel', 'Lina', 'Louis', 'Emma', 'Nathan', 'Zoé', 'Sacha', 'Alice', 'Rayan', 'Mia', 'Tom', 'Lutin Bruno', 'Lutine Paillette', 'Mère Noël'];
 export function available(s){
   // ce que le joueur sait produire à son niveau
+  // (seulement ce qui est vraiment fabricable : bâtiment terminé ET ingrédients eux-mêmes disponibles)
   const out = Object.keys(CROPS).filter(k => CROPS[k].lvl <= s.lvl);
-  for (const o of s.objs){
-    const b = BUILDINGS[o.type];
-    if (b.kind === 'pen' && !out.includes(b.prod)) out.push(b.prod);
-    if (b.recipes) for (const [k, r] of Object.entries(b.recipes)) if (r.lvl <= s.lvl && !out.includes(k)) out.push(k);
+  const built = s.objs.filter(o => !o.build).map(o => BUILDINGS[o.type]);
+  for (const b of built) if (b.kind === 'pen' && !out.includes(b.prod)) out.push(b.prod);
+  for (let changed = true; changed;){
+    changed = false;
+    for (const b of built) for (const [k, r] of Object.entries(b.recipes || {}))
+      if (r.lvl <= s.lvl && !out.includes(k) && Object.keys(r.in).every(i => out.includes(i))){ out.push(k); changed = true; }
   }
   return out;
 }
@@ -254,9 +263,21 @@ export function track(s, key, n = 1){
   s.cnt[key] = (s.cnt[key] || 0) + n;
   const base = key.split(':')[0]; if (base !== key) s.cnt[base] = (s.cnt[base] || 0) + n;
 }
+// Les tâches fixes comptent depuis le début de la partie (une boulangerie construite AVANT la tâche la valide),
+// et regardent aussi l'état réel du village. Seules les tâches générées à l'infini comptent depuis leur apparition.
+function questValue(s, q, i){
+  if (q.k === 'lvl') return s.lvl;
+  const total = s.cnt[q.k] || 0;
+  if (i >= QUESTS.length) return total - (s.quest.base[q.k] || 0);
+  const [kind, what] = q.k.split(':');
+  if (kind === 'build') return Math.max(total, BUILDINGS[what]?.unique || ['field', 'cabin', 'bighouse'].includes(what) ? total : countOf(s, what));
+  if (kind === 'barnup') return Math.max(total, s.barnLvl - 1);
+  if (kind === 'expand') return Math.max(total, s.chunks.length - START_CHUNKS.length);
+  return total;
+}
 export function questProgress(s){
   const q = questAt(s, s.quest.i);
-  const v = q.k === 'lvl' ? s.lvl : (s.cnt[q.k] || 0) - (s.quest.base[q.k] || 0);
+  const v = questValue(s, q, s.quest.i);
   return {q, v: Math.min(q.n, v), done: v >= q.n};
 }
 export function questClaim(s){
@@ -268,10 +289,11 @@ export function questClaim(s){
 /* ===================== CADEAU DU JOUR (série de 7 jours) ===================== */
 export const DAILY = [{coins: 50}, {coins: 80, plank: 1}, {stars: 3}, {coins: 150, nail: 1}, {coins: 200, paint: 1}, {stars: 5, axe: 1}, {stars: 10, coins: 300, saw: 1}];
 const day = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+export const yesterday = () => { const y = new Date(); y.setDate(y.getDate() - 1); return day(y.getTime()); };
 export const dailyReady = s => s.daily.last !== day();
 export function dailyClaim(s){
   if (!dailyReady(s)) return null;
-  const yest = day(Date.now() - 864e5);
+  const y = new Date(); y.setDate(y.getDate() - 1); const yest = day(y.getTime());
   s.daily.streak = s.daily.last === yest ? s.daily.streak + 1 : 1;
   s.daily.last = day();
   return DAILY[(s.daily.streak - 1) % 7];

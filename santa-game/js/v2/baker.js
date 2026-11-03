@@ -77,6 +77,11 @@ function bust(root, size, density){
   x.drawImage(full, full.width * .22, full.height * .14, full.width * .56, full.width * .56, 0, 0, c.width, c.height);
   free(full); return c;
 }
+function goldSnowman(){
+  const g = prop('snowman_A', {s: .5}); const gold = new THREE.MeshStandardMaterial({color: '#ffcf3a', metalness: .55, roughness: .3, emissive: '#5a3a00', emissiveIntensity: .3});
+  g.traverse(o => { if (o.isMesh) o.material = gold; }); return g;
+}
+function sleighIcon(){ const g = new THREE.Group(); g.add(prop('sled-long', {s: 1.2})); g.add(prop('present_A_red', {s: .45, y: .3, z: -.2})); g.add(prop('present_B_green', {s: .35, y: .3, z: .3, ry: .5})); g.add(prop('reindeer', {z: 1.4, s: .9})); g.rotation.y = .5; return g; }
 /** Illustration de l'écran de chargement : la maison du Père Noël, son traîneau, ses rennes et ses lutins. */
 function heroScene(){
   const g = new THREE.Group();
@@ -113,6 +118,10 @@ export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   const iconURL = (obj, size = 56) => url(bakeIcon(obj, size, DPR));
   for (const [k, it] of Object.entries(ITEMS)) ICON[k] = iconURL(pickIcon(k, it.ic));
   ICON.coins = iconURL(coinsModel());
+  // mini-jeux
+  ICON.mg_sleigh = url(bakeIcon(sleighIcon(), 120, DPR)); ICON.mg_gift = iconURL(prop('present_A_red')); ICON.mg_deer = iconURL(prop('reindeer'));
+  ICON.mg_gold = iconURL(goldSnowman()); ICON.mg_elf = (() => { const c = character('elf', elfLook(0)); c.mixer.update(.5); return url(bakeIcon(c.root, 80, DPR)); })();
+  ICON.mg_snow = iconURL(prop('snowball_pile'));
     const portrait = (() => { const c = character('santa', santaLook(9), {hat: true}); c.mixer.update(.6); return bust(c.root, 128, DPR); })();
   for (const type of Object.keys(BUILDINGS)) thumbs[type] = url(bakeIcon(type === 'field' ? field('wheat', 1) : modelFor(type), 96, DPR));
   const buildIcon = url(bakeIcon(prop('Wood_Planks_Stack_Medium'), 96, DPR));

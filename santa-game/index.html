@@ -722,6 +722,19 @@ i.ck::after{content:"";position:absolute;left:7px;top:2px;width:6px;height:12px;
 .ot i.ck::after{left:6px;top:2px;width:5px;height:10px}
 .ot.wait{border-style:dashed;background:rgba(255,255,255,.4)}
 .ot.wait b{font-family:var(--display);font-size:14px;color:var(--brown)}
+/* mini-jeux */
+body.in-game #hud2,body.in-game .dock,body.in-game #sideR,body.in-game #quest2{visibility:hidden}
+.tix{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:10px}
+.tix span{display:flex;gap:6px}
+.tk{width:34px;height:24px;border-radius:6px;background:linear-gradient(180deg,#ffe766,#ffbf1f);border:2px solid var(--gold-o);box-shadow:0 2px 0 var(--gold-o);position:relative}
+.tk::after{content:"★";position:absolute;inset:0;display:grid;place-items:center;font-size:13px;color:#a86a00}
+.tk.off{filter:grayscale(1) opacity(.45)}
+.tix small{font-family:var(--display);font-size:13px;color:var(--brown)}
+.games{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gcard{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px 10px;border-radius:14px;background:linear-gradient(180deg,#fdf3da,var(--card));border:2px solid var(--card-line);text-align:center}
+.gcard img{width:100%;max-width:120px;aspect-ratio:1;object-fit:contain}
+.gcard b{font-family:var(--display);font-weight:400;font-size:15px;line-height:1.05;color:var(--ink-2);text-transform:uppercase}
+.gcard .btn{width:100%;margin-top:4px}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
@@ -731,7 +744,7 @@ i.ck::after{content:"";position:absolute;left:7px;top:2px;width:6px;height:12px;
 </div>
 <nav id="dockL" class="l dock"><button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Commandes</b><span class="badge stroke" hidden>0</span></button></nav>
 <nav id="dockR" class="dock"><button id="b-barn"><img class="ico" id="i-barn" alt=""><small>0/50</small><b>Grange</b></button><button id="b-build" class="big"><img class="ico" id="i-build" alt=""><b>Construire</b></button></nav>
-<nav id="sideR"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button></nav>
+<nav id="sideR"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button></nav>
 <button id="quest2"></button>
 <div id="seeds" hidden></div>
 <div id="seedhint" hidden>Choisis une graine, puis glisse sur les champs</div>
