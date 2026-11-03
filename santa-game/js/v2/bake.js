@@ -11,7 +11,7 @@ export const PPU = TW / Math.SQRT2;            // px CSS par unité 3D horizonta
 const ELEV = Math.PI / 6, YAW = Math.PI / 4;  // 30° de plongée, 45° de rotation
 
 let R = null, scene, cam, sun, ground, hemi;
-const MAXTEX = 4096;
+const MAXTEX = 3072;
 const DIR = new THREE.Vector3(Math.cos(ELEV) * Math.sin(YAW), Math.sin(ELEV), Math.cos(ELEV) * Math.cos(YAW));
 
 function setup(density){
@@ -26,7 +26,7 @@ function setup(density){
   hemi = new THREE.HemisphereLight('#dfeaff', '#7d8fb8', .9); scene.add(hemi);
   // soleil chaud venant de la gauche, un peu derrière : ombres vers le bas à droite, comme Township
   sun = new THREE.DirectionalLight('#fff1dc', 2.6);
-  sun.position.set(-6, 10, 2); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+  sun.position.set(-6, 10, 2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -.0005; sun.shadow.normalBias = .02; sun.shadow.radius = 5;
   scene.add(sun, sun.target);
   // sol invisible qui ne garde que l'ombre portée
@@ -87,6 +87,7 @@ export function bakeIcon(obj, size = 64, density = 2){
   // (rendu à 1,5× puis réduit : icônes très nettes)
   const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
   x.drawImage(s.canvas, (size - s.w * k) / 2 * density, (size - s.h * k) / 2 * density, s.w * k * density, s.h * k * density);
+  free(s.canvas);
   return c;
 }
 
@@ -96,14 +97,17 @@ function downscale(src, w, h){
   while (cw / 2 >= w * 1.01){
     const t = document.createElement('canvas'); t.width = Math.round(cw / 2); t.height = Math.round(ch / 2);
     const x = t.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(cur, 0, 0, t.width, t.height);
-    cur = t; cw = t.width; ch = t.height;
+    if (cur !== src) free(cur); cur = t; cw = t.width; ch = t.height;
   }
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
   if ('filter' in x) x.filter = 'saturate(1.12) contrast(1.05)';
   x.drawImage(cur, 0, 0, w, h);
+  if (cur !== src) free(cur);
   return c;
 }
+/** Safari (iPhone) limite la mémoire totale des canvas : on rend la mémoire tout de suite. */
+export function free(c){ if (c && c.width !== undefined){ c.width = 0; c.height = 0; } }
 /** Liseré sombre autour de la silhouette (pas de l'ombre au sol) : contours nets comme dans les jeux de Supercell. */
 function addOutline(c, r){
   const w = c.width, h = c.height, x = c.getContext('2d');
@@ -116,7 +120,8 @@ function addOutline(c, r){
   const n = Math.max(8, r * 8);
   for (let i = 0; i < n; i++){ const a = i / n * Math.PI * 2; ox.drawImage(m, Math.cos(a) * r, Math.sin(a) * r); }
   x.save(); x.globalAlpha = .62; x.globalCompositeOperation = 'destination-over'; x.drawImage(o, 0, 0); x.restore();
+  free(m); free(o);
   // l'ombre au sol reste dessous
 }
 
-export function disposeBaker(){ if (R){ R.dispose(); R = null; } }
+export function disposeBaker(){ if (R){ R.setSize(1, 1, false); R.dispose(); R.forceContextLoss?.(); R = null; } }
