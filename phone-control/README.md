@@ -1,7 +1,10 @@
 # 📱 Contrôle du téléphone par Claude
 
 **Énoncé :** « Est-ce que Claude peut contrôler mon téléphone ? »
-**Réponse : oui, un téléphone Android, à condition de passer par un ordinateur.**
+**Réponse : oui, à condition de passer par un ordinateur.**
+
+> 🍎 **iPhone ? → voir [README-iPhone.md](README-iPhone.md)** (Mac + Recopie de l'iPhone).
+> Ce fichier-ci concerne Android.
 
 ```
  Toi (app Claude) ──► Claude Code sur ton ordinateur ──► ADB (USB ou Wi-Fi) ──► 📱 Android

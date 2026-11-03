@@ -1,12 +1,15 @@
 # Consignes pour Claude : piloter le téléphone
 
-Outil : `python3 phone.py <commande>` (voir `python3 phone.py --help`).
+- **iPhone** (cas de l'utilisateur) : `python3 iphone.py <commande>` sur un Mac
+  via « Recopie de l'iPhone ». Voir README-iPhone.md. Pas de commande `ui` :
+  se fier aux captures (coordonnées = pixels de l'image).
+- **Android** : `python3 phone.py <commande>` via ADB. Voir README.md.
 
 Boucle de travail :
-1. `python3 phone.py devices` : vérifier qu'un appareil est en état `device`.
+1. `check` (iPhone) ou `devices` (Android) : vérifier qu'un appareil est en état `device`.
    Sinon, guider l'utilisateur (README.md, section Installation).
-2. `python3 phone.py screenshot /tmp/screen.png` puis lire l'image pour voir l'écran.
-3. `python3 phone.py ui` pour obtenir textes et coordonnées exactes.
+2. `screenshot /tmp/screen.png` puis lire l'image pour voir l'écran.
+3. Android uniquement : `ui` pour obtenir textes et coordonnées exactes.
    Préférer `tap-text` aux coordonnées devinées.
 4. Agir (tap, swipe, type, key, open, url), puis refaire une capture pour vérifier.
 
