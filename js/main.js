@@ -9,16 +9,23 @@ import {createNet} from './net.js';
 import {installFeatures} from './features.js';
 import {plotBase} from './buildings.js';
 import * as G from './game.js';
+import {createTuto} from './tuto.js';
 
 const $ = s => document.querySelector(s);
 const BASE = new URL('../assets/', import.meta.url).href;
+// astuces affichées pendant le chargement (comme les écrans de chargement de Supercell et Playrix)
+const TIPS = ['Astuce : touche les bulles au-dessus des bâtiments pour récolter.', 'Astuce : ton objectif, en bas de l\'écran, te dit toujours quoi faire.', 'Astuce : les étoiles terminent un chantier tout de suite.', 'Astuce : reviens chaque jour pour ton bonus de connexion et ta série.', 'Astuce : rejoins une guilde pour la Grande Tournée de la semaine.', 'Astuce : plus un cadeau est rare, plus il rapporte.'];
+let tipI = Math.floor(Math.random() * TIPS.length);
+const showTip = () => { const el = document.querySelector('#tip'); if (el) el.textContent = TIPS[tipI++ % TIPS.length]; };
+showTip(); const tipTimer = setInterval(showTip, 2600);
 const {TYPES, RES, TOYS, RARITY, SKINS} = G;
 
 /* =====================================================================
    RENDU
    ===================================================================== */
 const canvas = $('#c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias: false, powerPreference: 'high-performance'});
+const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: 'high-performance'});
+renderer.shadowMap.autoUpdate = false;   // l'ombre n'est recalculée que si nécessaire (voir frame)
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.NeutralToneMapping;
@@ -27,7 +34,7 @@ const YAW = .42, PITCH_Y = .7, PITCH_H = .72;   // caméra fixe, tournée de 24�
 let QUALITY = (() => { try { return localStorage.getItem('vdp-quality') || 'auto'; } catch(e){ return 'auto'; } })();
 
 await loadAssets(BASE, p => { $('#loadbar i').style.width = Math.round(p * 100) + '%'; });
-$('#loading').hidden = true; $('#play').hidden = false;
+$('#loadbar i').style.width = '100%';
 
 const world = createWorld(renderer);
 const scene = world.scene;
@@ -231,6 +238,7 @@ function syncPlot(id){
   else { const c = constructionSite(skinOf('bases')); v.holder.add(c); v.inner = c; v.top = 2.4; }
   if (p.upEnd) v.holder.add(scaffold(Math.max(2.2, v.top - .4)));
   const blob = new THREE.Mesh(blobGeo, blobMat); blob.position.y = .02; blob.renderOrder = 1; blob.userData.noAO = true; v.holder.add(blob);
+  shadowDirty = true;
   if (p.lv > prevLv && v.ready){ v.pop = 0; burst(v.holder.position.clone().add(new THREE.Vector3(0, 1.6, 0)), 34); }
   v.lv = p.lv; v.ready = true;
 }
@@ -259,7 +267,8 @@ function route(from, to){
   pts.push(to.clone()); return pts;
 }
 class Walker {
-  constructor(ch, scale, speed){ this.ch = ch; this.root = ch.root; this.root.scale.setScalar(scale); this.speed = speed; this.path = []; this.wait = Math.random() * 2; this.task = null; scene.add(this.root); }
+  constructor(ch, scale, speed){ this.ch = ch; this.root = ch.root; this.root.scale.setScalar(scale);
+    { const sh = new THREE.Mesh(blobGeo, blobMat); sh.scale.setScalar(1.1 / 5.2 / scale * scale); sh.position.y = .03; sh.renderOrder = 1; sh.userData.noAO = true; this.root.add(sh); } this.speed = speed; this.path = []; this.wait = Math.random() * 2; this.task = null; scene.add(this.root); }
   goTo(p, task = null){ this.path = route(this.root.position, p); this.task = task; }
   update(dt){
     this.ch.mixer.update(dt);
@@ -287,7 +296,7 @@ function makeSanta(){
 }
 const elves = [];
 function syncElves(){
-  const want = Math.min(9, 2 + Object.values(state.plots).filter(p => p.lv > 0).length);
+  const want = Math.min(6, 2 + Object.values(state.plots).filter(p => p.lv > 0).length);
   while (elves.length < want){
     const e = new Walker(character('elf', elfLook(elves.length, skinOf('elves'))), .42, 1.5 + Math.random() * .5);
     const s = randomSpot(); e.root.position.set(s.x, groundY(s.x, s.z), s.z); elves.push(e);
@@ -399,7 +408,7 @@ function collect(id, el){
   if (T.prod === 'wood') track('wood', take);
   if (T.prod === 'coins') track('coins', take);
   const xp = Math.max(1, Math.round(take / 12));
-  sfx.collect(); flyIcons(T.prod, take, el); gainXp(xp);
+  sfx.collect(); flyIcons(T.prod, take, el); gainXp(xp); tuto.event('collect');
   return true;
 }
 function upgrade(id){
@@ -409,16 +418,16 @@ function upgrade(id){
 }
 function build(id, t){
   const why = R.buildBlock(t); if (why){ sfx.err(); toast(why); return; }
-  pay(G.costOf(t, 1)); state.plots[id] = {type: t, lv: 0, buf: 0, upTo: 1, upEnd: Date.now() + G.timeOf(t, 1) * 1000};
+  pay(G.costOf(t, 1)); state.plots[id] = {type: t, lv: 0, buf: 0, upTo: 1, upEnd: Date.now() + (tuto.active() ? 60 : G.timeOf(t, 1)) * 1000};
   if (TYPES[t].craft){ state.plots[id].queue = []; state.plots[id].done = []; }
-  track('builds'); sfx.build(); save(); renderSheet();
+  track('builds'); sfx.build(); save(); renderSheet(); tuto.event('build');
 }
 const speedStars = left => Math.max(1, Math.ceil(left / 1000 / 120));
 function speedUp(id){
   const p = state.plots[id]; if (!p.upEnd) return;
   const c = speedStars(p.upEnd - Date.now());
   if (state.stars < c){ sfx.err(); toast("Pas assez d'étoiles. Gagne-en avec les lettres, les mini-jeux et le calendrier."); return; }
-  state.stars -= c; p.upEnd = Date.now();
+  state.stars -= c; p.upEnd = Date.now(); tuto.event('speed');
 }
 function craft(id, toy){
   const p = state.plots[id], T = TOYS[toy];
@@ -519,7 +528,7 @@ function renderHud(){
 function badge(sel, v, locked = false){ const el = $(sel); el.querySelector('.badge').textContent = v; el.querySelector('.badge').hidden = v === '' || locked; el.classList.toggle('locked', locked); }
 $('#quest').addEventListener('click', () => {
   const q = R.quest();
-  if (q.ok(state)){ gain(q.rw, $('#qbtn')); if (q.goal) state.goal.done = true; else state.quest++; sfx.level(); save(); }
+  if (q.ok(state)){ gain(q.rw, $('#qbtn')); if (q.goal) state.goal.done = true; else state.quest++; sfx.level(); save(); tuto.event('quest'); }
   else { sfx.tap(); toast(q.t); }
 });
 for (const [id, panel, need] of [['d-letters', 'letters', 2], ['d-games', 'games', 2], ['d-hotte', 'hotte', 1], ['d-guild', 'guild', G.GUILD_PL], ['d-shop', 'shop', 1], ['d-missions', 'missions', 1], ['d-advent', 'advent', 1], ['s-login', 'login', 1], ['s-event', 'event', 2], ['s-rank', 'ranking', 1], ['s-wardrobe', 'wardrobe', 1]])
@@ -577,9 +586,9 @@ function levelUp(){
 
 /* ---------- panneau du bas ---------- */
 let sel = null, sheetHtml = '';
-function openSheet(id){ sel = id; document.body.classList.add('sheet-open'); sheetHtml = ''; renderSheet(); const p = plotPos(id); cam.tx = p.x * .6; cam.tz = p.z + 2; }
+function openSheet(id){ sel = id; document.body.classList.add('sheet-open'); sheetHtml = ''; renderSheet(); tuto.event('open'); const p = plotPos(id); cam.tx = p.x * .6; cam.tz = p.z + 2; }
 function openPanel(name){ sel = name; sheetHtml = ''; document.body.classList.add('sheet-open'); renderSheet(); $('#sheet').scrollTop = 0; }
-function closeSheet(){ sel = null; sheetHtml = ''; document.body.classList.remove('sheet-open'); }
+function closeSheet(){ const was = sel; sel = null; sheetHtml = ''; document.body.classList.remove('sheet-open'); if (was) tuto.event('close'); }
 function setSheet(html){ if (html !== sheetHtml){ const st = $('#sheet').scrollTop; sheetHtml = html; $('#sheet').innerHTML = html; $('#sheet').scrollTop = st; } patchSheet(); }
 const header = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
 function patchSheet(){
@@ -842,13 +851,16 @@ let level = 'high';
 function applyQuality(q){
   level = q;
   // rendu à la densité réelle de l'écran : c'est ce qui rend l'image nette sur iPhone (densité x3)
-  const dpr = devicePixelRatio || 1, pr = q === 'high' ? Math.min(dpr, 2.6) : q === 'medium' ? Math.min(dpr, 2) : Math.min(dpr, 1.5);
+  // haute : post-traitement (couleurs + halo) ; moyenne : rendu direct anti-crénelé (défaut, fluide) ; basse : sans ombres
+  const dpr = devicePixelRatio || 1, pr = q === 'low' ? Math.min(dpr, 1.5) : Math.min(dpr, 2);
   renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
-  renderer.shadowMap.enabled = q !== 'low'; world.sun.shadow.mapSize.setScalar(q === 'high' ? 2048 : 1024); world.sun.shadow.map?.dispose(); world.sun.shadow.map = null;
+  renderer.shadowMap.enabled = q !== 'low'; world.sun.shadow.mapSize.setScalar(q === 'high' ? 2048 : 1024); world.sun.shadow.map?.dispose(); world.sun.shadow.map = null; shadowDirty = true;
   post.setQuality(q); post.setSize(innerWidth, innerHeight, pr);
 }
 function resize(){ camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < .7 ? 26 : 19; camera.updateProjectionMatrix(); applyQuality(level); }
-level = QUALITY === 'auto' ? 'high' : QUALITY;
+let shadowDirty = true, shadowT = 0;
+const lastShadowFocus = new THREE.Vector3(1e9, 0, 0);
+level = QUALITY === 'auto' ? 'medium' : QUALITY;
 addEventListener('resize', resize); resize();
 
 /* =====================================================================
@@ -863,7 +875,7 @@ R.ensureDaily();
 for (const id of ALL_PLOTS) syncPlot(id);
 makeSanta(); syncElves();
 
-const clock = new THREE.Clock(); let last = Date.now(), smokeT = 0, saveT = 0, sheetT = 0, t = 0;
+const clock = new THREE.Clock(); let last = Date.now(), smokeT = 0, saveT = 0, sheetT = 0, hudT = 0, t = 0;
 const focus = new THREE.Vector3();
 function frame(){
   requestAnimationFrame(frame);
@@ -893,9 +905,13 @@ function frame(){
   for (const o of sparks){ if (o.life <= 0) continue; o.life -= dt * .9; o.v.y -= 10 * dt; o.s.position.addScaledVector(o.v, dt); o.s.material.rotation += dt * 6; o.s.material.opacity = Math.min(1, o.life * 2); if (o.life <= 0) o.s.visible = false; }
 
   updateCharacters(dt);
-  post.render(); perf(dt);
+  // ombre : recalculée quand la caméra bouge ou 4 fois par seconde (roues, rennes), pas à chaque image
+  shadowT -= dt;
+  if (shadowDirty || shadowT <= 0 || focus.distanceToSquared(lastShadowFocus) > .25){ renderer.shadowMap.needsUpdate = true; shadowDirty = false; shadowT = .25; lastShadowFocus.copy(focus); }
+  if (level === 'high') post.render(); else renderer.render(scene, camera);
+  perf(dt);
   updateOverlays(dt);
-  renderHud();
+  hudT -= dt; if (hudT <= 0){ hudT = .15; renderHud(); }
   sheetT -= dt; if (sel && sheetT <= 0){ sheetT = .25; renderSheet(); }
   saveT -= dt; if (saveT <= 0){ saveT = 5; save(); }
 }
@@ -906,29 +922,32 @@ function perf(dt){
   perfT += dt; perfN++; perfSum += dt;
   if (perfT > 4){
     const avg = perfSum / perfN; perfT = perfN = perfSum = 0;
-    if (avg > 1 / 30) applyQuality(level === 'high' ? 'medium' : 'low');
+    if (avg > 1 / 40) applyQuality(level === 'high' ? 'medium' : 'low');
   }
 }
-window.__setQuality = q => { QUALITY = q; try { localStorage.setItem('vdp-quality', q); } catch(e){} applyQuality(q === 'auto' ? 'high' : q); };
+window.__setQuality = q => { QUALITY = q; try { localStorage.setItem('vdp-quality', q); } catch(e){} applyQuality(q === 'auto' ? 'medium' : q); };
 frame();
 addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pagehide', save);
 
-/* ---------- écran titre ---------- */
-if (saved){ $('#play').textContent = 'Continuer'; $('#reset').hidden = false; }
-$('#play').addEventListener('click', () => {
+/* ---------- écran de chargement → village directement (comme Township, Hay Day, Clash of Clans) ---------- */
+const tuto = createTuto({getState: () => state, save, sfx, portrait: ICON.elf,
+  focusPlot: id => { const p = plotPos(id); cam.tx = p.x * .6; cam.tz = p.z + 4; }});
+function enterVillage(){
+  clearInterval(tipTimer);
   introMode = false; cam.tyaw = YAW; cam.tz = 3; cam.tdist = homeDist();
-  $('#intro').classList.add('hide'); document.body.classList.add('playing'); sfx.bells();
-  setTimeout(() => { if (F.loginReady()) openPanel('login'); }, 1400);
+  $('#intro').classList.add('hide'); document.body.classList.add('playing');
   setTimeout(() => $('#intro').remove(), 700);
-});
-let resetArmed = false;
-$('#reset').addEventListener('click', () => {
-  if (!resetArmed){ resetArmed = true; $('#reset').textContent = 'Toucher encore pour effacer la partie'; return; }
-  G.clearSave(); state = G.newState(); R.ensureDaily();
-  for (const id of ALL_PLOTS){ views[id].sig = 'x'; views[id].ready = false; syncPlot(id); }
-  makeSanta(); $('#reset').hidden = true; $('#play').textContent = 'Jouer';
-});
+  if (tuto.active()) setTimeout(() => tuto.start(), 900);
+  else setTimeout(() => { if (F.loginReady()) openPanel('login'); }, 1400);
+}
+setTimeout(enterVillage, 900);
+// installation comme application (hors claude.ai, où les service workers ne sont pas permis)
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+// le son n'est autorisé qu'après un premier toucher : on le « réveille » au premier geste
+addEventListener('pointerdown', () => sfx.tap(), {once: true});
 
 // accès pour les tests automatisés
-window.__game = {get state(){ return state; }, set state(s){ state = s; }, cam, views, openPanel, playGame, net, F};
+window.__game = {get state(){ return state; }, set state(s){ state = s; }, cam, views, openPanel, playGame, net, F, tuto};

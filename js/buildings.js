@@ -2,7 +2,7 @@
 // L'apparence change par palier (niv. 1-3, 4-6, 7-10) et chaque niveau ajoute une décoration.
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {prop, tint, addRim} from './assets.js';
+import {prop, tint, addRim, mergeStatic} from './assets.js';
 import {cobbleTexture} from './world.js';
 
 const HALF_PI = Math.PI / 2;
@@ -41,8 +41,9 @@ export function cabin({len = 2, front = ['cabin-window-a', 'door'], back = ['cab
     put('cabin-roof-snow', -.5, cz(j), Math.PI, 1);
   }
   if (lights) for (let i = 0; i < w; i++) g.add(prop('lights-colored', {x: cx(i), y: .98, z: cz(len - 1) + .74}));
-  g.userData.chimney = chimney ? new THREE.Vector3(.98, 2.42, cz(chimney - 1)) : null;
-  return g;
+  const merged = mergeStatic(g);
+  merged.userData.chimney = chimney ? new THREE.Vector3(.98, 2.42, cz(chimney - 1)) : null;
+  return merged;
 }
 
 /* ------------------------------------------------------------------ */
@@ -131,7 +132,7 @@ export function buildModel(type, lv, baseSkin = null){
       add('christmas_tree', {x: 1.25, z: 1.0, s: .32});
       add('nutcracker', {x: -1.05, z: 1.45, s: .75}); add('nutcracker', {x: .0, z: 1.45, s: .75});
       presents(g, [[1.6, 1.55, 0], [.8, 1.6, 4, .4, .8]]);
-      if (lv >= 10){ const st = add('bell_decorated', {x: -.55, z: 1.25, s: .35}); st.position.y = 2.35; anim.push(t => st.rotation.z = Math.sin(t * 2.2) * .25); }
+      if (lv >= 10){ const st = add('bell_decorated', {x: -.55, z: 1.25, s: .35}); st.position.y = 2.35; st.userData.live = true; anim.push(t => st.rotation.z = Math.sin(t * 2.2) * .25); }
       top = 3.5;
     }
   }
@@ -149,7 +150,7 @@ export function buildModel(type, lv, baseSkin = null){
     }
     const wheel = add(wheelName, {x: T === 1 ? .2 : 1.3, z: T === 1 ? -.9 : -.55, s: T === 1 ? .95 : 1.05, ry: T === 1 ? HALF_PI : 0});
     wheel.position.y = .95;
-    anim.push((t, dt) => wheel.rotation.x += dt * 1.6);
+    wheel.userData.live = true; anim.push((t, dt) => wheel.rotation.x += dt * 1.6);
     top = T === 1 ? 2.3 : T === 2 ? 2.9 : 3.1;
   }
   else if (type === 'bakery'){
@@ -164,7 +165,7 @@ export function buildModel(type, lv, baseSkin = null){
     }
     const ck = add('cookie', {x: T === 1 ? -1.1 : 0, z: T === 1 ? 1.1 : 1.4, s: T === 3 ? 1.6 : 1.3});
     ck.rotation.x = -1.1; ck.position.y = .35;
-    anim.push(t => { ck.rotation.z = t * .9; });
+    ck.userData.live = true; anim.push(t => { ck.rotation.z = t * .9; });
     smoke.push(new THREE.Vector3(T === 3 ? .2 : .45, T === 1 ? 2.75 : 2.6, T === 3 ? -.3 : -.15));
   }
   else if (type === 'post'){
@@ -181,7 +182,7 @@ export function buildModel(type, lv, baseSkin = null){
     }
     const n = Math.min(5, 1 + Math.ceil(lv / 2));
     for (let i = 0; i < n; i++){
-      const l = new THREE.Group(); const p = new THREE.Mesh(letterGeo, letterMat); const s = new THREE.Mesh(sealGeo, sealMat); s.rotation.x = HALF_PI; s.position.z = .015; l.add(p, s); l.traverse(o => o.castShadow = true); g.add(l);
+      const l = new THREE.Group(); l.userData.live = true; const p = new THREE.Mesh(letterGeo, letterMat); const s = new THREE.Mesh(sealGeo, sealMat); s.rotation.x = HALF_PI; s.position.z = .015; l.add(p, s); l.traverse(o => o.castShadow = true); g.add(l);
       const ph = i * (Math.PI * 2 / n);
       anim.push(t => { const a = t * .9 + ph; l.position.set(Math.cos(a) * 1.25, 2.3 + Math.sin(a * 2) * .22, Math.sin(a) * 1.05); l.rotation.set(Math.sin(a * 3) * .4, -a, Math.cos(a * 2) * .3); });
     }
@@ -195,7 +196,7 @@ export function buildModel(type, lv, baseSkin = null){
       addCabin({len: T === 3 ? 3 : 2, front: ['cabin-window-large', 'door'], sides: ['cabin-window-b'], chimney: 1}, -.45, -.4, 0, T === 3 ? 1.08 : 1.12);
       presents(g, [[1.3, -.9, 0], [1.4, -.4, 4, .3, .8], [-1.35, 1.35, 5]]);
       // petit train de jouets qui fait le tour
-      const train = new THREE.Group(); g.add(train);
+      const train = new THREE.Group(); train.userData.live = true; g.add(train);
       const parts = ['train_locomotive', 'train_tender_presents_A', T === 3 ? 'train_tender_presents_B' : null].filter(Boolean);
       const cars = parts.map(n => { const c = prop(n, {s: .62}); train.add(c); return c; });
       const R = 1.5;
@@ -218,7 +219,7 @@ export function buildModel(type, lv, baseSkin = null){
     }
     const wheel = add('watermill', {x: T === 1 ? -1.2 : -1.55, z: T === 1 ? .1 : .7, s: .55, ry: HALF_PI});
     wheel.position.y = .55;
-    anim.push((t, dt) => wheel.rotation.x += dt * 3);
+    wheel.userData.live = true; anim.push((t, dt) => wheel.rotation.x += dt * 3);
   }
   else if (type === 'wrap'){
     if (T === 1){
@@ -233,7 +234,7 @@ export function buildModel(type, lv, baseSkin = null){
       top = T === 3 ? 3.1 : 2.9;
     }
     const bow = add('present_sphere_A_red', {x: 0, z: 1.3, s: .55});
-    anim.push(t => { bow.position.y = .15 + Math.abs(Math.sin(t * 2.4)) * .35; bow.rotation.y = t * 1.5; });
+    bow.userData.live = true; anim.push(t => { bow.position.y = .15 + Math.abs(Math.sin(t * 2.4)) * .35; bow.rotation.y = t * 1.5; });
   }
   else if (type === 'storage'){
     add('Containers_Pile_Large', {x: -.75, z: -.55, s: T === 1 ? .7 : .85});
@@ -254,7 +255,7 @@ export function buildModel(type, lv, baseSkin = null){
       const [x, z, ry] = spots[i];
       const r = add('reindeer', {x, z, ry, s: .62});
       const ph = i * 1.7;
-      anim.push(t => { r.rotation.x = Math.max(0, Math.sin(t * 1.3 + ph)) * .12; r.position.y = Math.abs(Math.sin(t * 2.6 + ph)) * .03; });
+      r.userData.live = true; anim.push(t => { r.rotation.x = Math.max(0, Math.sin(t * 1.3 + ph)) * .12; r.position.y = Math.abs(Math.sin(t * 2.6 + ph)) * .03; });
     }
     add(T === 3 ? 'sled-long' : 'sled', {x: T === 1 ? .5 : 1.2, z: T === 1 ? -.9 : -1.0, ry: .3, s: .9});
     top = T === 1 ? 2 : 2.8;
@@ -270,7 +271,14 @@ export function buildModel(type, lv, baseSkin = null){
     g.add(prop(name, {x: x * .98, z: z * .98, s, ry: (i * 1.7) % 6}));
   }
 
-  return {group: root, anim, smoke, top};
+  // fusion des parties fixes (les parties animées marquées userData.live restent séparées)
+  const live = [];
+  root.updateMatrixWorld(true);
+  root.traverse(o => { if (o.userData.live && !live.some(p => isAncestor(p, o))) live.push(o); });
+  const holders = live.map(o => { const h = new THREE.Group(); h.matrixAutoUpdate = false; h.matrix.copy(o.parent.matrixWorld); o.removeFromParent(); h.add(o); return h; });
+  const merged = mergeStatic(root);
+  for (const h of holders) merged.add(h);
+  return {group: merged, anim, smoke, top};
 }
 
 /* ------------------------------------------------------------------ */
@@ -295,3 +303,6 @@ export function constructionSite(skin = null){
   root.add(prop('Wood_Planks_Stack_Small', {x: -.4, y: BASE_Y, z: -.3, s: .6}));
   return root;
 }
+
+
+function isAncestor(a, o){ for (let p = o.parent; p; p = p.parent) if (p === a) return true; return false; }
