@@ -879,11 +879,31 @@ body.sheet-open #sheet{transform:none!important}
 .kbox .btn{flex:none;flex-direction:column;gap:2px;padding:4px 10px}
 .kbox .btn .costs{gap:2px}
 .kbox .btn .chip{font-size:11px;padding:0 5px 0 1px}
-.kbox.lock{background:#eef0f5;border-color:#c8cdd8}
+.kbox.klock{background:#eef0f5;border-color:#c8cdd8}
 .kst{font-style:normal;color:#f0a00c;letter-spacing:1px}
 #quest2 .chap{display:block;font:400 10.5px/1.1 var(--display);color:#b0562a;margin:-2px 0 1px}
 .storyrow{display:flex;gap:10px;align-items:center;text-align:left}
 .storyrow img{width:84px;height:84px;object-fit:contain;flex:none}
+/* album et Avent */
+.album{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
+.acard{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 4px 8px;border-radius:12px;background:linear-gradient(180deg,#fdf3da,var(--card));border:1.5px solid var(--card-line);text-align:center}
+.acard img{width:56px;height:56px;object-fit:contain}
+.acard b{font:400 12.5px/1.05 var(--display);color:var(--ink-2)}
+.acard .ast{color:#f0a00c;font-size:15px;letter-spacing:1px}
+.acard small{font-size:11px;color:var(--brown)}
+.acard.s3{background:linear-gradient(180deg,#fff7c4,#ffe27a);border-color:var(--gold-d)}
+.acard.locked{filter:grayscale(1);opacity:.6}
+.advent2{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
+.door2{position:relative;aspect-ratio:1;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:linear-gradient(160deg,#e8343f,#a8142a);border:2px solid #6e0a16;box-shadow:inset 0 2px 0 rgba(255,255,255,.35)}
+.door2:nth-child(3n){background:linear-gradient(160deg,#3fbf6a,#1d7a3e);border-color:#0e4d24}
+.door2:nth-child(4n+2){background:linear-gradient(160deg,#3f8fe8,#1d55a8);border-color:#0c3f75}
+.door2 b{font:400 20px/1 var(--display);color:#fff;-webkit-text-stroke:2px rgba(0,0,0,.35);paint-order:stroke fill}
+.door2 .mini-r{display:none}
+.door2[disabled]{filter:saturate(.6) brightness(.9)}
+.door2.can{animation:wiggle 1.6s ease-in-out infinite;box-shadow:0 0 0 3px #ffd84a,0 0 14px rgba(255,216,74,.8)}
+.door2.open{background:linear-gradient(180deg,#fdf3da,var(--card))!important;border-color:var(--card-line)!important}
+.door2.open b{color:var(--ink-2);-webkit-text-stroke:0}
+.door2.big{grid-column:span 2;aspect-ratio:auto}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
@@ -900,7 +920,7 @@ body.sheet-open #sheet{transform:none!important}
   </div>
   <div class="row2"><div id="xpbar"><i></i><b>0 / 20</b></div><span class="chipx" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="chipx joy" id="h-joy" title="Bonheur">+0 %</span><span class="title" id="h-title">Lutin apprenti</span></div>
 </div>
-<nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button></nav>
+<nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button><button id="b-album" aria-label="Album des jouets"><img id="i-album" alt=""><small>Album</small><span class="badge stroke" hidden>0</span></button><button id="b-advent" aria-label="Calendrier de l'Avent"><img id="i-advent" alt=""><small>Avent</small><span class="badge stroke" hidden>!</span></button></nav>
 <nav id="tabbar">
   <button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Lettres</b><span class="badge stroke" hidden>0</span></button>
   <button id="b-barn"><img class="ico" id="i-barn" alt=""><b>Stock</b><small>0</small></button>
