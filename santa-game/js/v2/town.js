@@ -1,136 +1,170 @@
-// Règles V2 « Township de Noël » : cultures, animaux, usines à recettes, commandes du traîneau,
-// grange, maisons et population, agrandissements, niveaux. Aucune dépendance graphique.
+// Règles V3 « Village à ressources » : chaque bâtiment a une utilité, et chaque niveau change des chiffres visibles
+// (inspiré de Dragons of Atlantis pour l'économie et de Bid Master pour l'utilité de chaque lieu). Voir PLAN-V3.md.
+// Aucune dépendance graphique.
 //
-// Rythme visé : 2 à 3 h de jeu sans attendre. Minuteurs très courts au début (le blé pousse en 20 s),
-// toujours plusieurs choses à faire en parallèle, une montée de niveau toutes les 3 à 6 min au début.
+// Boucle : les bâtiments de production remplissent leur petit stock (environ 1 h) → on touche la bulle pour récolter
+// → les ressources servent à améliorer les bâtiments et à fabriquer les jouets des lettres d'enfants
+// → les lettres rapportent pièces, XP, étoiles et outils → la Maison du Père Noël débloque la suite.
 
-/* ===================== OBJETS (cultures, produits, matériaux) ===================== */
-// ic : modèle 3D utilisé pour l'icône ; v : valeur de base en pièces ; xp : XP à la récolte/fabrication
+/* ===================== RESSOURCES, JOUETS, MATÉRIAUX ===================== */
+// ic : modèle 3D de l'icône ; res : ressource de base (plafonnée par l'entrepôt)
 export const ITEMS = {
-  wheat:   {name: 'Blé', ic: 'crops_wheatStageB', v: 2, xp: 1},
-  carrot:  {name: 'Carottes', ic: 'carrot', v: 4, xp: 1},
-  corn:    {name: 'Maïs', ic: 'corn', v: 6, xp: 2},
-  beet:    {name: 'Betterave sucrière', ic: 'crop_turnip', v: 8, xp: 2},
-  pumpkin: {name: 'Citrouille', ic: 'pumpkin', v: 12, xp: 3},
-  berry:   {name: 'Fraises', ic: 'strawberry', v: 15, xp: 3},
-  egg:     {name: 'Œufs', ic: 'egg', v: 8, xp: 2},
-  milk:    {name: 'Lait', ic: 'carton', v: 14, xp: 3},
-  wool:    {name: 'Laine', ic: 'Textiles_Stack_Large_Colored', v: 20, xp: 4},
-  bread:   {name: 'Pain', ic: 'bread', v: 9, xp: 2},
-  cookie:  {name: 'Biscuits', ic: 'cookie', v: 22, xp: 4},
-  ginger:  {name: "Pain d'épices", ic: 'ginger-bread', v: 45, xp: 7},
-  cream:   {name: 'Crème', ic: 'whipped-cream', v: 24, xp: 4},
-  cheese:  {name: 'Fromage', ic: 'cheese', v: 40, xp: 6},
-  pudding: {name: 'Flan', ic: 'pudding', v: 60, xp: 8},
-  sugar:   {name: 'Sucre', ic: 'bag', v: 20, xp: 3},
-  cane:    {name: "Sucre d'orge", ic: 'candycane_small', v: 55, xp: 7},
-  cupcake: {name: 'Cupcake', ic: 'cupcake', v: 50, xp: 7},
-  cake:    {name: 'Bûche de Noël', ic: 'cake', v: 110, xp: 12},
-  donut:   {name: 'Beignet', ic: 'donut', v: 70, xp: 9},
-  pie:     {name: 'Tarte à la citrouille', ic: 'waffle', v: 80, xp: 10},
-  scarf:   {name: 'Écharpe', ic: 'Textiles_Stack_Large_Colored', v: 70, xp: 9},
-  teddy:   {name: 'Ours en peluche', ic: 'snowman', v: 120, xp: 14},
-  sock:    {name: 'Chaussette garnie', ic: 'sock-red-cane', v: 150, xp: 16},
-  // matériaux (gagnés en récoltant, en livrant et au train) : agrandir la grange et la ville
-  plank:   {name: 'Planche', ic: 'Wood_Planks_Stack_Small', mat: true},
-  nail:    {name: 'Clou', ic: 'Parts_Cog', mat: true},
-  paint:   {name: 'Peinture', ic: 'Food_Barrel_Empty', mat: true},
-  axe:     {name: 'Hache', ic: 'Wood_Log_A', mat: true},
-  saw:     {name: 'Scie', ic: 'Wood_Planks_Stack_Small', mat: true},
+  coins:  {name: 'Pièces', ic: 'Money_Coins_Stack_Medium', res: true},
+  wood:   {name: 'Bois', ic: 'Wood_Planks_Stack_Medium', res: true},
+  cookies:{name: 'Biscuits', ic: 'cookie', res: true},
+  fabric: {name: 'Tissu', ic: 'Textiles_Stack_Large_Colored', res: true},
+  // jouets fabriqués à l'Atelier (demandés dans les lettres)
+  train:  {name: 'Petit train', ic: 'train_locomotive', toy: true},
+  box:    {name: 'Boîte de biscuits', ic: 'plate_decorated_A', toy: true},
+  sled:   {name: 'Luge', ic: 'sled', toy: true},
+  plush:  {name: 'Bonhomme en peluche', ic: 'snowman', toy: true},
+  nut:    {name: 'Casse-noisette', ic: 'nutcracker', toy: true},
+  cane:   {name: "Sucre d'orge géant", ic: 'candycane_large', toy: true},
+  sock:   {name: 'Chaussette garnie', ic: 'sock-red-cane', toy: true},
+  bell:   {name: 'Cloche dorée', ic: 'bell_decorated', toy: true},
+  // outils pour dégager la forêt (lettres, train, mini-jeux, tâches)
+  axe:    {name: 'Hache', ic: 'Wood_Log_A', mat: true},
+  saw:    {name: 'Scie', ic: 'Wood_Planks_Stack_Small', mat: true},
 };
+export const RES = ['coins', 'wood', 'cookies', 'fabric'];
 
-export const CROPS = {
-  wheat:   {time: 20, cost: 0, lvl: 1, stages: ['crops_wheatStageA', 'crops_wheatStageB']},
-  carrot:  {time: 60, cost: 1, lvl: 2, stages: ['crops_leafsStageA', 'crop_carrot']},
-  corn:    {time: 120, cost: 2, lvl: 3, stages: ['crops_cornStageB', 'crops_cornStageD']},
-  beet:    {time: 240, cost: 3, lvl: 5, stages: ['crops_leafsStageA', 'crop_turnip']},
-  pumpkin: {time: 480, cost: 5, lvl: 7, stages: ['crops_leafsStageB', 'crop_pumpkin']},
-  berry:   {time: 720, cost: 6, lvl: 9, stages: ['crops_leafsStageB', 'crops_leafsStageB']},
+// jouets : coût, temps de fabrication (s), XP, valeur, niveau joueur requis
+export const TOYS = {
+  train: {cost: {wood: 30}, time: 30, xp: 4, value: 40, lvl: 1},
+  box:   {cost: {cookies: 30}, time: 45, xp: 5, value: 50, lvl: 2},
+  sled:  {cost: {wood: 60}, time: 90, xp: 8, value: 80, lvl: 3},
+  plush: {cost: {fabric: 25}, time: 120, xp: 10, value: 100, lvl: 4},
+  nut:   {cost: {wood: 50, fabric: 25}, time: 240, xp: 16, value: 170, lvl: 6},
+  cane:  {cost: {cookies: 60, wood: 30}, time: 200, xp: 14, value: 150, lvl: 7},
+  sock:  {cost: {fabric: 45, cookies: 40}, time: 360, xp: 22, value: 260, lvl: 9},
+  bell:  {cost: {wood: 120, fabric: 60, coins: 300}, time: 600, xp: 40, value: 520, lvl: 12},
 };
 
 /* ===================== BÂTIMENTS ===================== */
-// kind : field | pen | factory | house | town | orders | barn | deco ; w,h : emprise en cases
+// kind : hq | prod | house | storage | craft | orders | stable | fun | deco | path
+// cost : coût du niveau 1 (×1,6 par niveau) ; time : secondes du niveau 1 (×1,55) ; hq : niveau de Maison requis
 export const BUILDINGS = {
-  field:    {name: 'Champ', kind: 'field', w: 2, h: 2, cost: 15, lvl: 1, time: 0, costStep: 8, cat: 'farm', desc: 'Plante et récolte des cultures.'},
-  henhouse: {name: 'Poulailler', kind: 'pen', w: 3, h: 3, cost: 60, lvl: 1, time: 5, cat: 'farm', animal: 'animal-chick', feed: 'wheat', prod: 'egg', ptime: 40, slots: 3, desc: 'Les poules mangent du blé et pondent des œufs.'},
-  cowshed:  {name: 'Étable', kind: 'pen', w: 3, h: 3, cost: 250, lvl: 3, time: 15, cat: 'farm', animal: 'animal-cow', feed: 'corn', prod: 'milk', ptime: 90, slots: 3, desc: 'Les vaches mangent du maïs et donnent du lait.'},
-  bunny:    {name: 'Clapier des lapins angora', kind: 'pen', w: 3, h: 3, cost: 700, lvl: 6, time: 30, cat: 'farm', animal: 'animal-bunny', feed: 'carrot', prod: 'wool', ptime: 150, slots: 3, desc: 'Les lapins angora mangent des carottes et donnent de la laine.'},
-  bakery:   {name: 'Boulangerie', kind: 'factory', w: 3, h: 3, cost: 120, lvl: 2, time: 10, cat: 'factory', pop: 0, desc: 'Pain, biscuits et pain d’épices.', recipes: {
-    bread: {in: {wheat: 3}, time: 30, lvl: 2}, cookie: {in: {wheat: 2, egg: 1}, time: 75, lvl: 2}, ginger: {in: {wheat: 2, sugar: 1, egg: 1}, time: 180, lvl: 5}}},
-  dairy:    {name: 'Laiterie', kind: 'factory', w: 3, h: 3, cost: 400, lvl: 4, time: 25, cat: 'factory', pop: 20, desc: 'Crème, fromage et flan.', recipes: {
-    cream: {in: {milk: 1}, time: 60, lvl: 4}, cheese: {in: {milk: 2}, time: 150, lvl: 4}, pudding: {in: {milk: 1, sugar: 1, egg: 1}, time: 240, lvl: 6}}},
-  sugarmill:{name: 'Sucrerie', kind: 'factory', w: 3, h: 3, cost: 650, lvl: 5, time: 35, cat: 'factory', pop: 30, desc: "Sucre et sucres d'orge.", recipes: {
-    sugar: {in: {beet: 1}, time: 60, lvl: 5}, cane: {in: {sugar: 1, berry: 1}, time: 210, lvl: 9}}},
-  pastry:   {name: 'Pâtisserie', kind: 'factory', w: 3, h: 3, cost: 1200, lvl: 7, time: 60, cat: 'factory', pop: 45, desc: 'Cupcakes, beignets, tartes et bûches de Noël.', recipes: {
-    cupcake: {in: {wheat: 2, egg: 1, sugar: 1}, time: 150, lvl: 7}, pie: {in: {pumpkin: 1, wheat: 2, egg: 1}, time: 240, lvl: 8}, donut: {in: {wheat: 2, sugar: 1, cream: 1}, time: 270, lvl: 8}, cake: {in: {wheat: 2, milk: 1, egg: 2, sugar: 1}, time: 420, lvl: 10}}},
-  toyshop:  {name: 'Atelier de jouets', kind: 'factory', w: 3, h: 3, cost: 2000, lvl: 9, time: 90, cat: 'factory', pop: 60, desc: 'Écharpes, ours en peluche et chaussettes garnies.', recipes: {
-    scarf: {in: {wool: 2}, time: 240, lvl: 9}, teddy: {in: {wool: 2, cream: 1}, time: 360, lvl: 9}, sock: {in: {wool: 1, cane: 1, cookie: 1}, time: 480, lvl: 11}}},
-  cabin:    {name: 'Chalet de lutin', kind: 'house', w: 2, h: 2, cost: 40, costStep: 30, lvl: 1, time: 5, cat: 'house', pop: 8, desc: '+8 habitants.'},
-  bighouse: {name: 'Grande maison', kind: 'house', w: 3, h: 3, cost: 450, costStep: 150, lvl: 6, time: 30, cat: 'house', pop: 20, desc: '+20 habitants.'},
-  grocery:  {name: 'Épicerie du village', kind: 'town', w: 3, h: 3, cost: 150, lvl: 2, time: 15, cat: 'town', cap: 30, desc: '+30 places de population.'},
-  school:   {name: 'École des lutins', kind: 'town', w: 3, h: 3, cost: 600, lvl: 5, time: 40, cat: 'town', cap: 50, desc: '+50 places de population.'},
-  postoffice:{name: 'Poste', kind: 'town', w: 3, h: 3, cost: 1500, lvl: 8, time: 60, cat: 'town', cap: 80, desc: '+80 places de population.'},
-  tree:     {name: 'Sapin décoré', kind: 'deco', w: 1, h: 1, cost: 30, lvl: 1, cat: 'deco', desc: '+2 XP'},
-  lantern:  {name: 'Lampadaire', kind: 'deco', w: 1, h: 1, cost: 20, lvl: 2, cat: 'deco', desc: '+1 XP'},
-  snowman:  {name: 'Bonhomme de neige', kind: 'deco', w: 1, h: 1, cost: 60, lvl: 3, cat: 'deco', desc: '+3 XP'},
-  path:     {name: 'Allée pavée', kind: 'path', w: 1, h: 1, cost: 5, lvl: 1, cat: 'deco', desc: 'Relie tes bâtiments.'},
-  bench:    {name: 'Banc', kind: 'deco', w: 1, h: 1, cost: 40, lvl: 2, cat: 'deco', desc: '+2 XP'},
-  gifts:    {name: 'Pile de cadeaux', kind: 'deco', w: 1, h: 1, cost: 80, lvl: 3, cat: 'deco', desc: '+4 XP'},
-  candy:    {name: "Sucre d'orge géant", kind: 'deco', w: 1, h: 1, cost: 50, lvl: 4, cat: 'deco', desc: '+3 XP'},
-  reindeer: {name: 'Renne', kind: 'deco', w: 1, h: 1, cost: 150, lvl: 5, cat: 'deco', desc: '+6 XP'},
-  // bâtiments uniques déjà présents au départ
-  orders:   {name: 'Bureau du traîneau', kind: 'orders', w: 3, h: 3, unique: true, desc: 'Les enfants passent commande : livre-les pour gagner pièces et XP.'},
-  barn:     {name: 'Grange', kind: 'barn', w: 3, h: 3, unique: true, desc: 'Stocke tes récoltes et tes produits.'},
-  santa:    {name: 'Maison du Père Noël', kind: 'hq', w: 4, h: 4, unique: true, desc: 'Le cœur du village.'},
+  santa:    {name: 'Maison du Père Noël', kind: 'hq', w: 4, h: 4, unique: true, max: 15, cost: {coins: 120, wood: 150}, time: 20,
+             desc: 'Le cœur du village. Son niveau fixe le niveau maximum des autres bâtiments et débloque de nouveaux bâtiments.'},
+  sawmill:  {name: 'Scierie', kind: 'prod', res: 'wood', rate: 1080, w: 3, h: 3, cost: {coins: 40, wood: 20}, time: 8, hq: 1,
+             desc: 'Les lutins débitent les vieux sapins en planches.'},
+  letters:  {name: 'Bureau des lettres', kind: 'prod', res: 'coins', rate: 900, w: 3, h: 3, cost: {coins: 30, wood: 40}, time: 8, hq: 1,
+             desc: 'Les lettres des enfants arrivent ici, souvent avec une pièce pour le village.'},
+  bakery:   {name: 'Four à biscuits', kind: 'prod', res: 'cookies', rate: 720, w: 3, h: 3, cost: {coins: 60, wood: 60}, time: 10, hq: 1,
+             desc: 'Des biscuits au gingembre tout chauds : les lutins en ont besoin pour les gros chantiers.'},
+  mill:     {name: 'Filature', kind: 'prod', res: 'fabric', rate: 450, w: 3, h: 3, cost: {coins: 250, wood: 200, cookies: 60}, time: 30, hq: 3,
+             desc: 'La laine des moutons du Pôle devient du tissu pour les peluches et les chaussettes.'},
+  cabin:    {name: 'Chalet des lutins', kind: 'house', w: 2, h: 2, cost: {coins: 50, wood: 60}, time: 6, hq: 1,
+             desc: 'Loge des lutins : ce sont les ouvriers des bâtiments de production.'},
+  storage:  {name: 'Entrepôt', kind: 'storage', w: 3, h: 3, cost: {coins: 100, wood: 120}, time: 15, hq: 2,
+             desc: 'Agrandit le stock maximum de bois, de biscuits et de tissu.'},
+  workshop: {name: 'Atelier des jouets', kind: 'craft', w: 3, h: 3, unique: true, cost: {coins: 150, wood: 150, cookies: 40}, time: 20, hq: 2,
+             desc: 'Fabrique les jouets demandés dans les lettres des enfants.'},
+  orders:   {name: 'Bureau du traîneau', kind: 'orders', w: 3, h: 3, unique: true, cost: {coins: 80, wood: 80}, time: 10, hq: 1,
+             desc: 'Les enfants y déposent leurs commandes de jouets. Livre-les pour gagner pièces, XP et étoiles.'},
+  stable:   {name: 'Écurie des rennes', kind: 'stable', w: 3, h: 3, unique: true, cost: {coins: 400, wood: 350, cookies: 120}, time: 40, hq: 4,
+             desc: 'Les rennes s’entraînent pour la Tournée de Noël (mini-jeu).'},
+  theater:  {name: 'Théâtre de marionnettes', kind: 'fun', w: 3, h: 3, unique: true, cost: {coins: 600, wood: 400, fabric: 100}, time: 60, hq: 5,
+             desc: 'Des spectacles pour les lutins : le bonheur augmente toute la production.'},
+  tree:     {name: 'Sapin décoré', kind: 'deco', w: 1, h: 1, cost: {coins: 40}, joy: 2, hq: 1, desc: '+2 bonheur'},
+  lantern:  {name: 'Lampadaire', kind: 'deco', w: 1, h: 1, cost: {coins: 30, wood: 10}, joy: 1, hq: 1, desc: '+1 bonheur'},
+  bench:    {name: 'Banc', kind: 'deco', w: 1, h: 1, cost: {coins: 50, wood: 30}, joy: 2, hq: 2, desc: '+2 bonheur'},
+  snowman:  {name: 'Bonhomme de neige', kind: 'deco', w: 1, h: 1, cost: {coins: 80, cookies: 20}, joy: 3, hq: 2, desc: '+3 bonheur'},
+  candy:    {name: "Sucre d'orge géant", kind: 'deco', w: 1, h: 1, cost: {coins: 120, cookies: 40}, joy: 4, hq: 3, desc: '+4 bonheur'},
+  gifts:    {name: 'Pile de cadeaux', kind: 'deco', w: 1, h: 1, cost: {coins: 150, fabric: 20}, joy: 5, hq: 4, desc: '+5 bonheur'},
+  reindeer: {name: 'Renne', kind: 'deco', w: 1, h: 1, cost: {coins: 300, cookies: 80}, joy: 8, hq: 5, desc: '+8 bonheur'},
+  path:     {name: 'Allée pavée', kind: 'path', w: 1, h: 1, cost: {coins: 5}, hq: 1, desc: 'Relie tes bâtiments.'},
 };
-export const CATS = [['farm', 'Ferme'], ['factory', 'Usines'], ['house', 'Maisons'], ['town', 'Village'], ['deco', 'Déco']];
+export const CATS = [['prod', 'Production'], ['town', 'Village'], ['deco', 'Déco']];
+export const catOf = b => b.kind === 'prod' ? 'prod' : b.kind === 'deco' || b.kind === 'path' ? 'deco' : 'town';
+export const isUpgradable = b => !['deco', 'path'].includes(b.kind);
 
-/* ===================== NIVEAUX ===================== */
-export const xpNeed = L => Math.round(14 * Math.pow(L, 1.55) + 6 * L);
-export const unlocksAt = L => {
-  const out = [];
-  for (const [k, b] of Object.entries(BUILDINGS)) if (b.lvl === L) out.push(b.name);
-  for (const [k, c] of Object.entries(CROPS)) if (c.lvl === L) out.push(ITEMS[k].name);
-  for (const b of Object.values(BUILDINGS)) for (const [k, r] of Object.entries(b.recipes || {})) if (r.lvl === L && r.lvl !== b.lvl) out.push(ITEMS[k].name);
-  return out;
-};
+/* ---------- chiffres par niveau (tout ce que l'amélioration change) ---------- */
+const R5 = n => n < 100 ? Math.round(n) : Math.round(n / 5) * 5;
+export const rate = (type, lv) => R5(BUILDINGS[type].rate * Math.pow(1.35, lv - 1));        // par heure
+export const buffer = (type, lv) => R5(rate(type, lv) * (lv < 4 ? .5 : lv < 8 ? 1 : 2));     // stock interne (30 min → 2 h)
+export const workers = (type, lv) => BUILDINGS[type].kind === 'prod' ? 2 * lv : 0;
+export const housing = lv => 6 + 4 * (lv - 1);                                             // lutins par chalet
+export const storageAdd = lv => R5(300 * Math.pow(1.5, lv - 1));                           // stock en plus par entrepôt
+export const hqStock = lv => R5(1000 * Math.pow(1.45, lv - 1));
+export const craftSlots = lv => Math.min(8, 2 + Math.floor(lv / 2));
+export const craftSpeed = lv => 1 + .08 * (lv - 1);
+export const orderSlots = lv => Math.min(9, 3 + Math.floor(lv / 2));
+export const orderBonus = lv => 1 + .1 * (lv - 1);
+export const ticketsMax = lv => 3 + Math.floor(lv / 3);
+export const gameBonus = lv => 1 + .25 * (lv - 1);
+export const theaterJoy = lv => 8 * lv;
+export function upCost(type, lv){        // coût pour passer au niveau lv (lv = 1 : construction)
+  const b = BUILDINGS[type], c = {}, m = Math.pow(1.6, lv - 1);
+  for (const [k, v] of Object.entries(b.cost)) c[k] = R5(v * m);
+  if (b.kind === 'hq' && lv >= 2) c.cookies = R5(40 * Math.pow(1.6, lv - 2));
+  if (isUpgradable(b) && lv >= 4 && !c.cookies) c.cookies = R5((b.cost.wood || 50) * .3 * m);   // les gros chantiers nourrissent les lutins
+  return c;
+}
+export const upTime = (type, lv) => Math.min(8 * 3600, Math.round((BUILDINGS[type].time || 0) * Math.pow(1.55, lv - 1)));
+export const buildXp = lv => Math.round(6 * Math.pow(lv, 1.4));
+export const freeFinish = 3 * 60 * 1000;     // moins de 3 min restantes : « Terminer » est gratuit (comme DoA / Clash)
+export const BUILDERS = 2;                   // équipes de lutins bâtisseurs (chantiers en même temps)
+
+/** Ce que chaque niveau donne, sous forme de lignes affichables {label, now, next}. */
+export function stats(s, o, lv = o.lv){
+  const b = BUILDINGS[o.type], L = (label, f, unit = '') => ({label, now: lv ? f(lv) + unit : '—', next: f(lv + 1) + unit});
+  switch (b.kind){
+    case 'prod': return [L(`${ITEMS[b.res].name} par heure`, l => fmtN(rate(o.type, l))), L('Stock du bâtiment', l => fmtN(buffer(o.type, l))), L('Lutins employés', l => workers(o.type, l))];
+    case 'house': return [L('Lutins logés', housing)];
+    case 'storage': return [L('Stock en plus (bois, biscuits, tissu)', l => '+' + fmtN(storageAdd(l)))];
+    case 'craft': return [L('Places dans la file', craftSlots), L('Vitesse des lutins', l => '×' + craftSpeed(l).toFixed(2))];
+    case 'orders': return [L('Lettres en même temps', orderSlots), L('Récompenses', l => '+' + Math.round((orderBonus(l) - 1) * 100) + ' %')];
+    case 'stable': return [L('Tickets de jeu', ticketsMax), L('Gains de la Tournée', l => '×' + gameBonus(l).toFixed(2))];
+    case 'fun': return [L('Bonheur', l => '+' + theaterJoy(l))];
+    case 'hq': return [L('Niveau max des bâtiments', l => l + 1), L('Stock de base', l => fmtN(hqStock(l))), L('Bâtiments débloqués', l => unlockCount(l))];
+  }
+  return [];
+}
+const fmtN = n => n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + 'k' : String(n);
+const unlockCount = l => Object.values(BUILDINGS).filter(b => (b.hq || 1) <= l && b.kind !== 'path').length;
+export const unlocksAtHq = L => Object.values(BUILDINGS).filter(b => b.hq === L && L > 1).map(b => b.name);
+
+/* ===================== NIVEAU DU JOUEUR ===================== */
+export const xpNeed = L => Math.round(20 * Math.pow(L, 1.6) + 10 * L);
+export const unlocksAt = L => Object.entries(TOYS).filter(([k, t]) => t.lvl === L && L > 1).map(([k]) => ITEMS[k].name);
+export function addXp(s, n){
+  s.xp += n; let up = 0;
+  while (s.xp >= xpNeed(s.lvl)){ s.xp -= xpNeed(s.lvl); s.lvl++; up++; }
+  return up;
+}
 
 /* ===================== CARTE ===================== */
-export const MAP = 44;            // carte de 44 x 44 cases
-export const CHUNK = 11;          // agrandissements de 11 x 11 cases
-export const START_CHUNKS = ['1,1', '2,1', '1,2', '2,2'];   // centre ouvert au départ (22 x 22)
-export const chunkCost = n => ({coins: Math.round(300 * Math.pow(1.7, n)), axe: 1 + n, saw: 1 + Math.floor(n / 2)});
+export const MAP = 44;
+export const CHUNK = 11;
+export const START_CHUNKS = ['1,1', '2,1', '1,2', '2,2'];
+export const chunkCost = n => ({coins: R5(800 * Math.pow(1.8, n)), wood: R5(400 * Math.pow(1.8, n)), axe: 1 + n, saw: 1 + Math.floor(n / 2)});
 
 /* ===================== ÉTAT ===================== */
-const KEY = 'village-du-pole-v4';
+const KEY = 'village-du-pole-v5';
 let uid = 1;
 const nid = () => 'o' + (uid++) + Math.random().toString(36).slice(2, 5);
+const overlap = (s, type, x, y) => { const b = BUILDINGS[type]; return s.objs.some(o => { const ob = BUILDINGS[o.type]; return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; }); };
 
 export function newTown(){
+  const t = Date.now();
   const s = {
-    v: 4, coins: 250, stars: 15, xp: 0, lvl: 1, barnLvl: 1,
-    inv: {wheat: 6, plank: 1, nail: 1},
-    objs: [], chunks: [...START_CHUNKS], orders: [], tuto: 0, t: Date.now(), stats: {orders: 0, harvest: 0, made: 0},
-    cnt: {}, quest: {i: 0, base: {}}, daily: {last: '', streak: 0}, decorated: 1,
+    v: 5, coins: 200, wood: 120, cookies: 0, fabric: 0, stars: 15, xp: 0, lvl: 1,
+    inv: {}, objs: [], chunks: [...START_CHUNKS], orders: [], tuto: 0, t,
+    cnt: {}, quest: {i: 0, base: {}}, daily: {last: '', streak: 0}, games: null, decorated: 1,
   };
-  // pose un objet seulement si la place est libre (le décor remplit les trous sans écraser les bâtiments)
-  const free = (type, x, y) => { const b = BUILDINGS[type]; return !s.objs.some(o => { const ob = BUILDINGS[o.type]; return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; }); };
-  const add = (type, x, y, extra = {}) => { if (free(type, x, y)) s.objs.push({id: nid(), type, x, y, ...extra}); };
+  const add = (type, x, y, extra = {}) => { if (!overlap(s, type, x, y)) s.objs.push({id: nid(), type, x, y, lv: 1, t: t - 20 * 60e3, ...extra}); };
   add('santa', 19, 18);
+  add('sawmill', 13, 15);
+  add('letters', 25, 15);
   add('orders', 15, 25);
-  add('barn', 25, 24);
-  for (const [x, y] of [[13, 15], [15, 15], [13, 17], [15, 17], [13, 19], [15, 19]]) add('field', x, y, {crop: 'wheat', ready: Date.now() - 1000});
-  add('henhouse', 25, 15, {fed: 0, ready: 0});
   add('cabin', 20, 24); add('cabin', 22, 24);
   decorate(s);
-  s.orders = Array.from({length: 9}, (_, i) => i < 4 ? makeOrder(s, i) : {wait: Date.now() + (i - 3) * 8000});
+  s.orders = [];
   return s;
 }
-// allées et décor du village de départ (aussi ajoutés aux anciennes parties qui n'en ont pas)
 export function decorate(s){
-  const free = (type, x, y) => { const b = BUILDINGS[type]; return !s.objs.some(o => { const ob = BUILDINGS[o.type]; return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; }); };
-  const add = (type, x, y, extra = {}) => { if (free(type, x, y)) s.objs.push({id: nid(), type, x, y, free: 1, ...extra}); };
-  // allées : une grande rue et des embranchements vers chaque bâtiment
+  const add = (type, x, y, extra = {}) => { if (!overlap(s, type, x, y)) s.objs.push({id: nid(), type, x, y, free: 1, ...extra}); };
   for (let x = 12; x <= 31; x++) add('path', x, 22);
   for (let y = 14; y <= 21; y++) add('path', 23, y);
   for (let y = 14; y <= 21; y++) add('path', 17, y);
@@ -138,146 +172,148 @@ export function decorate(s){
   for (let x = 14; x <= 29; x++) add('path', x, 29);
   for (let y = 23; y <= 28; y++) add('path', 24, y);
   for (let x = 24; x <= 28; x++) add('path', x, 18);
-  // décor de départ : on doit avoir l'impression d'un village vivant dès la première seconde
   for (const [t, x, y] of [['lantern', 18, 21], ['lantern', 22, 23], ['lantern', 16, 23], ['lantern', 25, 21], ['lantern', 18, 28], ['lantern', 25, 28], ['lantern', 29, 23],
     ['bench', 21, 23], ['bench', 16, 21], ['gifts', 18, 17], ['gifts', 23, 23], ['reindeer', 18, 26], ['reindeer', 20, 28], ['snowman', 28, 20], ['snowman', 13, 23], ['candy', 22, 17], ['candy', 18, 23]]) add(t, x, y);
   let r = 11; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
-  for (let i = 0; i < 140; i++){ // sapins le long des bords et dans les recoins
+  for (let i = 0; i < 140; i++){
     const edge = rnd() < .7, x = edge ? (rnd() < .5 ? 11 + Math.floor(rnd() * 2) : 31 + Math.floor(rnd() * 2)) : 11 + Math.floor(rnd() * 22), y = edge && rnd() < .5 ? 11 + Math.floor(rnd() * 22) : (rnd() < .5 ? 11 + Math.floor(rnd() * 3) : 30 + Math.floor(rnd() * 3));
     add('tree', edge && rnd() < .5 ? x : 11 + Math.floor(rnd() * 22), y, {wild: 1});
   }
 }
-export function loadTown(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4){ s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; if (!s.decorated){ if (!s.objs.some(o => o.type === 'path')) decorate(s); s.decorated = 1; }
-      s.stars = +s.stars || 0; s.coins = +s.coins || 0;
-      // anciennes parties : compteurs de construction reconstitués depuis le village
-      for (const t of Object.keys(BUILDINGS)) if (!s.cnt['build:' + t]){ const n = s.objs.filter(o => o.type === t && !o.free && !o.wild).length; if (n) s.cnt['build:' + t] = n; }
-      return s; } } catch(e){} return null; }
+export function loadTown(){
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && s.v === 5){
+      for (const k of [...RES, 'stars', 'xp']) s[k] = +s[k] || 0;
+      s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
+      return s;
+    }
+  } catch(e){}
+  return null;
+}
 export function saveTown(s){ s.t = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){} }
 export function clearTown(){ try { localStorage.removeItem(KEY); } catch(e){} }
 
 /* ===================== RÈGLES ===================== */
-export const barnCap = s => 50 + (s.barnLvl - 1) * 25;
-export const barnUsed = s => Object.entries(s.inv).reduce((a, [k, n]) => a + (ITEMS[k]?.mat ? 0 : n), 0);
-export const barnUpCost = s => ({plank: 1 + s.barnLvl, nail: 1 + s.barnLvl, paint: s.barnLvl});
-export const pop = s => s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'house' && !o.build ? BUILDINGS[o.type].pop : 0), 0);
-export const popCap = s => 40 + s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'town' && !o.build ? BUILDINGS[o.type].cap : 0), 0);
+export const maxLv = s => hqLv(s) + 1;          // les autres bâtiments montent jusqu'au niveau de la Maison + 1
+export const hqLv = s => s.objs.find(o => o.type === 'santa')?.lv || 1;
+export const built = o => !o.build;                     // un bâtiment en construction ne sert pas encore
 export const countOf = (s, type) => s.objs.filter(o => o.type === type && !o.wild).length;
-export function buildCost(s, type){
-  const b = BUILDINGS[type], n = countOf(s, type);
-  if (b.kind === 'deco' || b.kind === 'path') return b.cost;
-  if (b.kind === 'field') return Math.round(b.cost + n * b.costStep + Math.max(0, n - 10) * 15);
-  if (b.costStep) return b.cost + n * b.costStep;
-  return Math.round(b.cost * Math.pow(1.6, n));
+export const lutins = s => s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'house' && built(o) ? housing(o.lv) : 0), 0);
+export const employed = s => s.objs.reduce((a, o) => a + (built(o) ? workers(o.type, o.lv || 0) : 0), 0);
+export const workRatio = s => { const e = employed(s); return e ? Math.min(1, lutins(s) / e) : 1; };
+export const joy = s => s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'deco' && !o.wild && !o.free ? BUILDINGS[o.type].joy || 0 : BUILDINGS[o.type].kind === 'fun' && built(o) ? theaterJoy(o.lv) : 0), 0);
+export const joyBonus = s => joy(s) / 100;              // +1 % de production par point de bonheur
+export const prodMult = s => workRatio(s) * (1 + joyBonus(s));
+export const cap = (s, r) => r === 'coins' ? Infinity : hqStock(hqLv(s)) + s.objs.reduce((a, o) => a + (o.type === 'storage' && built(o) ? storageAdd(o.lv) : 0), 0);
+/** Ce qu'un bâtiment de production a accumulé (plafonné à son stock interne). */
+export function stored(s, o, now = Date.now()){
+  const b = BUILDINGS[o.type]; if (b.kind !== 'prod' || !built(o) || o.up) return 0;
+  return Math.min(buffer(o.type, o.lv), Math.floor(rate(o.type, o.lv) * prodMult(s) * (now - o.t) / 3.6e6));
+}
+export function collect(s, o, now = Date.now()){
+  const b = BUILDINGS[o.type], n = stored(s, o, now); if (!n) return 0;
+  const room = Math.max(0, cap(s, b.res) - (s[b.res] || 0)), got = Math.min(n, room);
+  if (!got) return -1;                                   // stock plein
+  s[b.res] += got;
+  // ce qui n'a pas pu rentrer reste dans le bâtiment
+  const left = n - got; o.t = now - Math.round(left / (rate(o.type, o.lv) * prodMult(s)) * 3.6e6);
+  return got;
 }
 export const maxOf = (s, type) => {
-  const b = BUILDINGS[type];
-  if (b.kind === 'field') return 6 + s.lvl * 2;
-  if (b.kind === 'house') return 2 + Math.floor(s.lvl * 1.5);
-  if (b.kind === 'pen') return 1 + Math.floor(s.lvl / 8);
-  if (b.kind === 'factory') return 1;
-  if (b.kind === 'town') return 1;
+  const b = BUILDINGS[type], H = hqLv(s);
+  if (b.unique || b.kind === 'hq') return 1;
+  if (b.kind === 'house') return 2 + H;
+  if (b.kind === 'prod') return 1 + Math.floor(H / 4);
+  if (b.kind === 'storage') return 1 + Math.floor(H / 5);
   if (b.kind === 'path') return Infinity;
   return 99;
 };
+export const has = (s, req) => Object.entries(req).every(([k, n]) => (RES.includes(k) || k === 'stars' ? s[k] || 0 : s.inv[k] || 0) >= n);
+export const take = (s, req) => { for (const [k, n] of Object.entries(req)){ if (RES.includes(k) || k === 'stars') s[k] -= n; else s.inv[k] = (s.inv[k] || 0) - n; } };
+export function give(s, k, n = 1){ if (RES.includes(k) || k === 'stars') s[k] = (s[k] || 0) + n; else s.inv[k] = (s.inv[k] || 0) + n; }
+export const busyBuilders = (s, now = Date.now()) => s.objs.filter(o => (o.build && o.build > now) || (o.up && o.up > now)).length;
 export function buildBlock(s, type){
   const b = BUILDINGS[type];
-  if (s.lvl < b.lvl) return `Niveau ${b.lvl}`;
-  if (countOf(s, type) >= maxOf(s, type)) return b.kind === 'field' ? 'Plus de champs à ce niveau' : 'Déjà construit';
-  const popAll = s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'house' ? BUILDINGS[o.type].pop : 0), 0);
-  if (b.kind === 'house' && popAll + b.pop > popCap(s)) return 'Il faut plus de place : construis un bâtiment du village';
-  if (b.kind === 'factory' && b.pop && pop(s) < b.pop) return `Il faut ${b.pop} habitants`;
-  if (s.coins < buildCost(s, type)) return 'Pas assez de pièces';
+  if ((b.hq || 1) > hqLv(s)) return `Maison du Père Noël niv. ${b.hq}`;
+  if (countOf(s, type) >= maxOf(s, type)) return b.unique ? 'Déjà construit' : 'Maximum atteint : améliore la Maison du Père Noël';
+  if (isUpgradable(b) && busyBuilders(s) >= BUILDERS) return 'Tous les bâtisseurs sont occupés';
+  if (!has(s, upCost(type, 1))) return 'Ressources insuffisantes';
   return null;
 }
-export const has = (s, req) => Object.entries(req).every(([k, n]) => (s.inv[k] || 0) >= n);
-export const take = (s, req) => { for (const [k, n] of Object.entries(req)) s.inv[k] = (s.inv[k] || 0) - n; };
-export function give(s, k, n = 1){ s.inv[k] = (s.inv[k] || 0) + n; }
-export const barnFull = (s, n = 1) => barnUsed(s) + n > barnCap(s);
-
-export function addXp(s, n){
-  s.xp += n; let up = 0;
-  while (s.xp >= xpNeed(s.lvl)){ s.xp -= xpNeed(s.lvl); s.lvl++; up++; }
-  return up;
+export function upBlock(s, o){
+  const b = BUILDINGS[o.type];
+  if (o.build || o.up) return 'Déjà en travaux';
+  if (b.kind === 'hq'){ if (o.lv >= b.max) return 'Niveau maximum'; }
+  else if (o.lv >= maxLv(s)) return `Améliore d'abord la Maison du Père Noël (niv. ${o.lv})`;
+  if (busyBuilders(s) >= BUILDERS) return 'Tous les bâtisseurs sont occupés';
+  if (!has(s, upCost(o.type, o.lv + 1))) return 'Ressources insuffisantes';
+  return null;
 }
 
-/* ===================== COMMANDES DU TRAÎNEAU ===================== */
-const KIDS = ['Léa', 'Hugo', 'Inès', 'Noah', 'Jade', 'Lucas', 'Chloé', 'Adam', 'Manon', 'Gabriel', 'Lina', 'Louis', 'Emma', 'Nathan', 'Zoé', 'Sacha', 'Alice', 'Rayan', 'Mia', 'Tom', 'Lutin Bruno', 'Lutine Paillette', 'Mère Noël'];
-export function available(s){
-  // ce que le joueur sait produire à son niveau
-  // (seulement ce qui est vraiment fabricable : bâtiment terminé ET ingrédients eux-mêmes disponibles)
-  const out = Object.keys(CROPS).filter(k => CROPS[k].lvl <= s.lvl);
-  const built = s.objs.filter(o => !o.build).map(o => BUILDINGS[o.type]);
-  for (const b of built) if (b.kind === 'pen' && !out.includes(b.prod)) out.push(b.prod);
-  for (let changed = true; changed;){
-    changed = false;
-    for (const b of built) for (const [k, r] of Object.entries(b.recipes || {}))
-      if (r.lvl <= s.lvl && !out.includes(k) && Object.keys(r.in).every(i => out.includes(i))){ out.push(k); changed = true; }
-  }
-  return out;
-}
-export function makeOrder(s, salt = 0){
-  const av = available(s), n = 1 + (Math.random() < .45 ? 1 : 0) + (s.lvl >= 4 && Math.random() < .3 ? 1 : 0);
-  const pool = [...av].sort(() => Math.random() - .5), items = {};
-  for (const k of pool.slice(0, n)){ const v = ITEMS[k].v; items[k] = Math.max(1, Math.round((1 + Math.random() * (2 + s.lvl / 3)) * (v < 10 ? 1.6 : v < 40 ? 1 : .6))); }
-  const value = Object.entries(items).reduce((a, [k, q]) => a + ITEMS[k].v * q, 0);
-  const xp = Object.entries(items).reduce((a, [k, q]) => a + ITEMS[k].xp * q, 0);
-  const o = {kid: KIDS[Math.floor(Math.random() * KIDS.length)], items, coins: Math.round(value * 1.5 + 5), xp: Math.round(xp * 2.2 + 2)};
-  if (Math.random() < .25) o.mat = ['plank', 'nail', 'paint', 'axe', 'saw'][Math.floor(Math.random() * (s.lvl >= 3 ? 5 : 3))];
+/* ===================== LETTRES DES ENFANTS (commandes) ===================== */
+const KIDS = ['Léa', 'Hugo', 'Inès', 'Noah', 'Jade', 'Lucas', 'Chloé', 'Adam', 'Manon', 'Gabriel', 'Lina', 'Louis', 'Emma', 'Nathan', 'Zoé', 'Sacha', 'Alice', 'Rayan', 'Mia', 'Tom'];
+export const toysAvailable = s => Object.keys(TOYS).filter(k => TOYS[k].lvl <= s.lvl);
+export function makeOrder(s, bureauLv = 1){
+  const av = toysAvailable(s), n = av.length > 1 && Math.random() < .4 ? 2 : 1, items = {};
+  for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
+  const value = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].value * q, 0), xp = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].xp * q, 0);
+  const m = orderBonus(bureauLv);
+  const o = {kid: KIDS[Math.floor(Math.random() * KIDS.length)], items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m)};
+  const r = Math.random();
+  if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .32) o.stars = 1;
   return o;
 }
-// une chance d'obtenir un matériau en récoltant (comme les outils de Township)
-export const dropChance = .06;
-export const DROPS = ['plank', 'nail', 'paint', 'axe', 'saw'];
 
-/* ===================== TÂCHES (fil d'objectifs, comme les quêtes de Township) ===================== */
-// k : compteur suivi (track) ; 'lvl' = niveau atteint. La récompense arrive à chaque tâche terminée.
+/* ===================== TÂCHES (chapitres : un bâtiment à la fois) ===================== */
+// k : 'collect:<res>' (quantité récoltée), 'level:<type>' (niveau atteint), 'have:<type>' (nombre construits),
+//     'make' / 'orders' / 'games' / 'expand' (compteurs), 'lvl' (niveau joueur), 'joy' (bonheur)
 export const QUESTS = [
-  {t: 'Récolte 6 champs de blé', k: 'harvest:wheat', n: 6, r: {coins: 25, xp: 6}},
-  {t: 'Livre 2 commandes du traîneau', k: 'orders', n: 2, r: {coins: 40, xp: 8}},
-  {t: 'Ramasse les œufs du poulailler', k: 'collect:egg', n: 3, r: {coins: 30, xp: 6}},
-  {t: 'Construis 2 champs', k: 'build:field', n: 2, r: {coins: 40, xp: 8}},
-  {t: 'Atteins le niveau 2', k: 'lvl', n: 2, r: {coins: 50, stars: 2}},
-  {t: 'Construis la boulangerie', k: 'build:bakery', n: 1, r: {coins: 60, xp: 10}},
-  {t: 'Fabrique 3 pains', k: 'make:bread', n: 3, r: {coins: 50, xp: 10}},
-  {t: 'Plante 4 champs de carottes', k: 'plant:carrot', n: 4, r: {coins: 40, xp: 8}},
-  {t: "Construis l'épicerie du village", k: 'build:grocery', n: 1, r: {coins: 80, stars: 2}},
-  {t: 'Construis un chalet de lutin', k: 'build:cabin', n: 1, r: {coins: 60, xp: 10}},
-  {t: 'Livre 6 commandes', k: 'orders', n: 6, r: {coins: 120, xp: 20}},
-  {t: 'Atteins le niveau 3', k: 'lvl', n: 3, r: {coins: 100, stars: 3}},
-  {t: "Construis l'étable", k: 'build:cowshed', n: 1, r: {coins: 100, xp: 15}},
-  {t: 'Fabrique 4 biscuits', k: 'make:cookie', n: 4, r: {coins: 90, xp: 15}},
-  {t: 'Récolte 10 champs de maïs', k: 'harvest:corn', n: 10, r: {coins: 90, xp: 15}},
-  {t: 'Atteins le niveau 4', k: 'lvl', n: 4, r: {coins: 150, stars: 3}},
-  {t: 'Construis la laiterie', k: 'build:dairy', n: 1, r: {coins: 150, xp: 20}},
-  {t: 'Fabrique 3 crèmes', k: 'make:cream', n: 3, r: {coins: 120, xp: 20}},
-  {t: 'Agrandis la grange', k: 'barnup', n: 1, r: {coins: 150, stars: 2}},
-  {t: 'Dégage un nouveau terrain', k: 'expand', n: 1, r: {coins: 200, stars: 5}},
+  {t: 'Récolte le bois de la scierie', k: 'collect:wood', n: 1, r: {coins: 30, xp: 5}},
+  {t: 'Améliore la scierie au niveau 2', k: 'level:sawmill', n: 2, r: {coins: 40, xp: 8}},
+  {t: 'Construis le Four à biscuits', k: 'have:bakery', n: 1, r: {coins: 50, wood: 40, xp: 8}},
+  {t: 'Récolte 50 biscuits', k: 'collect:cookies', n: 50, r: {coins: 60, xp: 8}},
+  {t: 'Améliore la Maison du Père Noël au niveau 2', k: 'level:santa', n: 2, r: {coins: 100, stars: 2, xp: 12}},
+  {t: "Construis l'Atelier des jouets", k: 'have:workshop', n: 1, r: {coins: 80, xp: 10}},
+  {t: 'Fabrique 2 petits trains', k: 'make:train', n: 2, r: {wood: 80, xp: 10}},
+  {t: 'Livre 2 lettres au Bureau du traîneau', k: 'orders', n: 2, r: {coins: 120, stars: 1, xp: 12}},
+  {t: "Construis l'Entrepôt", k: 'have:storage', n: 1, r: {coins: 100, xp: 12}},
+  {t: 'Construis un 3ᵉ chalet de lutins', k: 'have:cabin', n: 3, r: {wood: 120, xp: 12}},
+  {t: 'Améliore le Bureau des lettres au niveau 2', k: 'level:letters', n: 2, r: {coins: 150, xp: 15}},
+  {t: 'Améliore la Maison du Père Noël au niveau 3', k: 'level:santa', n: 3, r: {coins: 200, stars: 3, xp: 20}},
+  {t: 'Construis la Filature', k: 'have:mill', n: 1, r: {coins: 150, xp: 15}},
+  {t: 'Fabrique 2 bonhommes en peluche', k: 'make:plush', n: 2, r: {fabric: 40, xp: 15}},
+  {t: 'Livre 8 lettres', k: 'orders', n: 8, r: {coins: 300, stars: 2, xp: 25}},
+  {t: 'Atteins 20 de bonheur avec des décorations', k: 'joy', n: 20, r: {coins: 200, xp: 15}},
+  {t: 'Améliore la Maison du Père Noël au niveau 4', k: 'level:santa', n: 4, r: {coins: 400, stars: 3, xp: 30}},
+  {t: "Construis l'Écurie des rennes", k: 'have:stable', n: 1, r: {coins: 300, xp: 25}},
+  {t: 'Joue une Tournée de Noël', k: 'games', n: 1, r: {stars: 2, xp: 20}},
+  {t: 'Dégage un nouveau terrain', k: 'expand', n: 1, r: {coins: 500, stars: 5, xp: 40}},
+  {t: 'Améliore la Maison du Père Noël au niveau 5', k: 'level:santa', n: 5, r: {coins: 600, stars: 4, xp: 40}},
+  {t: 'Construis le Théâtre de marionnettes', k: 'have:theater', n: 1, r: {coins: 500, xp: 35}},
 ];
-const GEN = [['orders', 'Livre %n commandes', 5], ['harvest', 'Récolte %n champs', 20], ['make', 'Fabrique %n produits en usine', 8], ['collect', 'Ramasse %n produits des animaux', 12]];
+const GEN = [['orders', 'Livre %n lettres', 5], ['make', 'Fabrique %n jouets', 6], ['collect:wood', 'Récolte %n bois', 1500], ['collect:cookies', 'Récolte %n biscuits', 1000]];
 export function questAt(s, i){
   if (i < QUESTS.length) return QUESTS[i];
-  const j = i - QUESTS.length, g = GEN[j % GEN.length], n = g[2] + Math.floor(j / GEN.length) * Math.ceil(g[2] / 2);
-  return {t: g[1].replace('%n', n), k: g[0], n, r: {coins: 60 + s.lvl * 25, xp: 10 + s.lvl * 4, stars: j % 3 === 2 ? 2 : 0}};
+  const j = i - QUESTS.length, g = GEN[j % GEN.length], n = Math.round(g[2] * (1 + Math.floor(j / GEN.length) * .5));
+  return {t: g[1].replace('%n', n), k: g[0], n, r: {coins: 100 + s.lvl * 40, xp: 15 + s.lvl * 5, stars: j % 3 === 2 ? 2 : 0}};
 }
 export function track(s, key, n = 1){
   s.cnt[key] = (s.cnt[key] || 0) + n;
   const base = key.split(':')[0]; if (base !== key) s.cnt[base] = (s.cnt[base] || 0) + n;
 }
-// Les tâches fixes comptent depuis le début de la partie (une boulangerie construite AVANT la tâche la valide),
-// et regardent aussi l'état réel du village. Seules les tâches générées à l'infini comptent depuis leur apparition.
 function questValue(s, q, i){
-  if (q.k === 'lvl') return s.lvl;
-  const total = s.cnt[q.k] || 0;
-  if (i >= QUESTS.length) return total - (s.quest.base[q.k] || 0);
   const [kind, what] = q.k.split(':');
-  if (kind === 'build') return Math.max(total, BUILDINGS[what]?.unique || ['field', 'cabin', 'bighouse'].includes(what) ? total : countOf(s, what));
-  if (kind === 'barnup') return Math.max(total, s.barnLvl - 1);
-  if (kind === 'expand') return Math.max(total, s.chunks.length - START_CHUNKS.length);
-  return total;
+  if (kind === 'lvl') return s.lvl;
+  if (kind === 'joy') return joy(s);
+  if (kind === 'level') return Math.max(0, ...s.objs.filter(o => o.type === what && built(o)).map(o => o.lv || 0));
+  if (kind === 'have') return s.objs.filter(o => o.type === what && built(o) && !o.free).length + (what === 'cabin' ? s.objs.filter(o => o.type === 'cabin' && o.free).length : 0);
+  if (kind === 'expand') return s.chunks.length - START_CHUNKS.length;
+  const total = s.cnt[q.k] || 0;
+  return i >= QUESTS.length ? total - (s.quest.base[q.k] || 0) : total;
 }
 export function questProgress(s){
-  const q = questAt(s, s.quest.i);
-  const v = questValue(s, q, s.quest.i);
+  const q = questAt(s, s.quest.i), v = questValue(s, q, s.quest.i);
   return {q, v: Math.min(q.n, v), done: v >= q.n};
 }
 export function questClaim(s){
@@ -286,15 +322,14 @@ export function questClaim(s){
   return q.r;
 }
 
-/* ===================== CADEAU DU JOUR (série de 7 jours) ===================== */
-export const DAILY = [{coins: 50}, {coins: 80, plank: 1}, {stars: 3}, {coins: 150, nail: 1}, {coins: 200, paint: 1}, {stars: 5, axe: 1}, {stars: 10, coins: 300, saw: 1}];
+/* ===================== CADEAU DU JOUR ===================== */
+export const DAILY = [{coins: 100, wood: 80}, {cookies: 80, axe: 1}, {stars: 3}, {coins: 300, fabric: 50}, {wood: 300, saw: 1}, {stars: 5, axe: 1}, {stars: 10, coins: 800, saw: 1}];
 const day = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 export const yesterday = () => { const y = new Date(); y.setDate(y.getDate() - 1); return day(y.getTime()); };
 export const dailyReady = s => s.daily.last !== day();
 export function dailyClaim(s){
   if (!dailyReady(s)) return null;
-  const y = new Date(); y.setDate(y.getDate() - 1); const yest = day(y.getTime());
-  s.daily.streak = s.daily.last === yest ? s.daily.streak + 1 : 1;
+  s.daily.streak = s.daily.last === yesterday() ? s.daily.streak + 1 : 1;
   s.daily.last = day();
   return DAILY[(s.daily.streak - 1) % 7];
 }

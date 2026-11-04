@@ -6,7 +6,8 @@ import {createTuto} from '../tuto.js';
 import {openMinigame, GAMES} from '../minigames.js';
 import * as T from './town.js';
 
-const {ITEMS, CROPS, BUILDINGS} = T;
+const {ITEMS, TOYS, BUILDINGS} = T;
+const tierOf = lv => lv >= 12 ? 3 : lv >= 5 ? 2 : 1;   // apparence du bâtiment selon son niveau
 const $ = s => document.querySelector(s);
 const ROOT = new URL('../../', import.meta.url).href;
 const Q = new URLSearchParams(location.search);
@@ -56,7 +57,8 @@ if (!packed){
 clearInterval(tipTimer);
 bar(1);
 $('#h-coins img').src = ICON.coins;
-$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-games').src = ICON.mg_sleigh; $('#i-barn').src = thumbs.barn; $('#i-build').src = buildIcon;
+for (const im of document.querySelectorAll('.resimg')) im.src = ICON[im.dataset.r];
+$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-games').src = ICON.mg_sleigh; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
 const elfPortrait = portrait;
 
 /* =====================================================================
@@ -64,7 +66,6 @@ const elfPortrait = portrait;
    ===================================================================== */
 const saved = T.loadTown();
 let S = saved || T.newTown();
-if (!saved) S.orders[0] = {kid: 'Léa', items: {wheat: 3}, coins: 30, xp: 12};
 const save = () => T.saveTown(S);
 let actx = null;
 function tone(f, d = .12, type = 'sine', v = .06, when = 0){
@@ -110,76 +111,84 @@ const snowPat = (() => {
    ===================================================================== */
 const B = o => BUILDINGS[o.type];
 const now = () => Date.now();
-function cropStage(o){ if (!o.crop) return null; return now() >= o.ready ? 1 : 0; }
+const haveOf = k => T.RES.includes(k) || k === 'stars' ? S[k] || 0 : S.inv[k] || 0;
 function spriteKey(o){
   if (o.build) return 'site:' + Math.min(4, B(o).w);
-  if (B(o).kind === 'field') return o.crop ? `f:${o.crop}:${cropStage(o)}` : 'f:empty';
   if (o.type === 'path') return ['b:path', 'b:path2', 'b:path3'][(o.x * 7 + o.y * 13) % 3];
   if (o.wild) return (o.x + o.y) % 3 ? 'b:wildtree' : 'b:wildtree2';
+  if (T.isUpgradable(B(o))) return `b:${o.type}:${tierOf(o.lv || 1)}`;
   return 'b:' + o.type;
 }
+const findType = type => S.objs.find(o => o.type === type && !o.build);
 function gainXp(n, from){
   const up = T.addXp(S, n);
   if (from) fly('xp', n, from);
   if (up){ for (let L = S.lvl - up + 1; L <= S.lvl; L++) lvQueue.push(L); if (!lvShowing) setTimeout(nextLevelUp, 500); }
 }
-function harvest(o, at){
-  if (!o.crop || now() < o.ready) return false;
-  if (T.barnFull(S, 2)){ toastOnce('La grange est pleine ! Livre des commandes ou agrandis-la.'); return false; }
-  const k = o.crop; o.crop = null; T.give(S, k, 2); S.stats.harvest++; T.track(S, 'harvest:' + k);
-  fxHarvest(o, k, 2); gainXp(ITEMS[k].xp, null);
-  if (Math.random() < T.dropChance){ const m = T.DROPS[Math.floor(Math.random() * (S.lvl >= 3 ? 5 : 3))]; T.give(S, m); setTimeout(() => fly(m, 1, at), 250); }
-  sfx.collect(); tutoEv('harvest'); return true;
+/** Toucher un bâtiment de production : on récolte ce qu'il a accumulé. */
+const ripe = o => B(o).kind === 'prod' && T.stored(S, o) >= Math.max(1, T.buffer(o.type, o.lv) * .08);   // bulle visible
+function collectBld(o){
+  if (!ripe(o)) return false;
+  const b = B(o), got = T.collect(S, o);
+  if (got === -1){ toastOnce(`Stock de ${ITEMS[b.res].name.toLowerCase()} plein : construis ou améliore un Entrepôt`); return true; }
+  if (!got) return false;
+  T.track(S, 'collect:' + b.res, got); fxHarvest(o, b.res, got); gainXp(Math.max(1, Math.round(got / 60)), null);
+  sfx.collect(); tutoEv('collect:' + o.type); save(); return true;
 }
-function plant(o, crop, at){
-  if (o.crop || o.build) return false;
-  const c = CROPS[crop];
-  if (S.coins < c.cost){ toastOnce('Pas assez de pièces'); return false; }
-  S.coins -= c.cost; o.crop = crop; o.ready = now() + c.time * 1000; T.track(S, 'plant:' + crop); sfx.pop(); tutoEv('plant'); return true;
+/* ---------- Atelier : file de fabrication des jouets ---------- */
+function workshopOf(){ return findType('workshop'); }
+function craftDone(o){ return (o.q || []).filter(j => j.end <= now()); }
+function collectToys(o, at){
+  const done = craftDone(o); if (!done.length) return false;
+  for (const j of done){ T.give(S, j.item); gainXp(TOYS[j.item].xp, null); T.track(S, 'make:' + j.item); }
+  o.q = o.q.filter(j => j.end > now());
+  fxHarvest(o, done[0].item, done.length); sfx.collect(); tutoEv('toys'); save(); return true;
 }
-function penTap(o, at){
-  const b = B(o);
-  if (o.ready && now() >= o.ready){ // récolte des produits
-    if (T.barnFull(S, b.slots)){ toast('La grange est pleine !'); return; }
-    T.give(S, b.prod, b.slots); T.track(S, 'collect:' + b.prod, b.slots); o.ready = 0; fly(b.prod, b.slots, at); gainXp(ITEMS[b.prod].xp * b.slots, at); sfx.collect(); tutoEv('collectPen'); return;
-  }
-  if (o.ready){ toast(`${b.name} : encore ${fmtTime((o.ready - now()) / 1000)}`); return; }
-  if ((S.inv[b.feed] || 0) < b.slots){ sfx.err(); toast(`Il faut ${b.slots} ${ITEMS[b.feed].name.toLowerCase()} pour nourrir les animaux`); return; }
-  T.take(S, {[b.feed]: b.slots}); o.ready = now() + b.ptime * 1000; sfx.pop(); toast(`Animaux nourris ! Prêt dans ${fmtTime(b.ptime)}`); tutoEv('feed');
-}
-function factoryCollect(o, at){
-  const done = (o.q || []).filter(j => j.end <= now());
-  if (!done.length) return false;
-  const got = new Set();
-  for (const j of done){ if (T.barnFull(S)){ toastOnce('La grange est pleine !'); break; } T.give(S, j.item); got.add(j); gainXp(ITEMS[j.item].xp, null); fly(j.item, 1, at); S.stats.made++; T.track(S, 'make:' + j.item); }
-  o.q = o.q.filter(j => !got.has(j));
-  if (got.size){ sfx.collect(); tutoEv('collectFactory'); }
-  return got.size > 0;
-}
-function queueRecipe(o, item){
-  const r = B(o).recipes[item];
-  if (S.lvl < r.lvl){ sfx.err(); toast(`Niveau ${r.lvl} requis`); return; }
+function queueToy(o, k){
+  const t = TOYS[k];
+  if (S.lvl < t.lvl){ sfx.err(); return toast(`Niveau ${t.lvl} requis`); }
   o.q = o.q || [];
-  if (o.q.length >= (o.slots || 3)){ sfx.err(); toast('File pleine'); return; }
-  if (!T.has(S, r.in)){ sfx.err(); toast('Il manque des ingrédients'); return; }
-  T.take(S, r.in);
+  if (o.q.length >= T.craftSlots(o.lv)){ sfx.err(); return toast("La file de l'atelier est pleine"); }
+  if (!T.has(S, t.cost)){ sfx.err(); return toast('Ressources insuffisantes'); }
+  T.take(S, t.cost);
   const start = Math.max(now(), o.q.length ? o.q[o.q.length - 1].end : 0);
-  o.q.push({item, end: start + r.time * 1000}); sfx.pop(); tutoEv('queue'); renderPanel();
+  o.q.push({item: k, end: start + t.time / T.craftSpeed(o.lv) * 1000}); sfx.pop(); tutoEv('craft'); save(); renderPanel();
 }
+/* ---------- lettres des enfants ---------- */
+function bureau(){ return findType('orders'); }
 function deliver(i, el){
   const od = S.orders[i]; if (!od?.items) return;
-  if (!T.has(S, od.items)){ sfx.err(); toast('Il te manque des produits'); return; }
+  if (!T.has(S, od.items)){ sfx.err(); toast('Il te manque des jouets : fabrique-les à l’Atelier'); return; }
   T.take(S, od.items); S.coins += od.coins; fly('coins', od.coins, el); gainXp(od.xp, el);
   if (od.mat){ T.give(S, od.mat); setTimeout(() => fly(od.mat, 1, el), 300); }
-  S.stats.orders++; T.track(S, 'orders'); S.orders[i] = {wait: now() + 12000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
+  if (od.stars){ S.stars += od.stars; }
+  T.track(S, 'orders'); S.orders[i] = {wait: now() + 15000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
   if (tuto.active()) setTimeout(closePanel, 900);
 }
 function refreshOrders(){
-  for (let i = 0; i < 9; i++){ const o = S.orders[i]; if (o?.wait && now() >= o.wait) S.orders[i] = T.makeOrder(S, i); }
+  const bu = bureau(); if (!bu) return;
+  const n = T.orderSlots(bu.lv);
+  while (S.orders.length < n) S.orders.push({wait: now() + S.orders.length * 4000});
+  for (let i = 0; i < S.orders.length; i++){ const o = S.orders[i]; if (o?.wait && now() >= o.wait) S.orders[i] = T.makeOrder(S, bu.lv); }
 }
-function finishBuilds(){
-  for (const o of S.objs) if (o.build && now() >= o.build){ delete o.build; fxPoof(o); if (panel === 'site' && panelArg === o) closePanel(); gainXp(Math.max(5, Math.round(T.buildCost(S, o.type) / 12)), null); sfx.level(); toast(`${B(o).name} construit !`); tutoEv('built'); }
+/* ---------- chantiers : construction et amélioration ---------- */
+function startUpgrade(o, el){
+  const why = T.upBlock(S, o); if (why){ sfx.err(); return toast(why); }
+  const lv = o.lv + 1;
+  // on récolte d'abord ce qui attend dans le bâtiment (sinon ce serait perdu)
+  if (B(o).kind === 'prod') collectBld(o);
+  T.take(S, T.upCost(o.type, lv));
+  const ms = T.upTime(o.type, lv) * 1000; o.up = now() + ms; o.utotal = ms; o.upTo = lv;
+  sfx.build(); tutoEv('upgrade'); save(); closePanel();
 }
+function finishWorks(){
+  for (const o of S.objs){
+    if (o.build && now() >= o.build){ delete o.build; o.t = now(); fxPoof(o); if (panel === 'site' && panelArg === o) closePanel(); gainXp(T.buildXp(1) + 2, null); sfx.level(); toast(`${B(o).name} construit !`); tutoEv('built'); save(); }
+    if (o.up && now() >= o.up){ o.lv = o.upTo; delete o.up; delete o.upTo; o.t = now(); fxPoof(o); if (panel === 'site' && panelArg === o) closePanel(); gainXp(T.buildXp(o.lv), null); sfx.level(); toast(`${B(o).name} : niveau ${o.lv} !`); tutoEv('upgraded'); save(); }
+  }
+}
+const workEnd = o => o.build || o.up || 0;
+function speedCost(o){ const left = workEnd(o) - now(); return left <= T.freeFinish ? 0 : Math.max(1, Math.ceil(left / 300e3)); }
 
 /* =====================================================================
    RENDU
@@ -259,7 +268,7 @@ function draw(){
     items.push({d: o.x + o.y + (b.w + b.h) / 2, f: () => drawObj(o)});
   }
   for (const e of elves) items.push({d: e.x + e.y, f: () => drawElf(e)});
-  if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : 'b:' + ghost.type, c.x, c.y, .85); }}); }
+  if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : T.isUpgradable(b) ? `b:${ghost.type}:1` : 'b:' + ghost.type, c.x, c.y, .85); }}); }
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
   // noms des bâtiments, puis indicateurs au-dessus
@@ -279,12 +288,12 @@ function vignette(){ // calculée une fois en petite taille, puis étirée (dég
     const g = x.createRadialGradient(w / 2, h * .45, Math.min(w, h) * .35, w / 2, h * .45, Math.hypot(w, h) * .62); g.addColorStop(0, 'rgba(20,30,70,0)'); g.addColorStop(1, 'rgba(20,30,70,.28)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }
   return vig;
 }
-const PLATE = new Set(['factory', 'pen', 'orders', 'barn', 'hq', 'town']);
+const PLATE = new Set(['hq', 'prod', 'storage', 'craft', 'orders', 'stable', 'fun']);
 function plate(o){
   const b = B(o); if (!PLATE.has(b.kind) || cam.z < .7 || o.build) return;
   const p = toScreen(o.x + b.w, o.y + b.h);
   if (p.x < -100 || p.x > W + 100 || p.y < -40 || p.y > H + 40) return;
-  const label = b.name;
+  const label = `${b.name} · ${o.lv || 1}`;
   ctx.save(); ctx.translate(p.x, p.y - 12);
   ctx.font = '400 13px "Lilita One", sans-serif'; const w = ctx.measureText(label).width + 18;
   ctx.fillStyle = 'rgba(28,24,40,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -11, w, 22, 6); ctx.fill();
@@ -307,27 +316,27 @@ function drawObj(o){
   drawSprite(spriteKey(o), c.x, c.y);
 }
 function drawHint(o){
-  const b = B(o); if (ghost?.move === o) return;
+  const b = B(o); if (ghost?.move === o || o.wild) return;
   const r = objScreenRect(o), top = r.top + 10;
   if (r.cx < -60 || r.cx > W + 60 || top < -60 || r.cy > H + 80) return;
-  if (o.build){ const total = (o.btotal || 1); timerPill(r.cx, top, fmtTime((o.build - now()) / 1000), 1 - (o.build - now()) / total); return; }
-  if (b.kind === 'pen'){ if (o.ready && now() >= o.ready) bubble(r.cx, top, b.prod); else if (!o.ready) bubble(r.cx, top, b.feed, '?'); else timerPill(r.cx, top, fmtTime((o.ready - now()) / 1000), 1 - (o.ready - now()) / (b.ptime * 1000)); }
-  if (b.kind === 'factory' && o.q?.length){ const d = o.q.filter(j => j.end <= now()); if (d.length) bubble(r.cx, top, d[0].item, d.length > 1 ? 'x' + d.length : ''); else { const j = o.q[0]; timerPill(r.cx, top, fmtTime((j.end - now()) / 1000), 1 - (j.end - now()) / (B(o).recipes[j.item].time * 1000)); } }
+  const w = workEnd(o);
+  if (w){ const total = o.build ? o.btotal : o.utotal; timerPill(r.cx, top, (speedCost(o) ? '' : '✓ ') + fmtTime((w - now()) / 1000), 1 - (w - now()) / (total || 1)); return; }
+  if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); if (ripe(o)) bubble(r.cx, top, b.res, n >= buf ? 'MAX' : ''); }
+  if (b.kind === 'craft'){ const d = craftDone(o); if (d.length) bubble(r.cx, top, d[0].item, d.length > 1 ? 'x' + d.length : ''); else if (o.q?.length){ const j = o.q[0]; timerPill(r.cx, top, fmtTime((j.end - now()) / 1000), 1 - (j.end - now()) / (TOYS[j.item].time / T.craftSpeed(o.lv) * 1000)); } }
   if (b.kind === 'orders'){ const ok = S.orders.some(od => od.items && T.has(S, od.items)); if (ok) bubble(r.cx, top, 'coins', '!'); }
 }
-
 
 /* ---------- effets (comme la bande-annonce de Township) ---------- */
 // récolte : les produits jaillissent du champ et filent en traînée lumineuse vers la grange ; « +XP » qui monte
 const FX = [];
 const GLOW = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,250,200,.95)'); g.addColorStop(.35, 'rgba(255,220,90,.55)'); g.addColorStop(1, 'rgba(255,200,60,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c; })();
 function fxHarvest(o, k, n){
-  const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2), tr = $('#b-barn').getBoundingClientRect();
+  const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2), tr = targetOf(k).getBoundingClientRect();
   const tx = tr.left + tr.width / 2, ty = tr.top + tr.height * .4;
   for (let i = 0; i < 4; i++){ const x0 = c.x + (Math.random() - .5) * 46 * cam.z, y0 = c.y - 8 * cam.z + (Math.random() - .5) * 16;
-    FX.push({k: 'item', url: ICON[k], x0, y0, cx: (x0 + tx) / 2 + (Math.random() - .5) * 120, cy: Math.min(y0, ty) - 90 - Math.random() * 80, tx, ty, t: -i * .07, d: .8, last: i === 3}); }
+    FX.push({k: 'item', target: targetOf(k), url: ICON[k], x0, y0, cx: (x0 + tx) / 2 + (Math.random() - .5) * 120, cy: Math.min(y0, ty) - 90 - Math.random() * 80, tx, ty, t: -i * .07, d: .8, last: i === 3}); }
   FX.push({k: 'txt', txt: '+' + n, x: c.x - 16, y: c.y - 28 * cam.z, t: 0, d: 1.1, col: '#fff'});
-  FX.push({k: 'xp', txt: '+' + ITEMS[k].xp, x: c.x + 30, y: c.y + 8, t: .12, d: 1.2});
+  
 }
 // bâtiment terminé : nuage de poussière + étincelles
 function fxPoof(o){
@@ -346,7 +355,7 @@ function drawFx(dt){
       for (let j = 4; j >= 1; j--){ const [x, y] = pos(Math.max(0, u - j * .035)); const r = 22 - j * 3; ctx.globalAlpha = .5 - j * .1; ctx.drawImage(GLOW, x - r, y - r, r * 2, r * 2); }
       const [x, y] = pos(u), sz = 34 * (u < .15 ? .6 + u * 2.6 : 1 - u * .35);
       ctx.globalAlpha = 1; ctx.drawImage(GLOW, x - sz, y - sz, sz * 2, sz * 2); ctx.drawImage(im, x - sz / 2, y - sz / 2, sz, sz);
-      if (u >= 1 && f.last){ const e = $('#b-barn'); e.classList.remove('pulse'); void e.offsetWidth; e.classList.add('pulse'); }
+      if (u >= 1 && f.last){ const e = f.target; e.classList.remove('pulse'); void e.offsetWidth; e.classList.add('pulse'); }
     } else if (f.k === 'txt' || f.k === 'xp'){
       const y = f.y - 46 * ease(u); ctx.globalAlpha = u > .7 ? (1 - u) / .3 : 1;
       ctx.font = '400 22px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = '#2a1a0e';
@@ -389,7 +398,7 @@ function objAt(sx, sy){
   for (const o of S.objs){ const b = B(o); if (t.x >= o.x && t.x < o.x + b.w && t.y >= o.y && t.y < o.y + b.h){ if (!best || o.x + o.y > best.x + best.y) best = o; } }
   if (best) return best;
   const sorted = [...S.objs].sort((a, b) => (b.x + b.y) - (a.x + a.y));
-  for (const o of sorted){ if (B(o).kind === 'field' || B(o).kind === 'deco') continue; const r = objScreenRect(o); if (sx > r.left + r.width * .2 && sx < r.left + r.width * .8 && sy > r.top + r.height * .1 && sy < r.cy) return o; }
+  for (const o of sorted){ if (B(o).kind === 'deco' || B(o).kind === 'path') continue; const r = objScreenRect(o); if (sx > r.left + r.width * .2 && sx < r.left + r.width * .8 && sy > r.top + r.height * .1 && sy < r.cy) return o; }
   return null;
 }
 cv.addEventListener('pointerdown', e => {
@@ -398,12 +407,8 @@ cv.addEventListener('pointerdown', e => {
   const o = objAt(e.clientX, e.clientY);
   drag = {mode: 'pan', sx: e.clientX, sy: e.clientY, moved: 0, obj: o};
   if (ghost){ const t = toTile(e.clientX, e.clientY), b = BUILDINGS[ghost.type]; if (t.x >= ghost.x - .5 && t.x <= ghost.x + b.w + .5 && t.y >= ghost.y - .5 && t.y <= ghost.y + b.h + .5) drag.mode = 'ghost'; return; }
-  // plateau de graines ouvert : un champ vide → on plante ; n'importe quoi d'autre → on ferme le plateau et on continue normalement
-  if (!$('#seeds').hidden){
-    if (seedTool && o && B(o).kind === 'field' && !o.crop){ drag.mode = 'plant'; plant(o, seedTool, {x: e.clientX, y: e.clientY}); return; }
-    closeSeeds();
-  }
-  if (o && B(o).kind === 'field' && o.crop && now() >= o.ready){ drag.mode = 'harvest'; harvest(o, {x: e.clientX, y: e.clientY}); }
+  // glisser le doigt sur plusieurs bâtiments prêts : on récolte tout d'un coup (comme les champs de Township)
+  if (o && ripe(o)){ drag.mode = 'harvest'; drag.done = new Set([o]); collectBld(o); }
 });
 addEventListener('pointermove', e => {
   const p = ptrs.get(e.pointerId); if (!p || !drag) return;
@@ -412,13 +417,11 @@ addEventListener('pointermove', e => {
   drag.moved += Math.abs(dx) + Math.abs(dy);
   if (drag.mode === 'pan'){ cam.x -= dx / cam.z; cam.y -= dy / cam.z; clampCam(); return; }
   if (drag.mode === 'ghost'){ const t = toTile(e.clientX, e.clientY), b = BUILDINGS[ghost.type]; ghost.x = Math.round(t.x - b.w / 2); ghost.y = Math.round(t.y - b.h / 2); updateGhostUI(); return; }
-  const o = objAt(e.clientX, e.clientY);
-  if (o && B(o).kind === 'field'){ if (drag.mode === 'harvest') harvest(o, {x: e.clientX, y: e.clientY}); if (drag.mode === 'plant') plant(o, seedTool, {x: e.clientX, y: e.clientY}); }
+  if (drag.mode === 'harvest'){ const o = objAt(e.clientX, e.clientY); if (o && ripe(o) && !drag.done.has(o)){ drag.done.add(o); collectBld(o); } }
 });
 const endPtr = e => {
   ptrs.delete(e.pointerId); if (!drag || ptrs.size) return;
   const d = drag; drag = null;
-  if (d.mode === 'plant'){ if (S.objs.some(o => o.crop && o.ready > now())) tutoEv('planted'); if (d.fromSeed && d.moved < 10) return; if (d.moved > 10 || !d.obj || B(d.obj).kind !== 'field') closeSeeds(); return; }
   if (d.mode === 'pan' && d.moved < 10 && e.type === 'pointerup') tap(d.obj, {x: e.clientX, y: e.clientY});
 };
 addEventListener('pointerup', endPtr); addEventListener('pointercancel', endPtr);
@@ -434,12 +437,12 @@ function tap(o, at){
   }
   selObj = o;
   const b = B(o);
-  if (o.build) return openPanel('site', o);
-  if (b.kind === 'field'){ if (!o.crop) openSeeds(o); else if (now() < o.ready) toast(`${ITEMS[o.crop].name} : prêt dans ${fmtTime((o.ready - now()) / 1000)}`); return; }
-  if (b.kind === 'pen') return penTap(o, at);
-  if (b.kind === 'factory'){ if (factoryCollect(o, at)) return; return openPanel('factory', o); }
+  if (workEnd(o)) return openPanel('site', o);
+  if (b.kind === 'prod'){ if (!collectBld(o)) openPanel('bld', o); return; }
+  if (b.kind === 'craft'){ if (!collectToys(o, at)) openPanel('craft', o); return; }
   if (b.kind === 'orders') return openPanel('orders');
-  if (b.kind === 'barn') return openPanel('barn');
+  if (b.kind === 'stable') return openPanel('bld', o);
+  if (T.isUpgradable(b)) return openPanel('bld', o);
   openPanel('info', o);
 }
 
@@ -452,8 +455,9 @@ const icon = k => `<img class="i" src="${ICON[k]}" alt="">`;
 let toastT;
 function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
 let lastToast = 0; const toastOnce = m => { if (now() - lastToast > 1500){ lastToast = now(); toast(m); sfx.err(); } };
+const targetOf = k => k === 'xp' ? $('#xpbar') : $({coins: '#h-coins', wood: '#h-wood', cookies: '#h-cookies', fabric: '#h-fabric', stars: '#h-stars'}[k] || '#b-barn');
 function fly(k, n, from){
-  const target = k === 'coins' ? $('#h-coins') : k === 'xp' ? $('#xpbar') : $('#b-barn');
+  const target = targetOf(k);
   const r0 = from?.getBoundingClientRect ? from.getBoundingClientRect() : {left: (from?.x ?? W / 2) - 10, top: (from?.y ?? H / 2) - 10, width: 20, height: 20};
   const tr = target.getBoundingClientRect();
   const cnt = k === 'coins' ? Math.min(10, 3 + Math.round(Math.log2(n + 1))) : Math.min(5, Math.max(1, Math.round(Math.log2(n + 1))));
@@ -473,9 +477,16 @@ function hud(){
   $('#xpbar b').textContent = `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}`;
   $('#h-coins b').textContent = fmt(S.coins);
   $('#h-stars b').textContent = fmt(S.stars);
-  $('#h-pop').textContent = `${T.pop(S)} / ${T.popCap(S)}`;
-  $('#b-barn small').textContent = `${T.barnUsed(S)}/${T.barnCap(S)}`;
-  $('#b-barn').classList.toggle('full', T.barnUsed(S) >= T.barnCap(S));
+  for (const r of ['wood', 'cookies', 'fabric']){
+    const e = $('#h-' + r), c = T.cap(S, r);
+    e.hidden = r === 'fabric' && !S.fabric && !S.objs.some(o => o.type === 'mill');
+    e.querySelector('b').textContent = fmt(S[r]); e.querySelector('.cap i').style.width = Math.min(100, S[r] / c * 100) + '%'; e.classList.toggle('full', S[r] >= c);
+  }
+  const L = T.lutins(S), E = T.employed(S);
+  $('#h-pop').textContent = `${Math.min(E, L)} / ${L}`; $('#h-pop').classList.toggle('bad', E > L);
+  $('#h-joy').textContent = `+${Math.round(T.joyBonus(S) * 100)} %`;
+  const toys = Object.entries(S.inv).filter(([k, n]) => ITEMS[k]?.toy && n > 0).reduce((a, [, n]) => a + n, 0);
+  $('#b-barn small').textContent = toys;
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
   const bd = $('#b-orders .badge'); bd.textContent = ready; bd.hidden = !ready;
   $('#b-daily .badge').hidden = !T.dailyReady(S);
@@ -483,25 +494,15 @@ function hud(){
   renderQuest();
 }
 
-/* ---------- graines (plateau qui apparaît quand on touche un champ vide) ---------- */
-let seedTool = null;
-function openSeeds(o){
-  const el = $('#seeds');
-  el.innerHTML = Object.entries(CROPS).map(([k, c]) => { const lock = S.lvl < c.lvl;
-    return `<button class="seed ${lock ? 'locked' : ''}" data-crop="${k}" ${lock ? 'disabled' : ''}><img src="${ICON[k]}" alt="" draggable="false"><b>${lock ? 'Niv. ' + c.lvl : fmtTime(c.time)}</b>${c.cost && !lock ? `<small>${icon('coins')}${c.cost}</small>` : ''}</button>`; }).join('');
-  el.hidden = false; seedTool = null; document.body.classList.add('seeding');
-  el.querySelectorAll('.seed').forEach(b => b.addEventListener('pointerdown', ev => { selectSeed(b.dataset.crop); plant(o, b.dataset.crop, {x: ev.clientX, y: ev.clientY}); ptrs.set(ev.pointerId, {x: ev.clientX, y: ev.clientY}); drag = {mode: 'plant', moved: 0, obj: o, fromSeed: true}; }));
-  $('#seedhint').hidden = false; tutoEv('seeds');
-}
-function selectSeed(k){ seedTool = k; document.querySelectorAll('.seed').forEach(b => b.classList.toggle('on', b.dataset.crop === k)); $('#seedhint').textContent = `Glisse sur les champs vides pour planter : ${ITEMS[k].name.toLowerCase()}`; }
-function closeSeeds(){ document.body.classList.remove('seeding'); seedTool = null; $('#seeds').hidden = true; $('#seedhint').hidden = true; $('#seedhint').textContent = 'Choisis une graine, puis glisse sur les champs'; }
+function closeSeeds(){}
 
 /* ---------- panneaux ---------- */
 let panel = null, panelArg = null, panelHtml = '', selOrder = 0;
 function openPanel(name, arg){ closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
 function closePanel(){ const was = panel; panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
 const hd = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
-const need = req => Object.entries(req).map(([k, n]) => `<span class="need ${(S.inv[k] || 0) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${S.inv[k] || 0}/${n}</b></span>`).join('');
+const need = req => Object.entries(req).map(([k, n]) => `<span class="need ${haveOf(k) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${fmt(haveOf(k))}/${fmt(n)}</b></span>`).join('');
+const costChips = req => Object.entries(req).map(([k, n]) => `<span class="chip ${haveOf(k) < n ? 'bad' : ''}">${k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join('');
 function renderPanel(){
   if (!panel) return;
   let h = '';
@@ -513,20 +514,20 @@ function renderPanel(){
       ? `<button class="ot ${i === selOrder ? 'sel' : ''} ${T.has(S, o.items) ? 'ok' : ''}" data-a="osel" data-i="${i}">${Object.keys(o.items).slice(0, 3).map(k => `<img src="${ICON[k]}" alt="">`).join('')}${T.has(S, o.items) ? '<i class="ck"></i>' : ''}</button>`
       : `<div class="ot wait"><b data-until="${o.wait}"></b></div>`).join('');
     const detail = od?.items ? `<div class="od">
-        <div class="odh"><small>Commande de ${od.kid}</small><span class="rw"><span>${icon('coins')}${od.coins}</span><span><i class="i xp">XP</i>${od.xp}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}</span></div>
+        <div class="odh"><small>Commande de ${od.kid}</small><span class="rw"><span>${icon('coins')}${od.coins}</span><span><i class="i xp">XP</i>${od.xp}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
         <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : ''}<b>${h}/${n}</b></div>`; }).join('')}</div>
         <div class="oacts"><button class="trash" data-a="trash" data-i="${selOrder}" aria-label="Remplacer cette commande"></button><button class="btn green" data-a="deliver" data-i="${selOrder}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button></div>
       </div>` : '<p class="meta">De nouvelles commandes arrivent…</p>';
-    h = hd('', 'Commandes') + detail + `<div class="otiles">${tiles}</div>`;
+    h = hd('Lettres des enfants', 'Bureau du traîneau') + (workshopOf() ? '' : '<p class="meta warn">Les jouets se fabriquent à l’<b>Atelier des jouets</b> (Maison du Père Noël niv. 2).</p>') + detail + `<div class="otiles">${tiles}</div>`;
   }
-  else if (panel === 'factory'){
-    const o = panelArg, b = B(o), q = o.q || [];
-    const slots = Array.from({length: o.slots || 3}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
-    h = hd('', b.name) + `<h3>En production</h3><div class="slots">${slots}</div>
-      ${q.some(j => j.end <= now()) ? '<button class="btn gold wide" data-a="fcollect">Récupérer</button>' : ''}
-      <h3>Recettes</h3><div class="recipes">${Object.entries(b.recipes).map(([k, r]) => { const lock = S.lvl < r.lvl;
-        return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, r.in) ? 'ok' : ''}" data-a="queue" data-k="${k}"><img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
-        ${lock ? `<span class="why">Niveau ${r.lvl}</span>` : `<span class="lines">${need(r.in)}</span><span class="meta">${fmtTime(r.time)} · ${icon('coins')}${ITEMS[k].v}</span>`}</button>`; }).join('')}</div>`;
+  else if (panel === 'craft'){
+    const o = panelArg, q = o.q || [], n = T.craftSlots(o.lv);
+    const slots = Array.from({length: n}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
+    h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + `<h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
+      ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}
+      <h3>Jouets</h3><div class="recipes">${Object.entries(TOYS).map(([k, t]) => { const lock = S.lvl < t.lvl, wanted = S.orders.some(od => od.items?.[k]);
+        return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, t.cost) ? 'ok' : ''}" data-a="queue" data-k="${k}">${wanted && !lock ? '<span class="wanted">Demandé</span>' : ''}<img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
+        ${lock ? `<span class="why">Niveau ${t.lvl}</span>` : `<span class="costs">${costChips(t.cost)}</span><span class="meta">${fmtTime(t.time / T.craftSpeed(o.lv))} · en stock : ${S.inv[k] || 0}</span>`}</button>`; }).join('')}</div>`;
   }
   else if (panel === 'games'){
     const g = tickets();
@@ -534,33 +535,48 @@ function renderPanel(){
       <div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
       <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
   }
-  else if (panel === 'barn'){
-    const up = T.barnUpCost(S), list = Object.entries(S.inv).filter(([k, n]) => n > 0);
-    h = hd(`Grange · ${T.barnUsed(S)} / ${T.barnCap(S)}`, 'Grange') + `<h3>Récoltes et produits</h3><div class="stock">${list.filter(([k]) => !ITEMS[k].mat).map(([k, n]) => `<div class="st"><img src="${ICON[k]}" alt=""><b>${n}</b><small>${ITEMS[k].name}</small></div>`).join('') || '<p class="meta">Vide</p>'}</div>
-      <h3>Matériaux</h3><div class="stock">${Object.keys(ITEMS).filter(k => ITEMS[k].mat).map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k] || 0}</b><small>${ITEMS[k].name}</small></div>`).join('')}</div>
-      <h3>Agrandir la grange (+25 places)</h3><div class="lines">${need(up)}</div><button class="btn green wide" data-a="barnup" ${T.has(S, up) ? '' : 'disabled'}>Agrandir</button>
-      <p class="meta">Les matériaux tombent parfois en récoltant et en livrant les commandes.</p>`;
+  else if (panel === 'stock'){
+    h = hd('Ressources, jouets et outils', 'Stock') + `<h3>Ressources</h3><div class="stock">${T.RES.map(r => `<div class="st"><img src="${ICON[r]}" alt=""><b>${fmt(S[r])}</b><small>${r === 'coins' ? ITEMS[r].name : `${ITEMS[r].name} · max ${fmt(T.cap(S, r))}`}</small></div>`).join('')}</div>
+      <h3>Jouets</h3><div class="stock">${Object.keys(TOYS).filter(k => S.inv[k] > 0).map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k]}</b><small>${ITEMS[k].name}</small></div>`).join('') || '<p class="meta">Aucun jouet : fabrique-les à l’Atelier des jouets.</p>'}</div>
+      <h3>Outils</h3><div class="stock">${['axe', 'saw'].map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k] || 0}</b><small>${ITEMS[k].name}</small></div>`).join('')}</div>
+      <p class="meta">Le stock maximum dépend de la Maison du Père Noël et des Entrepôts. Haches et scies : lettres, cadeau du jour, mini-jeux.</p>`;
   }
   else if (panel === 'build'){
-    const cat = panelArg || 'farm';
-    h = hd('', 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
-      <div class="grid">${Object.entries(BUILDINGS).filter(([k, b]) => b.cat === cat).map(([k, b]) => { const why = T.buildBlock(S, k), hard = why && why !== 'Pas assez de pièces';
-        return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b>${b.kind === "house" ? `<span class="meta">+${b.pop} habitants</span>` : b.kind === "town" ? `<span class="meta">+${b.cap} places</span>` : ""}${hard ? `<span class="why">${why}</span>` : `<span class="costs"><span class="chip ${S.coins < T.buildCost(S, k) ? 'bad' : ''}">${icon('coins')}${fmt(T.buildCost(S, k))}</span>${b.time ? `<span class="chip time">${fmtTime(b.time)}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
+    const cat = panelArg || 'prod';
+    const list = Object.entries(BUILDINGS).filter(([k, b]) => T.catOf(b) === cat && !b.max);
+    h = hd(`Bâtisseurs ${T.BUILDERS - T.busyBuilders(S)} / ${T.BUILDERS} libres`, 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
+      <div class="grid">${list.map(([k, b]) => { const why = T.buildBlock(S, k), hard = why && why !== 'Ressources insuffisantes', c = T.upCost(k, 1), n = T.countOf(S, k), m = T.maxOf(S, k);
+        const role = b.kind === 'prod' ? `+${fmt(T.rate(k, 1))} ${ITEMS[b.res].name.toLowerCase()}/h` : b.kind === 'house' ? `+${T.housing(1)} lutins` : b.kind === 'storage' ? `+${fmt(T.storageAdd(1))} de stock` : b.kind === 'deco' ? `+${b.joy} bonheur` : b.desc.split('.')[0];
+        return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${role}</span>${m < 99 ? `<span class="meta">${n} / ${m}</span>` : ''}${hard ? `<span class="why">${why}</span>` : `<span class="costs">${costChips(c)}${T.upTime(k, 1) ? `<span class="chip time">${fmtTime(T.upTime(k, 1))}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
   }
   else if (panel === 'expand'){
     const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n);
-    const ok = S.coins >= c.coins && (S.inv.axe || 0) >= c.axe && (S.inv.saw || 0) >= c.saw;
-    h = hd('Agrandir le village', 'Nouveau terrain') + `<p>Dégage cette forêt pour agrandir ton village de 121 cases.</p><div class="lines">${need({axe: c.axe, saw: c.saw})}<span class="need ${S.coins >= c.coins ? 'have' : ''}"><img src="${ICON.coins}" alt=""><b>${fmt(c.coins)}</b></span></div>
-      <button class="btn green wide" data-a="expand" ${ok ? '' : 'disabled'}>Agrandir</button><p class="meta">Les haches et les scies s'obtiennent en récoltant et en livrant les commandes du traîneau.</p>`;
+    h = hd('Agrandir le village', 'Nouveau terrain') + `<p>Dégage cette forêt pour agrandir ton village de 121 cases.</p><div class="lines">${need(c)}</div>
+      <button class="btn green wide" data-a="expand" ${T.has(S, c) ? '' : 'disabled'}>Agrandir</button><p class="meta">Les haches et les scies s'obtiennent avec les lettres, le cadeau du jour et les mini-jeux.</p>`;
   }
   else if (panel === 'site'){
-    const o = panelArg, left = Math.max(0, (o.build - now()) / 1000), st = Math.max(1, Math.ceil(left / 60));
-    h = hd('Chantier', B(o).name) + `<div class="work"><div class="bar"><i style="width:${Math.min(100, (1 - left * 1000 / (o.btotal || 1)) * 100)}%"></i></div><span>Encore <b data-until="${o.build}"></b></span></div>
-      <div class="acts"><button class="btn gold" data-a="speed">Terminer · <i class="i star"></i>${st}</button></div>`;
+    const o = panelArg, end = workEnd(o), total = o.build ? o.btotal : o.utotal, left = Math.max(0, end - now()), st = speedCost(o);
+    h = hd(o.build ? 'Construction' : `Amélioration vers le niveau ${o.upTo}`, B(o).name) + `<div class="work"><div class="bar"><i style="width:${Math.min(100, (1 - left / (total || 1)) * 100)}%"></i></div><span>Encore <b data-until="${end}"></b></span></div>
+      <div class="acts">${st ? `<button class="btn gold" data-a="speed">Terminer · <i class="i star"></i>${st}</button>` : '<button class="btn green" data-a="speed">Terminer gratuitement</button>'}</div>
+      <p class="meta">Moins de 3 minutes restantes : c'est gratuit.</p>`;
+  }
+  else if (panel === 'bld'){
+    // fiche d'un bâtiment, comme Dragons of Atlantis : ce qu'il fait, ce que change le prochain niveau, le coût
+    const o = panelArg, b = B(o), max = b.kind === 'hq' ? b.max : T.maxLv(S), next = o.lv + 1, c = T.upCost(o.type, next), why = T.upBlock(S, o);
+    const t0 = tierOf(o.lv), t1 = tierOf(next), img0 = t0 > 1 ? thumbs[o.type + ':' + t0] : thumbs[o.type], img1 = t1 > 1 ? thumbs[o.type + ':' + t1] : thumbs[o.type];
+    const rows = T.stats(S, o).map(r => `<div class="srow"><span>${r.label}</span><b>${r.now}</b>${o.lv < max ? `<i class="arrow"></i><em>${r.next}</em>` : ''}</div>`).join('');
+    let extra = '';
+    if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); extra = `<div class="work"><div class="bar"><i style="width:${n / buf * 100}%"></i></div><span>${fmt(n)} / ${fmt(buf)} ${ITEMS[b.res].name.toLowerCase()} dans le bâtiment${T.workRatio(S) < 1 ? ' · <b class="bad">pas assez de lutins !</b>' : ''}</span></div>${ripe(o) ? '<button class="btn gold wide" data-a="collect">Récolter</button>' : ''}`; }
+    if (b.kind === 'stable') extra = '<button class="btn blue wide" data-a="games">Jouer aux mini-jeux</button>';
+    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : ''; }
+    h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="preview"><figure><img src="${img0}" alt=""><figcaption>Niv. ${o.lv}</figcaption></figure>${o.lv < max && t1 !== t0 ? `<span class="arrow"></span><figure class="nx"><img src="${img1}" alt=""><figcaption>Niv. ${next}</figcaption></figure>` : ''}</div>
+      <p>${b.desc}</p>${extra}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
+      ${o.lv < (b.kind === 'hq' ? b.max : 99) ? `<h3>Coût de l'amélioration</h3><div class="costs">${costChips(c)}<span class="chip time">${fmtTime(T.upTime(o.type, next))}</span></div>
+      <div class="acts"><button class="btn green" data-a="upgrade" ${why ? 'disabled' : ''}>Améliorer</button><button class="btn blue sm" data-a="move">Déplacer</button></div>${why ? `<p class="note">${why}</p>` : ''}` : ''}`;
   }
   else if (panel === 'info'){
     const o = panelArg, b = B(o);
-    h = hd(b.kind === 'house' ? `+${b.pop} habitants` : b.kind === 'town' ? `+${b.cap} places` : '', o.wild ? 'Sapin enneigé' : b.name) + `<p>${o.wild ? 'Un sapin de la forêt. Coupe-le pour faire de la place.' : b.desc}</p><div class="acts">${o.wild ? '' : '<button class="btn blue" data-a="move">Déplacer</button>'}${b.kind === 'deco' || b.kind === 'path' ? `<button class="btn red" data-a="sell">${o.wild ? 'Couper' : 'Vendre'}</button>` : ''}</div>`;
+    h = hd(b.kind === 'deco' && !o.wild ? `+${b.joy} bonheur` : '', o.wild ? 'Sapin enneigé' : b.name) + `<p>${o.wild ? 'Un sapin de la forêt. Coupe-le pour faire de la place.' : b.desc}</p><div class="acts">${o.wild ? '' : '<button class="btn blue" data-a="move">Déplacer</button>'}<button class="btn red" data-a="sell">${o.wild ? 'Couper' : 'Vendre'}</button></div>`;
   }
   if (h !== panelHtml){ panelHtml = h; $('#sheet').innerHTML = h; }
   for (const n of $('#sheet').querySelectorAll('[data-until]')) n.textContent = fmtTime((+n.dataset.until - now()) / 1000);
@@ -573,15 +589,17 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'deliver') return deliver(+b.dataset.i, b);
   if (a === 'osel'){ selOrder = +b.dataset.i; sfx.tap(); return renderPanel(); }
   if (a === 'trash'){ S.orders[+b.dataset.i] = {wait: now() + 20000}; sfx.tap(); return renderPanel(); }
-  if (a === 'queue') return queueRecipe(panelArg, b.dataset.k);
-  if (a === 'fcollect'){ factoryCollect(panelArg, b); return renderPanel(); }
-  if (a === 'barnup'){ const up = T.barnUpCost(S); if (!T.has(S, up)) return; T.take(S, up); S.barnLvl++; T.track(S, 'barnup'); sfx.level(); toast(`Grange agrandie : ${T.barnCap(S)} places`); return renderPanel(); }
+  if (a === 'queue') return queueToy(panelArg, b.dataset.k);
+  if (a === 'toys'){ collectToys(panelArg, b); return renderPanel(); }
+  if (a === 'collect'){ collectBld(panelArg); return renderPanel(); }
+  if (a === 'upgrade') return startUpgrade(panelArg, b);
+  if (a === 'games') return openPanel('games');
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
-  if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); S.coins -= c.coins; T.take(S, {axe: c.axe, saw: c.saw}); S.chunks.push(`${cx},${cy}`); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); toast('Nouveau terrain !'); closePanel(); save(); return; }
-  if (a === 'speed'){ if (!panelArg.build) return closePanel(); const o = panelArg, st = Math.max(1, Math.ceil((o.build - now()) / 60000)); if (S.stars < st){ sfx.err(); return toast("Pas assez d'étoiles"); } S.stars -= st; o.build = now(); closePanel(); tutoEv('speed'); return; }
+  if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); if (!T.has(S, c)) return; T.take(S, c); S.chunks.push(`${cx},${cy}`); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); toast('Nouveau terrain !'); closePanel(); save(); return; }
+  if (a === 'speed'){ const o = panelArg; if (!workEnd(o)) return closePanel(); const st = speedCost(o); if (S.stars < st){ sfx.err(); return toast("Pas assez d'étoiles"); } S.stars -= st; if (o.build) o.build = now(); else o.up = now(); closePanel(); tutoEv('speed'); return; }
   if (a === 'move'){ const o = panelArg; closePanel(); ghost = {type: o.type, x: o.x, y: o.y, move: o}; showGhostUI(); return; }
-  if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (o.wild) gainXp(1, null); else if (!o.free) S.coins += Math.round(BUILDINGS[o.type].cost / 2); closePanel(); return; }
+  if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (o.wild) gainXp(1, null); else if (!o.free) S.coins += Math.round((BUILDINGS[o.type].cost.coins || 0) / 2); closePanel(); save(); return; }
 });
 
 /* ---------- placement d'un nouveau bâtiment ---------- */
@@ -600,23 +618,23 @@ $('#pb-ok').addEventListener('click', () => {
   if (!ghost || !fits(ghost.type, ghost.x, ghost.y, ghost.move)) return;
   if (ghost.move){ ghost.move.x = ghost.x; ghost.move.y = ghost.y; }
   else {
-    const b = BUILDINGS[ghost.type], cost = T.buildCost(S, ghost.type);
-    if (S.coins < cost){ sfx.err(); return toast('Pas assez de pièces'); }
-    S.coins -= cost;
-    const o = {id: 'o' + now() + Math.random().toString(36).slice(2, 5), type: ghost.type, x: ghost.x, y: ghost.y};
-    if (b.time){ o.build = now() + b.time * 1000; o.btotal = b.time * 1000; }
-    if (b.kind === 'factory') o.q = [];
-    if (b.kind === 'deco') gainXp(b.cost >= 60 ? 3 : b.cost >= 30 ? 2 : 1, null);
+    const b = BUILDINGS[ghost.type], cost = T.upCost(ghost.type, 1), why = T.buildBlock(S, ghost.type);
+    if (why){ sfx.err(); return toast(why); }
+    T.take(S, cost);
+    const o = {id: 'o' + now() + Math.random().toString(36).slice(2, 5), type: ghost.type, x: ghost.x, y: ghost.y, lv: 1, t: now()};
+    const ms = T.upTime(ghost.type, 1) * 1000; if (ms){ o.build = now() + ms; o.btotal = ms; }
+    if (b.kind === 'craft') o.q = [];
+    if (b.kind === 'deco') gainXp(b.joy, null);
     S.objs.push(o); T.track(S, 'build:' + o.type); sfx.build(); tutoEv('placed');
-    if (o.type === 'path' && S.coins >= T.buildCost(S, 'path')){ // les allées se posent à la suite, comme les routes de Township
+    if (o.type === 'path' && T.has(S, T.upCost('path', 1))){ // les allées se posent à la suite, comme les routes de Township
       const nx = ghost.x + (ghost.dir || 1), ny = ghost.y; ghost = {type: 'path', x: fits('path', nx, ny) ? nx : ghost.x, y: ny, dir: ghost.dir}; save(); updateGhostUI(); return; }
   }
   ghost = null; $('#placebar').hidden = true; document.body.classList.remove('placing'); save();
 });
 $('#pb-no').addEventListener('click', () => { ghost = null; $('#placebar').hidden = true; document.body.classList.remove('placing'); });
-$('#b-build').addEventListener('click', () => { sfx.tap(); openPanel('build', 'farm'); });
-$('#b-barn').addEventListener('click', () => { sfx.tap(); openPanel('barn'); });
-$('#b-orders').addEventListener('click', () => { sfx.tap(); const o = S.objs.find(o => o.type === 'orders'); centerOn(o.x + 1.5, o.y + 1.5); openPanel('orders'); });
+$('#b-build').addEventListener('click', () => { sfx.tap(); openPanel('build', 'prod'); });
+$('#b-barn').addEventListener('click', () => { sfx.tap(); openPanel('stock'); });
+$('#b-orders').addEventListener('click', () => { sfx.tap(); const o = S.objs.find(o => o.type === 'orders'); if (o) centerOn(o.x + 1.5, o.y + 1.5); openPanel('orders'); });
 $('#veil').addEventListener('click', () => closePanel());
 
 /* ---------- tâche en cours (carte en bas à gauche) ---------- */
@@ -628,9 +646,12 @@ function renderQuest(){
   if (h !== questHtml){ questHtml = h; $('#quest2').innerHTML = h; $('#quest2').classList.toggle('done', done); }
 }
 function giveReward(r, el){
-  if (r.coins){ S.coins += r.coins; fly('coins', r.coins, el); }
-  if (r.stars){ S.stars += r.stars; }
-  for (const k of Object.keys(r)) if (ITEMS[k]){ T.give(S, k, r[k]); fly(k, r[k], el); }
+  for (const [k, n] of Object.entries(r)){
+    if (!n || k === 'xp') continue;
+    if (k === 'stars'){ S.stars += n; continue; }
+    const room = T.RES.includes(k) ? Math.max(0, T.cap(S, k) - S[k]) : Infinity, g = Math.min(n, room);
+    if (g){ T.give(S, k, g); fly(k, g, el); }
+  }
   if (r.xp) gainXp(r.xp, el);
   sfx.collect(); save();
 }
@@ -654,8 +675,9 @@ $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
 
 /* ---------- mini-jeux (Tournée de Noël, Bataille de boules de neige) ---------- */
-const TMAX = 3, TEVERY = 15 * 60e3;   // 3 tickets, 1 de plus toutes les 15 minutes
+let TMAX = 3; const TEVERY = 15 * 60e3;   // tickets (plus avec l'Écurie), 1 de plus toutes les 15 minutes
 function tickets(){
+  { const st = findType('stable'); TMAX = st ? T.ticketsMax(st.lv) : 3; }
   S.games ||= {tickets: TMAX, t: now(), best: {}};
   const g = S.games;
   if (g.tickets >= TMAX){ g.t = now(); return g; }
@@ -664,10 +686,10 @@ function tickets(){
   return g;
 }
 function gameReward(k, score){
-  const m = 1 + S.lvl * .15;
+  const st = findType('stable'), m = (1 + S.lvl * .15) * (k === 'sleigh' && st ? T.gameBonus(st.lv) : 1);
   const r = k === 'sleigh' ? {coins: Math.round(score * 2.5 * m), xp: Math.round((6 + score / 5) * m), stars: score >= 160 ? 3 : score >= 80 ? 1 : 0}
                             : {coins: Math.round(score * 6 * m), xp: Math.round((6 + score) * m), stars: score >= 45 ? 2 : score >= 25 ? 1 : 0};
-  if (score >= (k === 'sleigh' ? 60 : 20)) r[T.DROPS[Math.floor(Math.random() * T.DROPS.length)]] = 1;
+  if (score >= (k === 'sleigh' ? 60 : 20)) r[Math.random() < .6 ? 'axe' : 'saw'] = 1;
   return r;
 }
 function playGame(k){
@@ -703,21 +725,19 @@ function levelUp(L){
 /* =====================================================================
    DIDACTICIEL (Pépin)
    ===================================================================== */
-const firstField = () => S.objs.find(o => o.type === 'field');
-const rectOf = (pred, shrink = 0) => () => { const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o); const b = B(o); const a = toScreen(o.x, o.y + b.h), c = toScreen(o.x + b.w, o.y); return b.kind === 'field' ? {left: a.x, top: toScreen(o.x, o.y).y - 20, width: c.x - a.x, height: toScreen(o.x + b.w, o.y + b.h).y - toScreen(o.x, o.y).y + 20} : {left: r.left + r.width * .15, top: r.top + r.height * .15, width: r.width * .7, height: r.height * .7}; };
-const fieldsRect = () => { const fs = S.objs.filter(o => o.type === 'field').slice(0, 6); if (!fs.length) return null; let l = 1e9, t = 1e9, r = -1e9, b = -1e9; for (const o of fs){ for (const [x, y] of [[o.x, o.y], [o.x + 2, o.y], [o.x, o.y + 2], [o.x + 2, o.y + 2]]){ const p = toScreen(x, y); l = Math.min(l, p.x); r = Math.max(r, p.x); t = Math.min(t, p.y); b = Math.max(b, p.y); } } return {left: l, top: t - 30, width: r - l, height: b - t + 30}; };
+const rectOf = pred => () => { const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o); return {left: r.left + r.width * .15, top: r.top + r.height * .15, width: r.width * .7, height: r.height * .7}; };
 const STEPS = [
   {say: "Ho ho ho ! Je prends ma retraite… <b>c'est toi le nouveau Père Noël</b> ! Je vais te montrer.", tap: true},
-  {say: "Le blé est mûr ! <b>Glisse ton doigt</b> sur les champs pour tout récolter.", target: fieldsRect, wait: 'harvest', focus: [15, 17]},
-  {say: "Bravo ! <b>Touche un champ vide</b> pour replanter.", target: fieldsRect, wait: 'seeds'},
-  {say: "<b>Glisse le blé</b> sur les champs vides.", target: () => document.querySelector('#seeds'), wait: 'planted'},
-  {say: "Les poules ont faim. <b>Touche le poulailler.</b>", target: rectOf(o => o.type === 'henhouse'), wait: 'feed', focus: [26.5, 16.5]},
-  {say: "Les enfants commandent des cadeaux. <b>Touche le bureau du traîneau.</b>", target: rectOf(o => o.type === 'orders'), wait: 'open:orders', focus: [16.5, 26.5]},
-  {say: "Tu as le blé de Léa : <b>livre sa commande !</b>", target: () => document.querySelector('.oacts .btn'), wait: 'deliver'},
-  {say: "Super ! Avec tes pièces, <b>construis un champ</b> de plus.", target: () => document.querySelector('#b-build'), wait: 'open:build'},
-  {say: "Choisis le <b>champ</b>.", target: () => document.querySelector('[data-a="place"][data-k="field"]'), wait: 'placing'},
+  {say: "La scierie a produit du bois. <b>Touche-la</b> pour le récolter !", target: rectOf(o => o.type === 'sawmill'), wait: 'collect:sawmill', focus: [14.5, 16.5]},
+  {say: "Les lettres des enfants arrivent avec des pièces. <b>Récolte le Bureau des lettres.</b>", target: rectOf(o => o.type === 'letters'), wait: 'collect:letters', focus: [26.5, 16.5]},
+  {say: "Chaque bâtiment a son rôle. <b>Touche la scierie</b> pour voir sa fiche.", target: rectOf(o => o.type === 'sawmill'), wait: 'open:bld', focus: [14.5, 16.5]},
+  {say: "Chaque niveau produit plus de bois. <b>Touche Améliorer !</b>", target: () => document.querySelector('[data-a="upgrade"]'), wait: 'upgrade'},
+  {say: "Les lutins travaillent… Sous 3 minutes, c'est gratuit : <b>touche le chantier.</b>", target: rectOf(o => o.type === 'sawmill'), wait: 'open:site'},
+  {say: "<b>Termine gratuitement !</b>", target: () => document.querySelector('[data-a="speed"]'), wait: 'speed'},
+  {say: "Les lutins ont besoin de biscuits pour les gros chantiers. <b>Touche Construire.</b>", target: () => document.querySelector('#b-build'), wait: 'open:build'},
+  {say: "Choisis le <b>Four à biscuits</b>.", target: () => document.querySelector('[data-a="place"][data-k="bakery"]'), wait: 'placing'},
   {say: "Glisse-le où tu veux, puis touche <b>✓</b>.", target: () => document.querySelector('#pb-ok'), wait: 'placed'},
-  {say: "Parfait ! Suis les <b>tâches</b> en bas à gauche pour faire grandir ton village. À toi de jouer !", tap: true, end: true},
+  {say: "Parfait ! Suis les <b>tâches</b> en bas à gauche : chaque bâtiment a son utilité, à toi de faire grandir le village !", tap: true, end: true},
 ];
 const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, steps: STEPS, name: 'Père Noël', focusPlot: ([x, y]) => centerOn(x, y)});
 function tutoEv(n){ tuto.event(n); }
@@ -734,7 +754,7 @@ function frame(t){
 }
 function step(t, dt){
   fxDt = dt;
-  refreshOrders(); finishBuilds(); moveElves(dt);
+  refreshOrders(); finishWorks(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
   draw();
   hudT -= dt; if (hudT <= 0){ hudT = .2; hud(); }
@@ -745,6 +765,6 @@ requestAnimationFrame(frame);
 addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pointerdown', () => sfx.tap(), {once: true});
 // entrée directe dans le village (pas de menu titre)
-setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {3: 2, 6: 5, 8: 7, 9: 7}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
+setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {4: 3, 6: 5, 8: 7, 9: 7}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp};
