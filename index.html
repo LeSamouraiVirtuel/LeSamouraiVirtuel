@@ -639,6 +639,7 @@ body.sheet-open .dock,body.placing .dock{opacity:0;pointer-events:none}
 .order.wait{justify-content:center;align-items:center;min-height:140px;border-style:dashed;background:rgba(255,255,255,.4)}
 .order.wait b{font-family:var(--display);font-size:16px;color:var(--brown)}
 .stock{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px}
+.stock>p{grid-column:1/-1;margin:0!important}
 .st{display:flex;flex-direction:column;align-items:center;padding:4px;border-radius:12px;background:#fff;border:2px solid var(--card-line)}
 .st img{width:42px;height:42px;object-fit:contain}
 .st b{font-family:var(--display);font-size:15px;color:var(--ink-2)}
@@ -735,15 +736,36 @@ body.in-game #hud2,body.in-game .dock,body.in-game #sideR,body.in-game #quest2{v
 .gcard img{width:100%;max-width:120px;aspect-ratio:1;object-fit:contain}
 .gcard b{font-family:var(--display);font-weight:400;font-size:15px;line-height:1.05;color:var(--ink-2);text-transform:uppercase}
 .gcard .btn{width:100%;margin-top:4px}
+/* V3 : ressources, fiches de bâtiments */
+#hud2 .wal{gap:6px}
+#hud2 .res.sm{height:24px;min-width:92px}
+#hud2 .res.sm b{font-size:13.5px}
+#hud2 .res.sm img{width:30px;height:30px}
+#hud2 .res[hidden]{display:none}
+#hud2 .res .cap{left:22px}
+#hud2 .pop.joy::before{content:"♥";color:#ff7a9a}
+#hud2 .pop.bad{color:#ffb4b4}
+.srow{display:grid;grid-template-columns:1fr auto 22px auto;align-items:center;gap:6px;padding:7px 10px;border-radius:10px;background:linear-gradient(180deg,#fdf3da,var(--card));border:2px solid var(--card-line)}
+.srow+.srow{margin-top:5px}
+.srow span{font-size:13.5px;color:var(--brown)}
+.srow b{font-family:var(--display);font-weight:400;font-size:16px;color:var(--ink-2)}
+.srow em{font-style:normal;font-family:var(--display);font-size:16px;color:var(--green-d)}
+.srow i.arrow{width:22px;height:22px;border-width:2px}
+.srow i.arrow::before{border-left-width:7px;border-top-width:5px;border-bottom-width:5px}
+.preview .arrow{flex:none}
+.recipe{position:relative}
+.wanted{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--display);font-size:11px;color:#fff;padding:0 8px;border-radius:8px;background:linear-gradient(180deg,#ff6b78,#d81f33);border:1.5px solid var(--red-o);white-space:nowrap}
+.warn{background:#fff3c4;border:2px dashed var(--gold-d);border-radius:12px;padding:7px 10px;margin:0 0 10px!important}
+b.bad{color:var(--red)}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">
-  <div class="col"><div class="lvbox"><span class="star stroke" id="h-lvl">1</span><div id="xpbar"><i></i><b>0 / 20</b></div></div><span class="pop" id="h-pop">0 / 40</span></div>
-  <div class="wal"><div class="res" id="h-coins"><img class="coinimg" alt=""><b>0</b></div><div class="res" id="h-stars"><b>0</b></div></div>
+  <div class="col"><div class="lvbox"><span class="star stroke" id="h-lvl">1</span><div id="xpbar"><i></i><b>0 / 20</b></div></div><span class="pop" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="pop joy" id="h-joy" title="Bonheur : bonus de production">+0 %</span></div>
+  <div class="wal"><div class="res" id="h-coins"><img class="coinimg" alt=""><b>0</b></div><div class="res sm" id="h-wood"><img class="resimg" data-r="wood" alt=""><b>0</b><span class="cap"><i></i></span></div><div class="res sm" id="h-cookies"><img class="resimg" data-r="cookies" alt=""><b>0</b><span class="cap"><i></i></span></div><div class="res sm" id="h-fabric" hidden><img class="resimg" data-r="fabric" alt=""><b>0</b><span class="cap"><i></i></span></div><div class="res sm" id="h-stars"><b>0</b></div></div>
 </div>
 <nav id="dockL" class="l dock"><button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Commandes</b><span class="badge stroke" hidden>0</span></button></nav>
-<nav id="dockR" class="dock"><button id="b-barn"><img class="ico" id="i-barn" alt=""><small>0/50</small><b>Grange</b></button><button id="b-build" class="big"><img class="ico" id="i-build" alt=""><b>Construire</b></button></nav>
+<nav id="dockR" class="dock"><button id="b-barn"><img class="ico" id="i-barn" alt=""><small>0</small><b>Stock</b></button><button id="b-build" class="big"><img class="ico" id="i-build" alt=""><b>Construire</b></button></nav>
 <nav id="sideR"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button></nav>
 <button id="quest2"></button>
 <div id="seeds" hidden></div>

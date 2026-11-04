@@ -6,8 +6,9 @@ import {loadAssets, prop, tint, character, elfLook, santaLook} from '../assets.j
 import {buildModel, cabin, plotBase} from '../buildings.js';
 import {bake, bakeIcon, free, disposeBaker} from './bake.js';
 import * as T from './town.js';
-import {fieldModel, pickIcon, coinsModel, pathTile, giftPile} from './models.js';
-const {ITEMS, CROPS, BUILDINGS} = T;
+import {pickIcon, coinsModel, pathTile, giftPile} from './models.js';
+const {ITEMS, BUILDINGS} = T;
+const TIER_LV = [0, 1, 5, 12];   // niveau représentatif de chaque apparence (1 → 4, 5 → 11, 12+)
 
 const scaled = (g, s) => { const w = new THREE.Group(); g.scale.setScalar(s); w.add(g); return w; };
 function pen(animal){
@@ -21,7 +22,6 @@ function pen(animal){
   [[-.5, -.35, .4], [.35, .2, -.6], [-.3, .55, 2.4]].forEach(([x, z, r]) => g.add(prop(animal, {x, z, y: .3, s: .34, ry: r})));
   return g;
 }
-const field = (crop, stage) => fieldModel(crop, stage);
 function deco(type){
   switch (type){
     case 'tree': return prop('tree-decorated-snow', {s: .75});
@@ -36,25 +36,29 @@ function deco(type){
   }
 }
 function house(len, hue){ const c = tint(cabin({len, front: ['cabin-window-a', 'door'], chimney: 1}), hue, 1.1); const g = new THREE.Group(); c.scale.setScalar(.82); g.add(c); return g; }
-function modelFor(type){
-  const b = BUILDINGS[type], mk = (t, lv, s = .78) => scaled(buildModel(t, lv).group, s);
+function theater(t){
+  const g = new THREE.Group(); g.add(scaled(plotBase(t), .78));
+  g.add(prop('stall-red', {x: -.2, z: -.25, y: .27, s: .95}));
+  if (t >= 2) g.add(prop('stall-green', {x: .9, z: -.7, y: .27, s: .7, ry: -.6}), prop('banner-red', {x: -1.05, z: .8, y: .27, s: .7}), prop('banner-green', {x: 1.05, z: .8, y: .27, s: .7}));
+  if (t >= 3) g.add(prop('lights-colored', {x: 0, z: .3, y: 1.4, s: .9}), prop('nutcracker', {x: -.6, z: .9, y: .27, s: .6}), prop('nutcracker', {x: .6, z: .9, y: .27, s: .6}));
+  g.add(prop('bench', {x: -.4, z: 1.0, y: .27, s: .6}), prop('bench', {x: .4, z: 1.0, y: .27, s: .6}), prop('lantern', {x: 1.1, z: 1.1, y: .27, s: .55}));
+  return g;
+}
+/** Modèle d'un bâtiment pour une apparence t (1, 2, 3). */
+function modelFor(type, t = 1){
+  const lv = TIER_LV[t], mk = (k, s = .78) => scaled(buildModel(k, lv).group, s);
   switch (type){
-    case 'santa': return mk('hq', 12, 1.02);
-    case 'orders': { const g = mk('post', 6); g.add(prop('sled-long', {x: 1.1, z: 1.05, s: .8, ry: .6})); return g; }
-    case 'barn': return mk('storage', 6);
-    case 'bakery': return mk('bakery', 6);
-    case 'dairy': { const g = new THREE.Group(); g.add(scaled(plotBase(2), .78)); const c = tint(cabin({len: 2, front: ['cabin-window-b', 'door'], chimney: 1}), .58, 1.1); c.scale.setScalar(.82); c.position.set(-.2, .27, -.2); g.add(c); g.add(prop('carton', {x: 1.1, z: .9, y: .27, s: .9})); g.add(prop('cheese', {x: .6, z: 1.15, y: .27, s: .8})); return g; }
-    case 'sugarmill': return mk('sawmill', 6);
-    case 'pastry': return mk('bakery', 12);
-    case 'toyshop': return mk('workshop', 12);
-    case 'cabin': return house(1, [.985, .6, .13, .33][Math.floor(Math.random() * 4)]);
-    case 'bighouse': return house(2, .9);
-    case 'grocery': return mk('post', 3);
-    case 'school': { const g = new THREE.Group(); g.add(scaled(plotBase(2), .78)); const c = tint(cabin({len: 3, front: ['cabin-window-large', 'door'], chimney: 2}), .6, 1.2); c.scale.setScalar(.78); c.position.set(-.1, .27, 0); g.add(c); return g; }
-    case 'postoffice': return mk('wrap', 12);
-    case 'henhouse': return pen('animal-chick');
-    case 'cowshed': return pen('animal-cow');
-    case 'bunny': return pen('animal-bunny');
+    case 'santa': return mk('hq', 1.02);
+    case 'sawmill': return mk('sawmill');
+    case 'letters': return mk('post');
+    case 'bakery': return mk('bakery');
+    case 'mill': return mk('mill');
+    case 'storage': return mk('storage');
+    case 'workshop': return mk('workshop');
+    case 'stable': return mk('stable');
+    case 'orders': { const g = mk('wrap'); g.add(prop(t >= 3 ? 'sled-long' : 'sled', {x: 1.1, z: 1.05, s: .8, ry: .6})); if (t >= 2) g.add(prop('reindeer', {x: 1.25, z: -.2, s: .55, ry: .6})); return g; }
+    case 'theater': return theater(t);
+    case 'cabin': return t === 1 ? house(1, .985) : t === 2 ? house(2, .33) : (() => { const g = house(2, .6); g.add(prop('tree-decorated-snow', {x: .75, z: .75, s: .35})); return g; })();
     case 'path': return pathTile(1);
     default: return deco(type);
   }
@@ -100,17 +104,20 @@ function heroScene(){
  */
 export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   await loadAssets(base, p => bar(p * .55));
-  const SPR = {}, ICON = {}, thumbs = {};
+  const SPR = {}, ICON = {}, thumbs = {}, models = {};
   const jobs = [];
-  for (const type of Object.keys(BUILDINGS)) if (BUILDINGS[type].kind !== 'field') jobs.push(['b:' + type, () => modelFor(type)]);
-  jobs.push(['f:empty', () => field(null)], ['b:path2', () => pathTile(2)], ['b:path3', () => pathTile(3)], ['b:wildtree', () => deco('wildtree')], ['b:wildtree2', () => deco('wildtree2')]);
-  for (const c of Object.keys(CROPS)) for (const st of [0, 1]) jobs.push([`f:${c}:${st}`, () => field(c, st)]);
+  for (const [type, b] of Object.entries(BUILDINGS)){
+    if (T.isUpgradable(b)) for (const t of [1, 2, 3]) jobs.push([`b:${type}:${t}`, () => modelFor(type, t)]);
+    else jobs.push(['b:' + type, () => modelFor(type)]);
+  }
+  jobs.push(['b:path2', () => pathTile(2)], ['b:path3', () => pathTile(3)], ['b:wildtree', () => deco('wildtree')], ['b:wildtree2', () => deco('wildtree2')]);
   for (const n of [1, 2, 3, 4]) jobs.push(['site:' + n, () => site(n)]);
   jobs.push(['forest:0', () => forest(7)], ['forest:1', () => forest(31)], ['forest:2', () => forest(77)]);
   for (let v = 0; v < 3; v++) jobs.push(['elf:' + v, () => { const c = character('elf', elfLook(v)); c.root.scale.setScalar(.38); c.mixer.update(.5); return c.root; }]);
   for (let i = 0; i < jobs.length; i++){
     const [k, fn] = jobs[i];
-    SPR[k] = bake(fn(), {density: k.startsWith('forest') ? Math.min(DPR, 2) : BD});
+    const obj = fn(); if (extras) models[k] = obj;
+    SPR[k] = bake(obj, {density: k.startsWith('forest') ? Math.min(DPR, 2) : BD});
     bar(.55 + .35 * (i + 1) / jobs.length);
     if (i % 4 === 3) await new Promise(r => setTimeout(r, 0));
   }
@@ -123,9 +130,14 @@ export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   ICON.mg_gold = iconURL(goldSnowman()); ICON.mg_elf = (() => { const c = character('elf', elfLook(0)); c.mixer.update(.5); return url(bakeIcon(c.root, 80, DPR)); })();
   ICON.mg_snow = iconURL(prop('snowball_pile'));
     const portrait = (() => { const c = character('santa', santaLook(9), {hat: true}); c.mixer.update(.6); return bust(c.root, 128, DPR); })();
-  for (const type of Object.keys(BUILDINGS)) thumbs[type] = url(bakeIcon(type === 'field' ? field('wheat', 1) : modelFor(type), 96, DPR));
+  for (const [type, b] of Object.entries(BUILDINGS)){
+    thumbs[type] = url(bakeIcon(modelFor(type, 1), 96, DPR));
+    if (T.isUpgradable(b)) for (const t of [2, 3]) thumbs[type + ':' + t] = url(bakeIcon(modelFor(type, t), 96, DPR));
+  }
   const buildIcon = url(bakeIcon(prop('Wood_Planks_Stack_Medium'), 96, DPR));
-  const splash = extras ? bake(heroScene(), {density: 2.4, shadow: true}) : null;
+  const hero = extras ? heroScene() : null;
+  const splash = hero ? bake(hero, {density: 2.4, shadow: true}) : null;
+  if (hero) models.splash = hero;
   disposeBaker();
-  return {SPR, ICON, thumbs, portrait, buildIcon, splash};
+  return {SPR, ICON, thumbs, portrait, buildIcon, splash, models};
 }
