@@ -757,6 +757,37 @@ body.in-game #hud2,body.in-game .dock,body.in-game #sideR,body.in-game #quest2{v
 .wanted{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--display);font-size:11px;color:#fff;padding:0 8px;border-radius:8px;background:linear-gradient(180deg,#ff6b78,#d81f33);border:1.5px solid var(--red-o);white-space:nowrap}
 .warn{background:#fff3c4;border:2px dashed var(--gold-d);border-radius:12px;padding:7px 10px;margin:0 0 10px!important}
 b.bad{color:var(--red)}
+/* bâtiment ouvert comme un lieu : décor, bâtiment, gardien qui parle */
+.scene{position:relative;height:210px;margin:0 -14px 10px;overflow:hidden;background:radial-gradient(ellipse 80% 60% at 60% 100%,#ffffff 0,#e3eefc 45%,rgba(227,238,252,0) 46%),linear-gradient(180deg,#6aa8e8 0,#a9d0f6 55%,#dcebfb 100%);border-bottom:3px solid var(--wood-d)}
+.scene::before{content:"";position:absolute;inset:0;background-image:radial-gradient(2px 2px at 12% 20%,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 40% 12%,#fff 50%,transparent 51%),radial-gradient(2px 2px at 70% 26%,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 88% 14%,#fff 50%,transparent 51%);opacity:.9}
+.scene.sc-hq{background:radial-gradient(ellipse 80% 60% at 60% 100%,#fff 0,#f6ead5 45%,rgba(246,234,213,0) 46%),linear-gradient(180deg,#25407e 0,#5379c2 55%,#c9d8f0 100%)}
+.scene.sc-prod{background:radial-gradient(ellipse 80% 60% at 60% 100%,#fff 0,#eaf3e4 45%,rgba(234,243,228,0) 46%),linear-gradient(180deg,#4f9ad6 0,#9fd0ee 55%,#e6f2e0 100%)}
+.scene.sc-craft,.scene.sc-orders{background:radial-gradient(ellipse 80% 60% at 60% 100%,#fff 0,#fbe9d4 45%,rgba(251,233,212,0) 46%),linear-gradient(180deg,#8a3b2c 0,#d0794f 55%,#f8dcc0 100%)}
+.scene .bimg{position:absolute;right:-4%;bottom:6px;width:62%;max-width:250px;filter:drop-shadow(0 10px 10px rgba(20,30,70,.3));animation:popin .4s cubic-bezier(.2,1.5,.4,1)}
+.scene .keeper{position:absolute;left:4px;bottom:-6px;width:118px;height:150px;object-fit:contain;filter:drop-shadow(0 6px 6px rgba(0,0,0,.3));animation:keeperin .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes keeperin{from{transform:translateX(-60px);opacity:0}}
+.scene .say{position:absolute;left:112px;top:12px;right:12px;max-width:250px;padding:8px 11px;border-radius:14px;background:#fffdf6;border:2.5px solid var(--ink);box-shadow:0 4px 0 rgba(42,26,14,.25);font-size:13.5px;line-height:1.3;color:var(--ink-2);font-weight:600}
+.scene .say::after{content:"";position:absolute;left:-10px;bottom:16px;width:14px;height:14px;background:#fffdf6;border-left:2.5px solid var(--ink);border-bottom:2.5px solid var(--ink);transform:rotate(45deg)}
+.scene .say b{color:var(--red-d)}
+.scene .say>b:first-child{display:block;font-family:var(--display);font-weight:400;font-size:13px;color:var(--blue-d);margin-bottom:2px}
+.scene .nextlook{position:absolute;left:8px;top:8px;display:none}
+/* écran « Bravo ! » */
+#modal.bravo .mcard{gap:14px}
+#modal.bravo h2{font-size:52px;letter-spacing:.04em;animation:bravoin .5s cubic-bezier(.2,1.6,.4,1) both}
+#modal.bravo small{animation:fadein .4s .15s both}
+@keyframes bravoin{from{transform:scale(.3);opacity:0}}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}}
+.rcards{position:relative;display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.rcard{position:relative;width:92px;height:104px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:linear-gradient(160deg,#a66bff,#6a2fd6);border:3px solid #fff;box-shadow:0 0 0 2px #3b1680,0 6px 14px rgba(0,0,0,.4),0 0 24px rgba(255,220,120,.35);animation:cardin .45s cubic-bezier(.2,1.5,.4,1) both}
+.rcard:nth-child(2){animation-delay:.08s}.rcard:nth-child(3){animation-delay:.16s}.rcard:nth-child(4){animation-delay:.24s}.rcard:nth-child(5){animation-delay:.32s}
+@keyframes cardin{from{transform:translateY(30px) scale(.4);opacity:0}}
+.rcard img,.rcard i.i{width:58px;height:58px;margin:0}
+.rcard i.i.xp{font-size:20px}
+.rcard b{font-family:var(--display);font-weight:400;font-size:21px;color:#fff;-webkit-text-stroke:4px #2a1450;paint-order:stroke fill}
+.rcard.r-coins,.rcard.r-stars{background:linear-gradient(160deg,#ffd84a,#e69a10);box-shadow:0 0 0 2px #7a4a05,0 6px 14px rgba(0,0,0,.4),0 0 24px rgba(255,220,120,.5)}
+.rcard.r-xp{background:linear-gradient(160deg,#5cc8ff,#1f6fc0);box-shadow:0 0 0 2px #0c3f75,0 6px 14px rgba(0,0,0,.4)}
+.okc{position:relative;width:62px;height:62px;border-radius:50%;margin-top:6px;border:3px solid #fff;background:radial-gradient(circle at 50% 35%,#ffe766,#e6a10f);box-shadow:0 0 0 2px #7a4a05,0 5px 0 #7a4a05,0 0 22px rgba(255,214,90,.8);animation:fadein .3s .4s both}
+.okc::after{content:"";position:absolute;left:21px;top:13px;width:13px;height:24px;border:solid #fff;border-width:0 6px 6px 0;transform:rotate(45deg);filter:drop-shadow(0 1px 0 #7a4a05)}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
