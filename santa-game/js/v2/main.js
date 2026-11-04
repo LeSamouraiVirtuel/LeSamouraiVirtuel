@@ -268,6 +268,8 @@ function draw(){
     if (ghost?.move === o || o.type === 'path') continue;
     items.push({d: o.x + o.y + (b.w + b.h) / 2, f: () => drawObj(o)});
   }
+  // terrains réservés : le futur bâtiment en transparence, avec ce qu'il faut pour le débloquer
+  for (const l of T.lotsShown(S)){ const b = BUILDINGS[l.type]; items.push({d: l.x + l.y + (b.w + b.h) / 2, f: () => drawLot(l)}); }
   for (const e of elves) items.push({d: e.x + e.y, f: () => drawElf(e)});
   if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : T.isUpgradable(b) ? `b:${ghost.type}:1` : 'b:' + ghost.type, c.x, c.y, .85); }}); }
   items.sort((a, b) => a.d - b.d);
@@ -304,6 +306,22 @@ function plate(o){
   ctx.fillStyle = '#fff'; ctx.font = '600 11px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, -w / 2 + 21, .5);
   ctx.restore();
 }
+function drawLot(l){
+  const b = BUILDINGS[l.type], c = toScreen(l.x + b.w / 2, l.y + b.h / 2), ok = (b.hq || 1) <= T.hqLv(S);
+  diamond(l.x, l.y, b.w, b.h, ok ? 'rgba(90,200,110,.18)' : 'rgba(40,50,90,.16)', ok ? 'rgba(60,170,80,.7)' : 'rgba(255,255,255,.55)');
+  drawSprite(`b:${l.type}:1`, c.x, c.y, ok ? .55 : .32);
+  const p = toScreen(l.x + b.w, l.y + b.h), label = ok ? `${b.name} · à construire` : `${b.name} · Maison niv. ${b.hq}`;
+  ctx.save(); ctx.translate(Math.round(p.x), Math.round(p.y - 10));
+  ctx.font = '600 11px Fredoka, sans-serif'; const w = ctx.measureText(label).width + 30, h = 18;
+  ctx.fillStyle = ok ? 'rgba(20,110,40,.85)' : 'rgba(18,22,44,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 5); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(label, -w / 2 + 21, .5);
+  // cadenas (verrouillé) ou « + » (constructible)
+  ctx.translate(-w / 2 + 10, 0);
+  if (ok){ ctx.fillStyle = '#7dff8a'; ctx.fillRect(-4.5, -1.2, 9, 2.4); ctx.fillRect(-1.2, -4.5, 2.4, 9); }
+  else { ctx.strokeStyle = '#ffd34a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, -2, 3, Math.PI, 0); ctx.stroke(); ctx.fillStyle = '#ffd34a'; ctx.fillRect(-4.5, -1.5, 9, 6.5); }
+  ctx.restore();
+}
+function lotAt(sx, sy){ const t = toTile(sx, sy); return T.lotsShown(S).find(l => { const b = BUILDINGS[l.type]; return t.x >= l.x && t.x < l.x + b.w && t.y >= l.y && t.y < l.y + b.h; }); }
 const isOpen = (cx, cy) => S.chunks.includes(`${cx},${cy}`);
 const isNextToOpen = (cx, cy) => isOpen(cx - 1, cy) || isOpen(cx + 1, cy) || isOpen(cx, cy - 1) || isOpen(cx, cy + 1);
 function sign(x, y, cx, cy){
@@ -442,6 +460,10 @@ function clampCam(){ const c = iso(T.MAP / 2, T.MAP / 2), r = T.MAP * TW * .45; 
 
 function tap(o, at){
   sfx.tap();
+  if (!o || o.wild){
+    const l = lotAt(at.x, at.y);
+    if (l){ const why = T.buildBlock(S, l.type); if (why){ sfx.err(); return toast(`${BUILDINGS[l.type].name} : ${why}`); } return startPlace(l.type, l); }
+  }
   if (!o){
     const t = toTile(at.x, at.y), cx = Math.floor(t.x / T.CHUNK), cy = Math.floor(t.y / T.CHUNK);
     if (cx >= 0 && cy >= 0 && cx < T.MAP / T.CHUNK && cy < T.MAP / T.CHUNK && !isOpen(cx, cy) && isNextToOpen(cx, cy)) return openPanel('expand', {cx, cy});
@@ -585,7 +607,7 @@ function renderPanel(){
     if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : ''; }
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
     h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt=""><div class="say"><b>${K.name}</b><span>${said}</span></div>${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Niv. ${next}</small></div>` : ''}</div>
-      ${extra}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
+      ${extra}${b.kind === 'prod' ? keeperBox(o) : ''}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
       ${o.lv < (b.kind === 'hq' ? b.max : 99) ? `<h3>Coût de l'amélioration</h3><div class="costs">${costChips(c)}<span class="chip time">${fmtTime(T.upTime(o.type, next))}</span></div>
       <div class="acts"><button class="btn green" data-a="upgrade" ${why ? 'disabled' : ''}>Améliorer</button><button class="btn blue sm" data-a="move">Déplacer</button></div>${why ? `<p class="note">${why}</p>` : ''}` : ''}`;
   }
@@ -608,6 +630,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'toys'){ collectToys(panelArg, b); return renderPanel(); }
   if (a === 'collect'){ collectBld(panelArg); return renderPanel(); }
   if (a === 'upgrade') return startUpgrade(panelArg, b);
+  if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
@@ -618,15 +641,19 @@ $('#sheet').addEventListener('click', e => {
 });
 
 /* ---------- placement d'un nouveau bâtiment ---------- */
-function startPlace(type){
+function startPlace(type, lot){
   const why = T.buildBlock(S, type); if (why){ sfx.err(); return toast(why); }
   closePanel();
   const t = toTile(W / 2, H / 2), b = BUILDINGS[type];
   ghost = {type, x: Math.round(t.x - b.w / 2), y: Math.round(t.y - b.h / 2)};
+  if (!lot) lot = T.lotsShown(S).find(l => l.type === type);
+  if (lot){ clearWild(lot.type, lot.x, lot.y); ghost.x = lot.x; ghost.y = lot.y; centerOn(lot.x + b.w / 2, lot.y + b.h / 2); showGhostUI(); tutoEv('placing'); return; }
   // cherche une place libre près du centre de l'écran
   outer: for (let r = 0; r < 12; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++){ if (fits(type, ghost.x + dx, ghost.y + dy)){ ghost.x += dx; ghost.y += dy; break outer; } }
   showGhostUI(); tutoEv('placing');
 }
+// les sapins sauvages laissent la place quand on construit sur un terrain réservé
+function clearWild(type, x, y){ const b = BUILDINGS[type]; S.objs = S.objs.filter(o => !(o.wild && x < o.x + 1 && x + b.w > o.x && y < o.y + 1 && y + b.h > o.y)); }
 function showGhostUI(){ document.body.classList.add('placing'); $('#placebar').hidden = false; updateGhostUI(); }
 function updateGhostUI(){ const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); $('#pb-ok').disabled = !ok; }
 $('#pb-ok').addEventListener('click', () => {
@@ -682,13 +709,26 @@ function keeperLine(o){
   return b.desc;
 }
 
+function keeperBox(o){
+  const k = o.keeper || 0, why = T.keeperBlock(S, o), stars = '★'.repeat(k) + '☆'.repeat(T.KEEPER_MAX - k);
+  if (T.hqLv(S) < T.keeperHq) return `<div class="kbox lock"><b>Gardien</b><span>Se débloque avec la Maison du Père Noël niv. ${T.keeperHq} : il récoltera tout seul pour toi.</span></div>`;
+  return `<div class="kbox"><div><b>${k ? `Gardien engagé <i class="kst">${stars}</i>` : 'Engager le gardien'}</b><span>${k ? `Récolte automatique · production <b>+${Math.round((T.keeperMult(o) - 1) * 100)} %</b>${k < T.KEEPER_MAX ? ` → <b>+${Math.round(k * 10)} %</b>` : ''}` : 'Il récoltera tout seul dans le stock du village, même quand tu ne joues pas.'}</span></div>
+    ${k < T.KEEPER_MAX ? `<button class="btn ${k ? 'gold' : 'green'} sm" data-a="keeper" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>${k ? 'Améliorer' : 'Engager'}<span class="costs">${costChips(T.keeperCost(o))}</span></button>` : ''}</div>`;
+}
+
 /* ---------- écran « Bravo ! » (récompenses en grand, puis elles volent vers les compteurs) ---------- */
+let pendingStory = -1;
+function story(i){
+  const c = T.CHAPTERS[i], m = $('#modal'); m.className = 'glow';
+  m.querySelector('.mcard').innerHTML = `<small>Chapitre ${i + 1}</small><h2 class="stroke">${c.title}</h2><div class="storyrow"><img src="${portrait}" alt=""><p>${c.story}</p></div><button class="btn green" data-m="ok">C'est parti !</button>`;
+  m.hidden = false; m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; };
+}
 function bravo(r, sub = 'Tu as gagné'){
   const m = $('#modal'); m.className = 'cere bravo';
   const cards = Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<div class="rcard r-${k}">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : `<img src="${ICON[k]}" alt="">`}<b>${fmt(n)}</b></div>`).join('');
   m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2>BRAVO !</h2><small>${sub}</small><div class="rcards">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
   m.hidden = false; sfx.level();
-  m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; giveReward(r, m.querySelector('.rcards') || $('#quest2')); };
+  m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; giveReward(r, m.querySelector('.rcards') || $('#quest2')); if (pendingStory >= 0){ const k = pendingStory; pendingStory = -1; setTimeout(() => story(k), 900); } };
 }
 
 /* ---------- tâche en cours (carte en bas à gauche) ---------- */
@@ -696,7 +736,8 @@ let questHtml = '';
 function rewardChips(r){ return Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<span class="chip">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join(''); }
 function renderQuest(){
   const {q, v, done} = T.questProgress(S);
-  const h = `<span class="tag">Tâche</span><b>${q.t}</b><span class="qbar"><i style="width:${v / q.n * 100}%"></i><em>${v} / ${q.n}</em></span><span class="costs">${done ? '<span class="claim">Récupérer</span>' : rewardChips(q.r)}</span>`;
+  const ch = T.chapterOf(S.quest.i), ct = T.CHAPTERS[ch];
+  const h = `<span class="tag">${ct ? `Chapitre ${ch + 1}` : 'Tâche'}</span>${ct ? `<small class="chap">${ct.title}</small>` : ''}<b>${q.t}</b><span class="qbar"><i style="width:${v / q.n * 100}%"></i><em>${v} / ${q.n}</em></span><span class="costs">${done ? '<span class="claim">Récupérer</span>' : rewardChips(q.r)}</span>`;
   if (h !== questHtml){ questHtml = h; $('#quest2').innerHTML = h; $('#quest2').classList.toggle('done', done); }
 }
 function giveReward(r, el){
@@ -711,7 +752,7 @@ function giveReward(r, el){
 }
 $('#quest2').addEventListener('click', e => {
   const el = $('#quest2'), r = T.questClaim(S);
-  if (r){ bravo(r, 'Tâche terminée'); questHtml = ''; renderQuest(); }
+  if (r){ const before = T.chapterOf(S.quest.i - 1), after = T.chapterOf(S.quest.i); bravo(r, 'Tâche terminée'); if (after !== before && T.CHAPTERS[after]) pendingStory = after; questHtml = ''; renderQuest(); }
   else { sfx.tap(); const {q} = T.questProgress(S); toast(q.t); }
 });
 /* ---------- cadeau du jour (série de 7 jours) ---------- */
@@ -808,7 +849,13 @@ function frame(t){
   const dt = Math.max(0, Math.min(.05, (t - last) / 1000)); last = Math.max(last, t);
   try { step(t, dt); } catch(e){ if (!frame.err){ frame.err = 1; console.error('frame', e && e.stack); window.showErr?.(e && e.message); } }
 }
+let autoT = 0;
+/** Les gardiens récoltent tout seuls (en silence, avec un petit effet si le bâtiment est à l'écran). */
+function autoCollect(){
+  for (const o of S.objs){ if (!o.keeper || B(o).kind !== 'prod' || !ripe(o)) continue; const k = B(o).res, got = T.collect(S, o); if (got > 0){ T.track(S, 'collect:' + k, got); const c = toScreen(o.x + 1.5, o.y + 1.5); if (c.x > 0 && c.x < W && c.y > 0 && c.y < H) fxHarvest(o, k, got); } }
+}
 function step(t, dt){
+  autoT -= dt; if (autoT <= 0){ autoT = 3; autoCollect(); }
   fxDt = dt;
   refreshOrders(); finishWorks(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }

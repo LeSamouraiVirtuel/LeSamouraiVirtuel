@@ -870,6 +870,20 @@ body.sheet-open #sheet{transform:none!important}
 /* scène de bâtiment : bord à bord sous le bandeau */
 .scene{margin:-10px -12px 10px!important;height:200px!important}
 #toast{top:calc(env(safe-area-inset-top,0px) + 76px)!important;font-size:13.5px!important;padding:8px 14px!important}
+/* gardiens, chapitres */
+.kbox{display:flex;align-items:center;gap:10px;margin:10px 0 2px;padding:9px 10px;border-radius:12px;background:linear-gradient(180deg,#eaf3ff,#d6e6fb);border:1.5px solid #9dbbe6}
+.kbox>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.kbox b{font-family:var(--display);font-weight:400;font-size:14px;color:#1d3a6e}
+.kbox span{font-size:12.5px;color:#3d5580;line-height:1.3}
+.kbox span b{font-family:var(--body);font-weight:700;font-size:12.5px;color:var(--green-d)}
+.kbox .btn{flex:none;flex-direction:column;gap:2px;padding:4px 10px}
+.kbox .btn .costs{gap:2px}
+.kbox .btn .chip{font-size:11px;padding:0 5px 0 1px}
+.kbox.lock{background:#eef0f5;border-color:#c8cdd8}
+.kst{font-style:normal;color:#f0a00c;letter-spacing:1px}
+#quest2 .chap{display:block;font:400 10.5px/1.1 var(--display);color:#b0562a;margin:-2px 0 1px}
+.storyrow{display:flex;gap:10px;align-items:center;text-align:left}
+.storyrow img{width:84px;height:84px;object-fit:contain;flex:none}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
