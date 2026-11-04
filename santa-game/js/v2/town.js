@@ -46,11 +46,11 @@ export const TOYS = {
 export const BUILDINGS = {
   santa:    {name: 'Maison du Père Noël', kind: 'hq', w: 4, h: 4, unique: true, max: 15, cost: {coins: 120, wood: 150}, time: 20,
              desc: 'Le cœur du village. Son niveau fixe le niveau maximum des autres bâtiments et débloque de nouveaux bâtiments.'},
-  sawmill:  {name: 'Scierie', kind: 'prod', res: 'wood', rate: 1080, w: 3, h: 3, cost: {coins: 40, wood: 20}, time: 8, hq: 1,
+  sawmill:  {name: 'Scierie', kind: 'prod', res: 'wood', rate: 1440, w: 3, h: 3, cost: {coins: 40, wood: 20}, time: 8, hq: 1,
              desc: 'Les lutins débitent les vieux sapins en planches.'},
   letters:  {name: 'Bureau des lettres', kind: 'prod', res: 'coins', rate: 900, w: 3, h: 3, cost: {coins: 30, wood: 40}, time: 8, hq: 1,
              desc: 'Les lettres des enfants arrivent ici, souvent avec une pièce pour le village.'},
-  bakery:   {name: 'Four à biscuits', kind: 'prod', res: 'cookies', rate: 720, w: 3, h: 3, cost: {coins: 60, wood: 60}, time: 10, hq: 1,
+  bakery:   {name: 'Four à biscuits', kind: 'prod', res: 'cookies', rate: 840, w: 3, h: 3, cost: {coins: 60, wood: 60}, time: 10, hq: 1,
              desc: 'Des biscuits au gingembre tout chauds : les lutins en ont besoin pour les gros chantiers.'},
   mill:     {name: 'Filature', kind: 'prod', res: 'fabric', rate: 450, w: 3, h: 3, cost: {coins: 250, wood: 200, cookies: 60}, time: 30, hq: 3,
              desc: 'La laine des moutons du Pôle devient du tissu pour les peluches et les chaussettes.'},
@@ -97,8 +97,8 @@ export const theaterJoy = lv => 8 * lv;
 export function upCost(type, lv){        // coût pour passer au niveau lv (lv = 1 : construction)
   const b = BUILDINGS[type], c = {}, m = Math.pow(1.6, lv - 1);
   for (const [k, v] of Object.entries(b.cost)) c[k] = R5(v * m);
-  if (b.kind === 'hq' && lv >= 2) c.cookies = R5(40 * Math.pow(1.6, lv - 2));
-  if (isUpgradable(b) && lv >= 4 && !c.cookies) c.cookies = R5((b.cost.wood || 50) * .3 * m);   // les gros chantiers nourrissent les lutins
+  if (b.kind === 'hq' && lv >= 2) c.cookies = R5(70 * Math.pow(1.6, lv - 2));
+  if (isUpgradable(b) && lv >= 3 && !c.cookies) c.cookies = R5((b.cost.wood || 50) * .4 * m);   // les gros chantiers nourrissent les lutins
   return c;
 }
 export const upTime = (type, lv) => Math.min(8 * 3600, Math.round((BUILDINGS[type].time || 0) * Math.pow(1.55, lv - 1)));
