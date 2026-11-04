@@ -125,6 +125,12 @@ function gainXp(n, from){
   const up = T.addXp(S, n);
   if (from) fly('xp', n, from);
   if (up){ for (let L = S.lvl - up + 1; L <= S.lvl; L++) lvQueue.push(L); if (!lvShowing) setTimeout(nextLevelUp, 500); }
+  if (S.xpChests > 0) setTimeout(openXpChests, up ? 1800 : 400);
+}
+/** Coffres de la barre d'XP (tiers de niveau franchis) : petit gain immédiat, qui vole depuis la barre. */
+function openXpChests(){
+  const n = S.xpChests || 0; if (!n) return; S.xpChests = 0;
+  for (let i = 0; i < n; i++) setTimeout(() => { giveReward(T.xpChestReward(S), $('#xpbar')); toast('🎁 Coffre de la barre d\'XP !'); }, i * 700);
 }
 /** Toucher un bâtiment de production : on récolte ce qu'il a accumulé. */
 const ripe = o => B(o).kind === 'prod' && T.stored(S, o) >= Math.max(1, T.buffer(o.type, o.lv) * .08);   // bulle visible
@@ -133,7 +139,7 @@ function collectBld(o){
   const b = B(o), got = T.collect(S, o);
   if (got === -1){ toastOnce(`Stock de ${ITEMS[b.res].name.toLowerCase()} plein : construis ou améliore un Entrepôt`); return true; }
   if (!got) return false;
-  T.track(S, 'collect:' + b.res, got); fxHarvest(o, b.res, got); gainXp(Math.max(1, Math.round(got / 60)), null);
+  T.track(S, 'collect:' + b.res, got); fxHarvest(o, b.res, got); gainXp(T.collectXp(o), null);
   sfx.collect(); tutoEv('collect:' + o.type); save(); return true;
 }
 /* ---------- Atelier : file de fabrication des jouets ---------- */

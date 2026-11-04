@@ -905,6 +905,8 @@ body.sheet-open #sheet{transform:none!important}
 .door2.open b{color:var(--ink-2);-webkit-text-stroke:0}
 .door2.big{grid-column:span 2;aspect-ratio:auto}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
+#modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">

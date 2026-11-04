@@ -1,19 +1,26 @@
 // Joueur simulé « actif » : il revient toutes les 30 s, récolte, améliore/construit ce qui est le moins cher, fabrique et livre.
-const T = await import('../js/v2/town.js');
+const T = await import(new URL('../js/v2/town.js', import.meta.url).href);
 let now = Date.UTC(2026, 10, 10, 10);
 const realNow = Date.now; Date.now = () => now;
 const s = T.newTown(); s.tuto = 99;
 const B = o => T.BUILDINGS[o.type];
 const log = []; let lastLvl = 1, idle = 0;
 const spot = (() => { let i = 0; return () => { i++; return {x: 2 + (i % 8) * 4, y: 2 + Math.floor(i / 8) * 4}; }; })();
-for (let t = 0; t <= 3 * 3600; t += 30){
+// sessions : jour 1 = 25 min, puis 10 min à +4 h et +9 h ; ensuite 3 sessions de 10 min par jour (8 h, 13 h, 20 h)
+const DAYS = +process.argv[2] || 30, sessions = [[0, 25 * 60], [4 * 3600, 10 * 60], [9 * 3600, 10 * 60]];
+for (let d = 1; d < DAYS; d++) for (const h of [8, 13, 20]) sessions.push([d * 86400 + (h - 10) * 3600, 10 * 60]);
+const inSession = t => sessions.some(([a, l]) => t >= a && t < a + l);
+const seen = {};
+for (let t = 0; t <= DAYS * 86400; t += 30){
+  if (!inSession(t)) continue;
   now = Date.UTC(2026, 10, 10, 10) + t * 1000;
   let acted = false;
   for (const o of s.objs){
     if (o.build && now >= o.build){ delete o.build; o.t = now; T.addXp(s, T.buildXp(1) + 2); }
     if (o.up && now >= o.up){ o.lv = o.upTo; delete o.up; o.t = now; T.addXp(s, T.buildXp(o.lv)); }
-    if (B(o).kind === 'prod'){ const g = T.collect(s, o); if (g > 0){ T.track(s, 'collect:' + B(o).res, g); T.addXp(s, Math.max(1, Math.round(g / 60))); acted = true; } }
+    if (B(o).kind === 'prod'){ const g = T.collect(s, o); if (g > 0){ T.track(s, 'collect:' + B(o).res, g); T.addXp(s, T.collectXp(o)); acted = true; } }
   }
+  while (s.xpChests > 0){ s.xpChests--; for (const [k, n] of Object.entries(T.xpChestReward(s))) T.give(s, k, T.RES.includes(k) && k !== 'coins' ? Math.min(n, Math.max(0, T.cap(s, k) - s[k])) : n); }
   // fin gratuite sous 3 min
   for (const o of s.objs){ const e = o.build || o.up; if (e && e - now <= T.freeFinish){ if (o.build) o.build = now; else o.up = now; } }
   // lettres : bureau
@@ -38,7 +45,11 @@ for (let t = 0; t <= 3 * 3600; t += 30){
   // tâches
   for (let k = 0; k < 3; k++){ const r = T.questClaim(s); if (!r) break; for (const [rk, rn] of Object.entries(r)){ if (rk === 'xp') T.addXp(s, rn); else T.give(s, rk, rn); } }
   if (!acted) idle += 30;
-  if (s.lvl !== lastLvl || t % 1800 === 0){ log.push(`${String(Math.floor(t / 60)).padStart(3)} min · niv ${s.lvl} · maison ${T.hqLv(s)} · tâche ${s.quest.i} · pièces ${s.coins} bois ${s.wood} biscuits ${s.cookies} tissu ${s.fabric} · bâtiments ${s.objs.filter(o => !o.free && !o.wild && T.isUpgradable(B(o))).map(o => o.type + o.lv).join(' ')}`); lastLvl = s.lvl; }
+  if (s.lvl !== lastLvl){ if (!seen[s.lvl]) seen[s.lvl] = t; } { const h = T.hqLv(s); if (!seen["M" + h]) seen["M" + h] = t; } if (false){ log.push(`${String(Math.floor(t / 60)).padStart(3)} min · niv ${s.lvl} · maison ${T.hqLv(s)} · tâche ${s.quest.i} · pièces ${s.coins} bois ${s.wood} biscuits ${s.cookies} tissu ${s.fabric} · bâtiments ${s.objs.filter(o => !o.free && !o.wild && T.isUpgradable(B(o))).map(o => o.type + o.lv).join(' ')}`); lastLvl = s.lvl; }
 }
-console.log(log.join('\n')); console.log('temps sans rien à faire :', Math.round(idle / 60), 'min sur 180');
+const fmtT = t => t < 3600 ? Math.round(t / 60) + ' min' : t < 86400 ? (t / 3600).toFixed(1) + ' h' : 'J' + (t / 86400).toFixed(1);
+console.log(Object.entries(seen).filter(([l]) => [2,3,5,7,10,12,15,20,25,30,40,50,60].includes(+l)).map(([l, t]) => `niv ${l} : ${fmtT(t)}`).join(' | '));
+console.log(Object.entries(seen).filter(([l]) => /^M(10|15|20|25)$/.test(l)).map(([l, t]) => `Maison ${l.slice(1)} : ${fmtT(t)}`).join(" | "));
+console.log('fin : niveau', s.lvl, '· Maison', T.hqLv(s), '· tâche', s.quest.i, '· pièces', s.coins, 'bois', s.wood, 'biscuits', s.cookies, 'tissu', s.fabric);
+console.log('minutes en session sans rien à faire :', Math.round(idle / 60), 'sur', sessions.reduce((a, [, l]) => a + l, 0) / 60);
 Date.now = realNow;

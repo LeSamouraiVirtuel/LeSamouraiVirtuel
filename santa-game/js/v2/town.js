@@ -44,7 +44,7 @@ export const TOYS = {
 // kind : hq | prod | house | storage | craft | orders | stable | fun | deco | path
 // cost : coût du niveau 1 (×1,6 par niveau) ; time : secondes du niveau 1 (×1,55) ; hq : niveau de Maison requis
 export const BUILDINGS = {
-  santa:    {name: 'Maison du Père Noël', kind: 'hq', w: 4, h: 4, unique: true, max: 15, cost: {coins: 120, wood: 150}, time: 20,
+  santa:    {name: 'Maison du Père Noël', kind: 'hq', w: 4, h: 4, unique: true, max: 25, cost: {coins: 120, wood: 150}, time: 20,
              desc: 'Le cœur du village. Son niveau fixe le niveau maximum des autres bâtiments et débloque de nouveaux bâtiments.'},
   sawmill:  {name: 'Scierie', kind: 'prod', res: 'wood', rate: 1440, w: 3, h: 3, cost: {coins: 40, wood: 20}, time: 8, hq: 1,
              desc: 'Les lutins débitent les vieux sapins en planches.'},
@@ -82,7 +82,7 @@ export const isUpgradable = b => !['deco', 'path'].includes(b.kind);
 /* ---------- chiffres par niveau (tout ce que l'amélioration change) ---------- */
 const R5 = n => n < 100 ? Math.round(n) : Math.round(n / 5) * 5;
 export const rate = (type, lv) => R5(BUILDINGS[type].rate * Math.pow(1.35, lv - 1));        // par heure
-export const buffer = (type, lv) => R5(rate(type, lv) * (lv < 4 ? .5 : lv < 8 ? 1 : 2));     // stock interne (30 min → 2 h)
+export const buffer = (type, lv) => R5(rate(type, lv) * (lv < 3 ? .5 : lv < 6 ? 2 : lv < 9 ? 6 : 12));   // stock interne : 30 min → 2 h → 6 h → une nuit
 export const workers = (type, lv) => BUILDINGS[type].kind === 'prod' ? 2 * lv : 0;
 export const housing = lv => 6 + 4 * (lv - 1);                                             // lutins par chalet
 export const storageAdd = lv => R5(300 * Math.pow(1.5, lv - 1));                           // stock en plus par entrepôt
@@ -95,13 +95,23 @@ export const ticketsMax = lv => 3 + Math.floor(lv / 3);
 export const gameBonus = lv => 1 + .25 * (lv - 1);
 export const theaterJoy = lv => 8 * lv;
 export function upCost(type, lv){        // coût pour passer au niveau lv (lv = 1 : construction)
-  const b = BUILDINGS[type], c = {}, m = Math.pow(1.6, lv - 1);
+  const b = BUILDINGS[type], c = {}, m = Math.pow(1.6, Math.min(lv, 15) - 1) * Math.pow(1.28, Math.max(0, lv - 15));   // au-delà de 15 : +28 %/niveau
   for (const [k, v] of Object.entries(b.cost)) c[k] = R5(v * m);
-  if (b.kind === 'hq' && lv >= 2) c.cookies = R5(70 * Math.pow(1.6, lv - 2));
+  if (b.kind === 'hq' && lv >= 2) c.cookies = R5(70 * m / 1.6);
   if (isUpgradable(b) && lv >= 3 && !c.cookies) c.cookies = R5((b.cost.wood || 50) * .4 * m);   // les gros chantiers nourrissent les lutins
   return c;
 }
-export const upTime = (type, lv) => Math.min(8 * 3600, Math.round((BUILDINGS[type].time || 0) * Math.pow(1.55, lv - 1)));
+// Durée des chantiers : secondes → minutes → heures → jours, comme l'Hôtel de ville de Clash of Clans ou la Forteresse de DoA.
+// Maison du Père Noël : niv. 2 = 10 s … niv. 15 = 5 jours. Les autres bâtiments suivent le palier de la Maison, plafonnés à 3 jours.
+const H = 3600, D = 86400;
+export const HQ_TIME = [0, 0, 10, 120, 20 * 60, H, 2 * H, 4 * H, 8 * H, 12 * H, D, 1.5 * D, 2 * D, 3 * D, 4 * D, 5 * D, 5.5 * D, 6 * D, 6 * D, 6.5 * D, 6.5 * D, 7 * D, 7 * D, 7 * D, 7 * D, 7 * D];
+export function upTime(type, lv){
+  const b = BUILDINGS[type];
+  if (b.kind === 'hq') return lv <= 1 ? 0 : HQ_TIME[Math.min(lv, HQ_TIME.length - 1)];
+  if (!b.time) return 0;
+  const t = lv <= 1 ? b.time : Math.max(b.time, HQ_TIME[Math.min(lv, HQ_TIME.length - 1)] * .45);
+  return Math.round(Math.min(3 * D, t));
+}
 export const buildXp = lv => Math.round(6 * Math.pow(lv, 1.4));
 export const freeFinish = 3 * 60 * 1000;     // moins de 3 min restantes : « Terminer » est gratuit (comme DoA / Clash)
 export const BUILDERS = 2;                   // équipes de lutins bâtisseurs (chantiers en même temps)
@@ -126,13 +136,24 @@ const unlockCount = l => Object.values(BUILDINGS).filter(b => (b.hq || 1) <= l &
 export const unlocksAtHq = L => Object.values(BUILDINGS).filter(b => b.hq === L && L > 1).map(b => b.name);
 
 /* ===================== NIVEAU DU JOUEUR ===================== */
-export const xpNeed = L => Math.round(20 * Math.pow(L, 1.6) + 10 * L);
+// Courbe tirée des références (Township, Hay Day, Clash of Clans, DoA ; voir research/PROGRESSION.md) :
+// rafale au début (niv. 2 en ~1 min, niv. 5 en ~10 min), niv. 10 en fin de jour 1, 20 en une semaine, 30 en ~3 semaines,
+// 60 en ~5 mois. Le temps par niveau est multiplié par ~1 000 entre le niveau 2 et le niveau 60.
+const XP_START = [10, 25, 45, 75, 120, 180, 260];
+export const xpNeed = L => L <= XP_START.length ? XP_START[L - 1] : Math.round(2.2 * Math.pow(L, 2.5) * Math.pow(Math.max(1, L / 40), 1.2) / 50) * 50;   // au-delà de 40 : encore plus long
 export const unlocksAt = L => Object.entries(TOYS).filter(([k, t]) => t.lvl === L && L > 1).map(([k]) => ITEMS[k].name);
+// Coffres de la barre d'XP : à partir du niveau 8, les niveaux deviennent longs ; chaque tiers de barre franchi
+// donne un petit coffre (objectif à court terme, comme les coffres de la barre de niveau des jeux de référence).
+export const XP_CHEST_FROM = 8;
+const marks = s => s.lvl < XP_CHEST_FROM ? 0 : (s.lvl - XP_CHEST_FROM) * 2 + Math.min(2, Math.floor(s.xp / xpNeed(s.lvl) * 3));
 export function addXp(s, n){
-  s.xp += n; let up = 0;
+  const before = marks(s); s.xp += n; let up = 0;
   while (s.xp >= xpNeed(s.lvl)){ s.xp -= xpNeed(s.lvl); s.lvl++; up++; }
+  const chests = marks(s) - before;
+  if (chests > 0) s.xpChests = (s.xpChests || 0) + chests;
   return up;
 }
+export const xpChestReward = s => { const res = ['wood', 'cookies', 'fabric'][Math.floor(Math.random() * 3)], m = Math.pow(s.lvl, 1.6); return {coins: R5(15 * m), [res]: R5(4 * m)}; };
 
 /* ===================== CARTE ===================== */
 export const MAP = 44;
@@ -262,7 +283,7 @@ export function makeOrder(s, bureauLv = 1){
   for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
   const value = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].value * q, 0), xp = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].xp * q, 0);
   const m = orderBonus(bureauLv);
-  const o = {kid: KIDS[Math.floor(Math.random() * KIDS.length)], items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m)};
+  const o = {kid: KIDS[Math.floor(Math.random() * KIDS.length)], items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .17))};
   const r = Math.random();
   if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .32) o.stars = 1;
   return o;
@@ -412,3 +433,6 @@ export const ZONE_NAMES = {'0,0': 'Montagne des Étoiles', '1,0': 'Forêt des Mu
   '0,1': 'Lac Gelé', '3,1': 'Vallée des Rennes', '0,2': 'Collines Sucrées', '3,2': 'Bois aux Lutins',
   '0,3': 'Port des Glaces', '1,3': 'Champs de Neige', '2,3': 'Grotte des Cristaux', '3,3': 'Phare du Nord'};
 export const zoneName = (cx, cy) => ZONE_NAMES[`${cx},${cy}`] || 'Terre inconnue';
+
+// XP d'une récolte : fixe selon le niveau du bâtiment (sinon l'XP suivrait la production, qui grandit de façon exponentielle)
+export const collectXp = o => 1 + Math.floor((o.lv || 1) / 2);
