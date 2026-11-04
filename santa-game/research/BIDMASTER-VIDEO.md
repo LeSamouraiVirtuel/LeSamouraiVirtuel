@@ -1,5 +1,7 @@
 # Bid Master : analyse de l'enregistrement d'écran (6 min 52)
 
+> ⚠️ Première analyse (une image toutes les 5 s) : elle contient des erreurs, corrigées dans `video/SYNTHESE.md` (analyse image par image).
+
 Enregistrement fourni par le joueur, iPhone, 888×1920, 60 i/s. Le compte est au niveau 19, titre « Grand Capitaliste ».
 Découpage : une image toutes les 5 s pour la vue d'ensemble, pleine résolution sur 9 moments clés.
 Tout ce qui suit a été **vu dans la vidéo**.
