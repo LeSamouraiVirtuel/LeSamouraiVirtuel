@@ -17,9 +17,14 @@ def process(k, m):
     W, H = max(2, round(m['w'] * d)), max(2, round(m['h'] * d))
     im = im.resize((W, H), Image.LANCZOS)
     rgb, a = im.convert('RGB'), im.getchannel('A')
-    rgb = ImageEnhance.Color(rgb).enhance(1.18)
-    rgb = ImageEnhance.Contrast(rgb).enhance(1.07)
+    # l'ombre très diffuse du ciel recouvre tout le cadre (rectangle gris) : on la retire ; ombres portées adoucies
+    a = a.point(lambda v: 0 if v < 26 else 255 if v > 200 else int((v - 26) * .7))
+    rgb = ImageEnhance.Color(rgb).enhance(1.25)
+    rgb = ImageEnhance.Contrast(rgb).enhance(1.12)
     im = Image.merge('RGBA', (*rgb.split(), a))
+    # ombre portée teintée de bleu nuit (comme le reste du jeu) au lieu d'un gris neutre
+    shade = Image.new('RGBA', im.size, (32, 48, 90, 255)); sm = a.point(lambda v: 255 if 0 < v <= 200 else 0)
+    im = Image.composite(Image.merge('RGBA', (*shade.convert('RGB').split(), a)), im, sm)
     # liseré : silhouette (pas l'ombre, qui est semi-transparente) élargie, posée dessous
     if k != 'splash':
         r = max(1, round(d * .9))
