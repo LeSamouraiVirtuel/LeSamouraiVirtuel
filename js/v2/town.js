@@ -159,7 +159,7 @@ export function newTown(){
   add('letters', 25, 15);
   add('orders', 15, 25);
   add('cabin', 20, 24); add('cabin', 22, 24);
-  decorate(s);
+  decorate(s); clearLots(s);
   s.orders = [];
   return s;
 }
@@ -180,11 +180,14 @@ export function decorate(s){
     add('tree', edge && rnd() < .5 ? x : 11 + Math.floor(rnd() * 22), y, {wild: 1});
   }
 }
+// les terrains réservés restent dégagés (pas de sapin sauvage dessus)
+export function clearLots(s){ s.objs = s.objs.filter(o => !(o.wild && LOTS.some(l => { const b = BUILDINGS[l.type]; return o.x >= l.x - 0 && o.x < l.x + b.w && o.y >= l.y && o.y < l.y + b.h; }))); }
 export function loadTown(){
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
     if (s && s.v === 5){
       for (const k of [...RES, 'stars', 'xp']) s[k] = +s[k] || 0;
+      clearLots(s);
       s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
       return s;
     }
@@ -209,7 +212,7 @@ export const cap = (s, r) => r === 'coins' ? Infinity : hqStock(hqLv(s)) + s.obj
 /** Ce qu'un bâtiment de production a accumulé (plafonné à son stock interne). */
 export function stored(s, o, now = Date.now()){
   const b = BUILDINGS[o.type]; if (b.kind !== 'prod' || !built(o) || o.up) return 0;
-  return Math.min(buffer(o.type, o.lv), Math.floor(rate(o.type, o.lv) * prodMult(s) * (now - o.t) / 3.6e6));
+  return Math.min(buffer(o.type, o.lv), Math.floor(rate(o.type, o.lv) * prodMult(s) * keeperMult(o) * (now - o.t) / 3.6e6));
 }
 export function collect(s, o, now = Date.now()){
   const b = BUILDINGS[o.type], n = stored(s, o, now); if (!n) return 0;
@@ -217,7 +220,7 @@ export function collect(s, o, now = Date.now()){
   if (!got) return -1;                                   // stock plein
   s[b.res] += got;
   // ce qui n'a pas pu rentrer reste dans le bâtiment
-  const left = n - got; o.t = now - Math.round(left / (rate(o.type, o.lv) * prodMult(s)) * 3.6e6);
+  const left = n - got; o.t = now - Math.round(left / (rate(o.type, o.lv) * prodMult(s) * keeperMult(o)) * 3.6e6);
   return got;
 }
 export const maxOf = (s, type) => {
@@ -333,3 +336,41 @@ export function dailyClaim(s){
   s.daily.last = day();
   return DAILY[(s.daily.streak - 1) % 7];
 }
+
+/* ===================== GARDIENS (comme les managers de Bid Master, sans tirage au sort) ===================== */
+// Chaque bâtiment de production peut engager son gardien : il récolte tout seul dans le stock du village.
+// On l'améliore ensuite en étoiles (★1 → ★5) : +10 % de production par étoile.
+export const KEEPER_MAX = 5;
+export const keeperMult = o => 1 + .1 * Math.max(0, (o.keeper || 0) - 1);
+export const keeperCost = (o, next = (o.keeper || 0) + 1) => next === 1 ? {coins: R5(250 * Math.pow(1.4, o.lv - 1)), cookies: 60} : {stars: 2 * (next - 1), cookies: R5(80 * next)};
+export const keeperHq = 2;     // la Maison du Père Noël niveau 2 débloque les gardiens
+export function keeperBlock(s, o){
+  if (BUILDINGS[o.type].kind !== 'prod') return 'Seuls les bâtiments de production ont un gardien';
+  if (hqLv(s) < keeperHq) return `Maison du Père Noël niv. ${keeperHq}`;
+  if ((o.keeper || 0) >= KEEPER_MAX) return 'Gardien au maximum';
+  if (!has(s, keeperCost(o))) return 'Ressources insuffisantes';
+  return null;
+}
+
+/* ===================== TERRAINS RÉSERVÉS (bâtiments à venir, visibles sur la carte) ===================== */
+// Le joueur voit dès le début où iront les grands bâtiments, avec le niveau de Maison requis : envie de progresser.
+export const LOTS = [
+  {type: 'workshop', x: 26, y: 23},
+  {type: 'storage', x: 12, y: 25},
+  {type: 'bakery', x: 13, y: 18},
+  {type: 'mill', x: 28, y: 13},
+  {type: 'stable', x: 20, y: 12},
+  {type: 'theater', x: 26, y: 26},
+];
+export const lotsShown = s => LOTS.filter(l => !s.objs.some(o => o.type === l.type));
+
+/* ===================== CHAPITRES (les tâches racontent l'histoire du village) ===================== */
+export const CHAPTERS = [
+  {from: 0, title: 'Le nouveau Père Noël', story: "Le vieux Père Noël te confie son village. Les lutins comptent sur toi pour remettre la scierie et le four en marche."},
+  {from: 4, title: "L'atelier se réveille", story: "Les premières lettres arrivent ! Il faut un atelier pour fabriquer les jouets des enfants."},
+  {from: 8, title: 'Un village qui grandit', story: "Plus de lutins, plus de stock : le village s'organise pour la grande nuit."},
+  {from: 12, title: 'Les fils de laine', story: "Les enfants veulent des peluches. La Filature va changer la vie du village."},
+  {from: 16, title: 'Les rennes du Nord', story: "Il est temps de préparer la Tournée : l'Écurie des rennes ouvre ses portes."},
+  {from: 20, title: 'La fête au village', story: "Un théâtre de marionnettes, et tout le Pôle Nord vient voir ton village !"},
+];
+export const chapterOf = i => { let c = 0; for (let k = 0; k < CHAPTERS.length; k++) if (i >= CHAPTERS[k].from) c = k; return i >= QUESTS.length ? CHAPTERS.length : c; };
