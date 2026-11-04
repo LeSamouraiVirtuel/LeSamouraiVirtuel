@@ -755,7 +755,7 @@ body.in-game #hud2,body.in-game .dock,body.in-game #sideR,body.in-game #quest2{v
 .preview .arrow{flex:none}
 .recipe{position:relative}
 .wanted{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-family:var(--display);font-size:11px;color:#fff;padding:0 8px;border-radius:8px;background:linear-gradient(180deg,#ff6b78,#d81f33);border:1.5px solid var(--red-o);white-space:nowrap}
-.warn{background:#fff3c4;border:2px dashed var(--gold-d);border-radius:12px;padding:7px 10px;margin:0 0 10px!important}
+.warn{display:block!important;background:#fff3c4;border:2px dashed var(--gold-d);border-radius:12px;padding:7px 10px;margin:0 0 10px!important}
 b.bad{color:var(--red)}
 /* bâtiment ouvert comme un lieu : décor, bâtiment, gardien qui parle */
 .scene{position:relative;height:210px;margin:0 -14px 10px;overflow:hidden;background:radial-gradient(ellipse 80% 60% at 60% 100%,#ffffff 0,#e3eefc 45%,rgba(227,238,252,0) 46%),linear-gradient(180deg,#6aa8e8 0,#a9d0f6 55%,#dcebfb 100%);border-bottom:3px solid var(--wood-d)}
@@ -788,16 +788,112 @@ b.bad{color:var(--red)}
 .rcard.r-xp{background:linear-gradient(160deg,#5cc8ff,#1f6fc0);box-shadow:0 0 0 2px #0c3f75,0 6px 14px rgba(0,0,0,.4)}
 .okc{position:relative;width:62px;height:62px;border-radius:50%;margin-top:6px;border:3px solid #fff;background:radial-gradient(circle at 50% 35%,#ffe766,#e6a10f);box-shadow:0 0 0 2px #7a4a05,0 5px 0 #7a4a05,0 0 22px rgba(255,214,90,.8);animation:fadein .3s .4s both}
 .okc::after{content:"";position:absolute;left:21px;top:13px;width:13px;height:24px;border:solid #fff;border-width:0 6px 6px 0;transform:rotate(45deg);filter:drop-shadow(0 1px 0 #7a4a05)}
+
+/* ================= V4 : finition « grand jeu mobile » (inspirée de Bid Master) ================= */
+:root{--hud-bg:linear-gradient(180deg,rgba(18,24,48,.88),rgba(28,36,70,.82))}
+/* typographie : contours fins, tailles mesurées (seuls les titres crient) */
+.stroke,.btn,#sheet h2,.mcard h2,.badge,.plusnum{-webkit-text-stroke-width:2px!important}
+.btn{font-size:16px;min-height:44px;border-radius:12px}
+.btn.sm{font-size:13px;min-height:32px}
+/* HUD haut */
+#hud2{display:block!important;padding:calc(env(safe-area-inset-top,0px) + 6px) 8px 0!important}
+#hud2 .row1{display:flex;align-items:center;gap:6px}
+#hud2 .me{position:relative;flex:none;width:44px;height:44px;border-radius:12px;background:linear-gradient(180deg,#bfe3ff,#7fb7ef);border:2px solid #fff;box-shadow:0 0 0 1.5px #1d2547,0 3px 6px rgba(0,0,0,.35);pointer-events:auto}
+#hud2 .me img{width:100%;height:100%;border-radius:10px;object-fit:cover;object-position:50% 10%}
+#hud2 .me .lvl{position:absolute;left:-6px;top:-6px;min-width:20px;height:20px;padding:0 4px;border-radius:10px;display:grid;place-items:center;font:400 12px/1 var(--display);color:#fff;background:linear-gradient(180deg,#5cb6ff,#1f6fc0);border:1.5px solid #fff;box-shadow:0 0 0 1px #0c3f75}
+#hud2 .pills{flex:1;min-width:0;display:flex;gap:4px;justify-content:flex-end;flex-wrap:nowrap}
+#hud2 .res.pill{position:relative;flex:0 1 auto;min-width:0;height:24px;padding:0 6px 0 22px;margin-left:8px;border-radius:7px;display:flex;align-items:center;background:var(--hud-bg);border:1px solid rgba(255,255,255,.18);box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
+#hud2 .res.pill img,#hud2 .res.pill .staric{position:absolute;left:-9px;top:50%;width:28px;height:28px;transform:translateY(-50%);object-fit:contain;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+#hud2 .res.pill .staric{background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.8l3 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.6l-6.3 3.6 1.5-7.1L1.8 9.2 9 8.4z' fill='%23ffd53a' stroke='%237a4a05' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E")}
+#h-stars::before{display:none!important}
+#hud2 .res.pill b{font:400 12.5px/1 var(--display);color:#fff;-webkit-text-stroke:0;text-shadow:0 1px 0 #000;white-space:nowrap}
+#hud2 .res.pill .cap{position:absolute;left:20px;right:5px;bottom:2px;height:2px}
+#hud2 .res.pill .plus{position:relative;margin-left:5px;width:15px;height:15px;flex:none;border-radius:4px;background:linear-gradient(180deg,#ffe766,#e6a10f);border:1px solid #7a4a05}
+#hud2 .res.pill .plus::before,#hud2 .res.pill .plus::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:2.5px;margin:-1.25px 0 0 -4px;background:#fff;border-radius:1px}
+#hud2 .res.pill .plus::after{transform:rotate(90deg)}
+#hud2 .res.pill[hidden]{display:none}
+#hud2 .row2{display:flex;align-items:center;gap:6px;margin:5px 0 0 0}
+#hud2 #xpbar{margin:0!important;padding:0!important;width:110px;height:13px;border-width:1.5px;border-radius:7px}
+#hud2 #xpbar b{font-size:9.5px;line-height:10px;-webkit-text-stroke-width:1.5px}
+#hud2 .chipx{display:inline-flex;align-items:center;gap:3px;height:16px;padding:0 6px;border-radius:6px;background:var(--hud-bg);font:400 10.5px/1 var(--display);color:#fff}
+#hud2 .chipx#h-pop::before{content:"";width:11px;height:11px;background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffd34a'%3E%3Ccircle cx='8' cy='8' r='4'/%3E%3Ccircle cx='16' cy='8' r='4'/%3E%3Cpath d='M1 21c0-4 3-7 7-7s7 3 7 7zM12 21c0-3 2-6 6-6s5 3 5 6z'/%3E%3C/svg%3E")}
+#hud2 .chipx.joy::before{content:"♥";color:#ff7a9a}
+#hud2 .chipx.bad{color:#ffb4b4}
+#hud2 .title{font:400 10.5px/1 var(--display);color:#fff;padding:2px 7px;border-radius:6px;background:linear-gradient(180deg,#3fc12a,#1e8a12);border:1px solid #155f0b}
+/* colonne latérale : petites icônes rondes */
+#sideR.side{top:calc(env(safe-area-inset-top,0px) + 74px)!important;gap:14px!important}
+#sideR.side button{width:46px!important;height:46px!important;border-width:2px!important}
+#sideR.side img{width:44px!important;height:44px!important}
+#sideR.side small{font-size:10px!important;bottom:-9px!important;padding:0 5px!important}
+/* barre d'onglets en bas, pleine largeur */
+#tabbar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);align-items:end;padding:0 4px calc(env(safe-area-inset-bottom,0px) + 4px);background:linear-gradient(180deg,rgba(80,48,24,0) 0,rgba(80,48,24,.0) 20%,#6b4426 21%,#4a2c16 100%);border-top:0;height:calc(env(safe-area-inset-bottom,0px) + 66px);transition:opacity .25s}
+#tabbar::before{content:"";position:absolute;left:0;right:0;top:13px;height:3px;background:linear-gradient(90deg,#c98a4b,#ffd38a,#c98a4b)}
+#tabbar button{position:relative;height:54px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:3px}
+#tabbar .ico{position:absolute;top:-4px;left:50%;width:44px;height:44px;transform:translateX(-50%);object-fit:contain;filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));transition:transform .15s}
+#tabbar button:active .ico{transform:translateX(-50%) scale(.9)}
+#tabbar b{position:relative;font:400 11px/1 var(--display);color:#ffe7c2;-webkit-text-stroke:0;text-shadow:0 1px 0 #2a1608;text-transform:uppercase;letter-spacing:.02em}
+#tabbar button.on{background:radial-gradient(ellipse 60% 70% at 50% 100%,rgba(255,215,120,.35),rgba(255,215,120,0))}
+#tabbar button.on b{color:#fff}
+#tabbar button.big .ico{width:62px;height:62px;top:-22px}
+#tabbar button.big::before{content:"";position:absolute;left:50%;top:-20px;width:58px;height:58px;margin-left:-29px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#c9ff7a,#3fb12a 70%);border:2.5px solid #fff;box-shadow:0 0 0 2px #155f0b,0 4px 8px rgba(0,0,0,.4)}
+#tabbar small{position:absolute;top:-6px;right:12%;font:400 10px/14px var(--display);color:#fff;padding:0 5px;border-radius:7px;background:#1d2547}
+#tabbar .badge{top:-8px;right:14%;min-width:18px;height:18px;font-size:11px}
+body.sheet-open #tabbar,body.placing #tabbar,body.in-game #tabbar,body:not(.playing) #tabbar{opacity:0;pointer-events:none}
+.dock{display:none!important}
+/* carte « Tâche » plus fine, au-dessus de la barre */
+#quest2{bottom:calc(env(safe-area-inset-bottom,0px) + 76px)!important;width:min(200px,52vw)!important;padding:11px 8px 6px!important;border-width:2px!important;border-radius:11px!important}
+#quest2 b{font-size:12px!important}
+#quest2 .qbar{height:12px!important}
+#quest2 .qbar em{font-size:9.5px!important;line-height:9px!important}
+/* fenêtres : plein écran, bandeau sombre en haut (titre à gauche) */
+#sheet{left:0!important;top:0!important;width:100%!important;height:100%!important;max-height:none!important;border-radius:0!important;border:0!important;padding:0 12px calc(env(safe-area-inset-bottom,0px) + 18px)!important;transform:translateY(24px)!important;
+  background:linear-gradient(180deg,#f8ecd2,#ecdcb6)!important;box-shadow:none!important;transition:transform .28s cubic-bezier(.2,1.3,.4,1),opacity .18s!important}
+body.sheet-open #sheet{transform:none!important}
+#sheet .hd{margin:0 -12px 10px!important;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px!important;border-radius:0!important;background:linear-gradient(180deg,#1d2547,#2b3d6e)!important;border-bottom:2px solid #0e1430!important;box-shadow:0 2px 8px rgba(0,0,0,.3)!important;display:flex;align-items:center}
+#sheet .tt{text-align:left!important;padding-left:0!important;display:flex;flex-direction:column-reverse;gap:2px}
+#sheet h2{all:unset;font:400 21px/1.05 var(--display)!important;color:#fff;text-transform:none!important;-webkit-text-stroke:0!important;text-shadow:0 2px 0 rgba(0,0,0,.35)}
+#sheet h2::before,#sheet h2::after{display:none!important}
+#sheet .tt small{margin:0!important;font-size:11px!important;color:#9fc4ff!important;letter-spacing:.04em}
+#sheet .hd .x{width:34px;height:34px;border-width:2px}
+#sheet .hd .x::before,#sheet .hd .x::after{width:15px;height:4px}
+#sheet h3{font-size:13.5px!important;margin:12px 0 6px!important;color:#7a4a28!important}
+#sheet p{font-size:13.5px!important}
+#veil{background:rgba(10,14,30,.35)!important}
+/* modales et popups : ajustées au contenu, ouverture élastique */
+.mcard{width:min(330px,100%)!important;animation:popin .3s cubic-bezier(.2,1.6,.4,1)}
+#modal.cere .mcard{animation:none}
+@keyframes popin{from{transform:scale(.7);opacity:0}}
+/* cartes et grilles plus nettes */
+.card,.recipe,.st,.srow,.need,.od,.ot{border-width:1.5px!important}
+.card b,.recipe b{font-size:13.5px!important}
+.srow b,.srow em{font-size:15px!important}
+/* scène de bâtiment : bord à bord sous le bandeau */
+.scene{margin:-10px -12px 10px!important;height:200px!important}
+#toast{top:calc(env(safe-area-inset-top,0px) + 76px)!important;font-size:13.5px!important;padding:8px 14px!important}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">
-  <div class="col"><div class="lvbox"><span class="star stroke" id="h-lvl">1</span><div id="xpbar"><i></i><b>0 / 20</b></div></div><span class="pop" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="pop joy" id="h-joy" title="Bonheur : bonus de production">+0 %</span></div>
-  <div class="wal"><div class="res" id="h-coins"><img class="coinimg" alt=""><b>0</b></div><div class="res sm" id="h-wood"><img class="resimg" data-r="wood" alt=""><b>0</b><span class="cap"><i></i></span></div><div class="res sm" id="h-cookies"><img class="resimg" data-r="cookies" alt=""><b>0</b><span class="cap"><i></i></span></div><div class="res sm" id="h-fabric" hidden><img class="resimg" data-r="fabric" alt=""><b>0</b><span class="cap"><i></i></span></div><div class="res sm" id="h-stars"><b>0</b></div></div>
+  <div class="row1">
+    <div class="me"><img id="h-avatar" alt=""><span class="lvl" id="h-lvl">1</span></div>
+    <div class="pills">
+      <div class="res pill" id="h-wood"><img class="resimg" data-r="wood" alt=""><b>0</b><span class="cap"><i></i></span></div>
+      <div class="res pill" id="h-cookies"><img class="resimg" data-r="cookies" alt=""><b>0</b><span class="cap"><i></i></span></div>
+      <div class="res pill" id="h-fabric" hidden><img class="resimg" data-r="fabric" alt=""><b>0</b><span class="cap"><i></i></span></div>
+      <div class="res pill" id="h-coins"><img class="coinimg" alt=""><b>0</b><i class="plus"></i></div>
+      <div class="res pill" id="h-stars"><span class="staric"></span><b>0</b><i class="plus"></i></div>
+    </div>
+  </div>
+  <div class="row2"><div id="xpbar"><i></i><b>0 / 20</b></div><span class="chipx" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="chipx joy" id="h-joy" title="Bonheur">+0 %</span><span class="title" id="h-title">Lutin apprenti</span></div>
 </div>
-<nav id="dockL" class="l dock"><button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Commandes</b><span class="badge stroke" hidden>0</span></button></nav>
-<nav id="dockR" class="dock"><button id="b-barn"><img class="ico" id="i-barn" alt=""><small>0</small><b>Stock</b></button><button id="b-build" class="big"><img class="ico" id="i-build" alt=""><b>Construire</b></button></nav>
-<nav id="sideR"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button></nav>
+<nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button></nav>
+<nav id="tabbar">
+  <button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Lettres</b><span class="badge stroke" hidden>0</span></button>
+  <button id="b-barn"><img class="ico" id="i-barn" alt=""><b>Stock</b><small>0</small></button>
+  <button id="b-build" class="big"><img class="ico" id="i-build" alt=""><b>Construire</b></button>
+  <button id="b-village" class="on"><img class="ico" id="i-village" alt=""><b>Village</b></button>
+  <button id="b-tgames"><img class="ico" id="i-tgames" alt=""><b>Tournée</b></button>
+</nav>
 <button id="quest2"></button>
 <div id="seeds" hidden></div>
 <div id="seedhint" hidden>Choisis une graine, puis glisse sur les champs</div>

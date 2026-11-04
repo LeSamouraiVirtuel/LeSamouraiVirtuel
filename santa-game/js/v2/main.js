@@ -13,7 +13,8 @@ const ROOT = new URL('../../', import.meta.url).href;
 const Q = new URLSearchParams(location.search);
 const EXPORT = Q.has('export');                       // mode « fabrication du pack » (outil hors ligne)
 const DPR = EXPORT ? 3 : Math.min(devicePixelRatio || 1, 3);
-const ZOOM0 = 1.1;                                   // zoom par défaut : les images y sont affichées pixel pour pixel
+const ZOOM0 = 1.1;                                   // densité des images (le zoom par défaut est plus bas : village plus vaste)
+const CAM0 = .78;                                   // zoom par défaut : les images y sont affichées pixel pour pixel
 const BD = Math.min(DPR * ZOOM0, 3);                // densité des images des bâtiments
 const TW = 64, TH = TW / 2;
 
@@ -56,7 +57,7 @@ if (!packed){
 }
 clearInterval(tipTimer);
 bar(1);
-$('#h-coins img').src = ICON.coins;
+$('#h-coins img').src = ICON.coins; $('#h-avatar').src = portrait; $('#i-village').src = thumbs.santa; $('#i-tgames').src = ICON.mg_sleigh;
 for (const im of document.querySelectorAll('.resimg')) im.src = ICON[im.dataset.r];
 $('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-games').src = ICON.mg_sleigh; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
 const elfPortrait = portrait;
@@ -85,7 +86,7 @@ const iso = (tx, ty) => ({x: (tx - ty) * TW / 2, y: (tx + ty) * TH / 2});
 const toScreen = (tx, ty) => { const p = iso(tx, ty); return {x: (p.x - cam.x) * cam.z + W / 2, y: (p.y - cam.y) * cam.z + H / 2}; };
 function toTile(sx, sy){ const wx = (sx - W / 2) / cam.z + cam.x, wy = (sy - H / 2) / cam.z + cam.y; return {x: wy / TH + wx / TW, y: wy / TH - wx / TW}; }
 function centerOn(tx, ty){ const p = iso(tx, ty); cam.x = p.x; cam.y = p.y; }
-const startZoom = () => W < 600 ? ZOOM0 : Math.min(1.5, ZOOM0 * W / 600);
+const startZoom = () => W < 600 ? CAM0 : Math.min(1.2, CAM0 * W / 600);
 cam.z = startZoom(); centerOn(20, 20);
 
 // sol : texture de neige, motif répété
@@ -290,15 +291,17 @@ function vignette(){ // calculée une fois en petite taille, puis étirée (dég
 }
 const PLATE = new Set(['hq', 'prod', 'storage', 'craft', 'orders', 'stable', 'fun']);
 function plate(o){
-  const b = B(o); if (!PLATE.has(b.kind) || cam.z < .7 || o.build) return;
+  const b = B(o); if (!PLATE.has(b.kind) || cam.z < .5 || o.build) return;
   const p = toScreen(o.x + b.w, o.y + b.h);
   if (p.x < -100 || p.x > W + 100 || p.y < -40 || p.y > H + 40) return;
-  const label = `${b.name} · ${o.lv || 1}`;
-  ctx.save(); ctx.translate(p.x, p.y - 12);
-  ctx.font = '400 13px "Lilita One", sans-serif'; const w = ctx.measureText(label).width + 18;
-  ctx.fillStyle = 'rgba(28,24,40,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -11, w, 22, 6); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 0, 1);
+  // étiquette discrète au pied du bâtiment : pastille de niveau dorée + nom en police fine (comme Bid Master)
+  const label = b.name, lv = String(o.lv || 1);
+  ctx.save(); ctx.translate(Math.round(p.x), Math.round(p.y - 10));
+  ctx.font = '600 11px Fredoka, sans-serif'; const tw = ctx.measureText(label).width, w = tw + 30, h = 18;
+  ctx.fillStyle = 'rgba(18,22,44,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 5); ctx.fill();
+  ctx.fillStyle = '#ffc93a'; ctx.beginPath(); ctx.arc(-w / 2 + 10, 0, 7, 0, 7); ctx.fill(); ctx.strokeStyle = '#7a4a05'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#3a2208'; ctx.font = '400 9.5px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(lv, -w / 2 + 10, .5);
+  ctx.fillStyle = '#fff'; ctx.font = '600 11px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, -w / 2 + 21, .5);
   ctx.restore();
 }
 const isOpen = (cx, cy) => S.chunks.includes(`${cx},${cy}`);
@@ -422,7 +425,7 @@ cv.addEventListener('pointerdown', e => {
 addEventListener('pointermove', e => {
   const p = ptrs.get(e.pointerId); if (!p || !drag) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
-  if (drag.mode === 'pinch' && ptrs.size === 2){ const [a, b] = [...ptrs.values()]; cam.z = Math.max(.55, Math.min(1.7, drag.z0 * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0)); return; }
+  if (drag.mode === 'pinch' && ptrs.size === 2){ const [a, b] = [...ptrs.values()]; cam.z = Math.max(.45, Math.min(1.5, drag.z0 * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0)); return; }
   drag.moved += Math.abs(dx) + Math.abs(dy);
   if (drag.mode === 'pan'){ cam.x -= dx / cam.z; cam.y -= dy / cam.z; clampCam(); return; }
   if (drag.mode === 'ghost'){ const t = toTile(e.clientX, e.clientY), b = BUILDINGS[ghost.type]; ghost.x = Math.round(t.x - b.w / 2); ghost.y = Math.round(t.y - b.h / 2); updateGhostUI(); return; }
@@ -434,7 +437,7 @@ const endPtr = e => {
   if (d.mode === 'pan' && d.moved < 10 && e.type === 'pointerup') tap(d.obj, {x: e.clientX, y: e.clientY});
 };
 addEventListener('pointerup', endPtr); addEventListener('pointercancel', endPtr);
-cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.55, Math.min(1.7, cam.z * (1 - e.deltaY * .001))); }, {passive: false});
+cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.45, Math.min(1.5, cam.z * (1 - e.deltaY * .001))); }, {passive: false});
 function clampCam(){ const c = iso(T.MAP / 2, T.MAP / 2), r = T.MAP * TW * .45; cam.x = Math.max(c.x - r, Math.min(c.x + r, cam.x)); cam.y = Math.max(c.y - r * .5 - 200, Math.min(c.y + r * .5 + 200, cam.y)); }
 
 function tap(o, at){
@@ -480,6 +483,7 @@ function fly(k, n, from){
   }
   if (k !== 'xp'){ const t = document.createElement('div'); t.className = 'plusnum'; t.textContent = '+' + fmt(n); document.body.appendChild(t); t.style.left = (r0.left + r0.width / 2) + 'px'; t.style.top = r0.top + 'px'; setTimeout(() => t.remove(), 1000); }
 }
+const TITLES = ['Lutin apprenti', 'Lutin confirmé', 'Chef des lutins', 'Maître jouetier', 'Gardien des rennes', 'Héraut de l’hiver', 'Seigneur des neiges', 'Prince du Pôle', 'Presque Père Noël', 'Père Noël'];
 function hud(){
   $('#h-lvl').textContent = S.lvl;
   $('#xpbar i').style.width = Math.min(100, S.xp / T.xpNeed(S.lvl) * 100) + '%';
@@ -494,6 +498,7 @@ function hud(){
   const L = T.lutins(S), E = T.employed(S);
   $('#h-pop').textContent = `${Math.min(E, L)} / ${L}`; $('#h-pop').classList.toggle('bad', E > L);
   $('#h-joy').textContent = `+${Math.round(T.joyBonus(S) * 100)} %`;
+  $('#h-title').textContent = TITLES[Math.min(TITLES.length - 1, Math.floor((S.lvl - 1) / 2))];
   const toys = Object.entries(S.inv).filter(([k, n]) => ITEMS[k]?.toy && n > 0).reduce((a, [, n]) => a + n, 0);
   $('#b-barn small').textContent = toys;
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
@@ -722,6 +727,8 @@ function openDaily(){
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
+$('#b-tgames').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
+$('#b-village').addEventListener('click', () => { sfx.tap(); closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } });
 
 /* ---------- mini-jeux (Tournée de Noël, Bataille de boules de neige) ---------- */
 let TMAX = 3; const TEVERY = 15 * 60e3;   // tickets (plus avec l'Écurie), 1 de plus toutes les 15 minutes
