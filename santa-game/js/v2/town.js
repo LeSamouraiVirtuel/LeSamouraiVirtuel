@@ -374,3 +374,41 @@ export const CHAPTERS = [
   {from: 20, title: 'La fête au village', story: "Un théâtre de marionnettes, et tout le Pôle Nord vient voir ton village !"},
 ];
 export const chapterOf = i => { let c = 0; for (let k = 0; k < CHAPTERS.length; k++) if (i >= CHAPTERS[k].from) c = k; return i >= QUESTS.length ? CHAPTERS.length : c; };
+
+/* ===================== ALBUM DES JOUETS (collection, comme le musée de Bid Master) ===================== */
+// Chaque jouet livré aux enfants remplit l'album. Paliers ★1/★2/★3 : une récompense, et chaque étoile de l'album
+// augmente durablement ce que paient les lettres (+1 % par étoile).
+export const ALBUM_STEPS = [3, 12, 40];
+export const albumStars = (s, k) => ALBUM_STEPS.filter(n => (s.cnt['deliver:' + k] || 0) >= n).length;
+export const albumTotal = s => Object.keys(TOYS).reduce((a, k) => a + albumStars(s, k), 0);
+export const albumBonus = s => 1 + albumTotal(s) * .01;
+export const albumReward = (k, star) => ({coins: Math.round(TOYS[k].value * [2, 5, 12][star - 1]), stars: star, xp: TOYS[k].xp * star * 2});
+export function albumClaimable(s){
+  s.album ||= {};
+  const out = [];
+  for (const k of Object.keys(TOYS)){ const got = albumStars(s, k), claimed = s.album[k] || 0; for (let st = claimed + 1; st <= got; st++) out.push([k, st]); }
+  return out;
+}
+
+/* ===================== CALENDRIER DE L'AVENT (1er au 24 décembre) ===================== */
+export const ADVENT = Array.from({length: 24}, (_, i) => {
+  const d = i + 1;
+  if (d === 24) return {stars: 25, coins: 5000, axe: 2, saw: 2};
+  if (d % 6 === 0) return {stars: 5 + d / 3, coins: 400 * d / 6};
+  if (d % 3 === 0) return {stars: 3, cookies: 150 + 20 * d};
+  if (d % 2 === 0) return {coins: 150 + 40 * d, wood: 100 + 20 * d};
+  return {coins: 120 + 30 * d, axe: d > 10 ? 1 : 0, saw: d <= 10 ? 0 : 0, fabric: d > 5 ? 40 + 5 * d : 0};
+});
+export function adventState(s, t = new Date()){
+  s.advent ||= {};
+  const dec = t.getMonth() === 11, day = dec ? t.getDate() : 0;
+  const start = new Date(t.getFullYear(), 11, 1), days = Math.ceil((start - t) / 864e5);
+  return {open: dec && day <= 24, today: dec ? Math.min(day, 24) : 0, untilStart: dec ? 0 : days};
+}
+export const adventCan = (s, d, t) => { const a = adventState(s, t); return a.open && d <= a.today && !s.advent[d]; };
+
+/* ===================== ZONES DU PÔLE NORD (agrandissements nommés) ===================== */
+export const ZONE_NAMES = {'0,0': 'Montagne des Étoiles', '1,0': 'Forêt des Murmures', '2,0': 'Col du Blizzard', '3,0': 'Aurores Boréales',
+  '0,1': 'Lac Gelé', '3,1': 'Vallée des Rennes', '0,2': 'Collines Sucrées', '3,2': 'Bois aux Lutins',
+  '0,3': 'Port des Glaces', '1,3': 'Champs de Neige', '2,3': 'Grotte des Cristaux', '3,3': 'Phare du Nord'};
+export const zoneName = (cx, cy) => ZONE_NAMES[`${cx},${cy}`] || 'Terre inconnue';

@@ -59,7 +59,7 @@ clearInterval(tipTimer);
 bar(1);
 $('#h-coins img').src = ICON.coins; $('#h-avatar').src = portrait; $('#i-village').src = thumbs.santa; $('#i-tgames').src = ICON.mg_sleigh;
 for (const im of document.querySelectorAll('.resimg')) im.src = ICON[im.dataset.r];
-$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-games').src = ICON.mg_sleigh; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
+$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-album').src = ICON.train; $('#i-advent').src = ICON.bell; $('#i-games').src = ICON.mg_sleigh; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
 const elfPortrait = portrait;
 
 /* =====================================================================
@@ -160,7 +160,9 @@ function bureau(){ return findType('orders'); }
 function deliver(i, el){
   const od = S.orders[i]; if (!od?.items) return;
   if (!T.has(S, od.items)){ sfx.err(); toast('Il te manque des jouets : fabrique-les à l’Atelier'); return; }
-  T.take(S, od.items); S.coins += od.coins; fly('coins', od.coins, el); gainXp(od.xp, el);
+  const pay = Math.round(od.coins * T.albumBonus(S));
+  T.take(S, od.items); S.coins += pay; fly('coins', pay, el); gainXp(od.xp, el);
+  for (const [k, q] of Object.entries(od.items)) T.track(S, 'deliver:' + k, q);
   if (od.mat){ T.give(S, od.mat); setTimeout(() => fly(od.mat, 1, el), 300); }
   if (od.stars){ S.stars += od.stars; }
   T.track(S, 'orders'); S.orders[i] = {wait: now() + 15000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
@@ -328,6 +330,7 @@ function sign(x, y, cx, cy){
   ctx.save(); ctx.translate(x, y - 10);
   ctx.fillStyle = '#c98a4b'; ctx.strokeStyle = '#2a1a0e'; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.roundRect(-30, -22, 60, 30, 8); ctx.fill(); ctx.stroke();
+  { const zn = T.zoneName(cx, cy); ctx.font = '600 11px Fredoka, sans-serif'; const zw = ctx.measureText(zn).width + 14; ctx.fillStyle = 'rgba(18,22,44,.8)'; ctx.beginPath(); ctx.roundRect(-zw / 2, 12, zw, 17, 5); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(zn, 0, 21); ctx.textBaseline = 'alphabetic'; }
   ctx.font = '400 15px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeText('À VENDRE', 0, -2); ctx.fillStyle = '#fff'; ctx.fillText('À VENDRE', 0, -2);
   ctx.restore();
 }
@@ -526,6 +529,8 @@ function hud(){
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
   const bd = $('#b-orders .badge'); bd.textContent = ready; bd.hidden = !ready;
   $('#b-daily .badge').hidden = !T.dailyReady(S);
+  { const n = T.albumClaimable(S).length, e = $('#b-album .badge'); e.textContent = n; e.hidden = !n; }
+  { const a = T.adventState(S), e = $('#b-advent .badge'); e.hidden = !(a.open && T.adventCan(S, a.today)); $('#b-advent small').textContent = a.open ? 'Avent' : `J-${a.untilStart}`; }
   { const g = tickets(), bg = $('#b-games .badge'); bg.textContent = g.tickets; bg.hidden = !g.tickets; }
   renderQuest();
 }
@@ -571,6 +576,19 @@ function renderPanel(){
       <div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
       <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
   }
+  else if (panel === 'album'){
+    const claim = T.albumClaimable(S);
+    h = hd(`${T.albumTotal(S)} / ${Object.keys(TOYS).length * 3} étoiles · lettres +${Math.round((T.albumBonus(S) - 1) * 100)} %`, 'Album des jouets') + `<p class="meta">Chaque jouet livré aux enfants remplit l'album. Chaque étoile augmente pour toujours ce que paient les lettres.</p>
+      ${claim.length ? `<button class="btn gold wide" data-a="albumclaim">Récupérer ${claim.length} récompense${claim.length > 1 ? 's' : ''}</button>` : ''}
+      <div class="album">${Object.keys(TOYS).map(k => { const n = S.cnt['deliver:' + k] || 0, st = T.albumStars(S, k), next = T.ALBUM_STEPS[st], lock = S.lvl < TOYS[k].lvl;
+        return `<div class="acard ${lock ? 'locked' : ''} s${st}"><img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b><span class="ast">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span><small>${lock ? `Niveau ${TOYS[k].lvl}` : next ? `${n} / ${next} livrés` : `${n} livrés · complet`}</small></div>`; }).join('')}</div>`;
+  }
+  else if (panel === 'advent'){
+    const a = T.adventState(S);
+    h = hd(a.open ? `Jour ${a.today} sur 24` : `Ouvre dans ${a.untilStart} jour${a.untilStart > 1 ? 's' : ''}`, "Calendrier de l'Avent") + `<p class="meta">${a.open ? 'Une case à ouvrir chaque jour jusqu’à Noël. Les cases oubliées s’ouvrent aussi, tant que décembre n’est pas fini.' : 'Du 1er au 24 décembre : une surprise par jour, et un énorme cadeau le 24 !'}</p>
+      <div class="advent2">${T.ADVENT.map((r, i) => { const d = i + 1, done = S.advent?.[d], can = T.adventCan(S, d);
+        return `<button class="door2 ${done ? 'open' : ''} ${can ? 'can' : ''} ${d === 24 ? 'big' : ''}" data-a="advent" data-d="${d}" ${can ? '' : 'disabled'}><b>${d}</b>${done ? '<i class="ck"></i>' : `<span class="mini-r">${rewardChips(r)}</span>`}</button>`; }).join('')}</div>`;
+  }
   else if (panel === 'stock'){
     h = hd('Ressources, jouets et outils', 'Stock') + `<h3>Ressources</h3><div class="stock">${T.RES.map(r => `<div class="st"><img src="${ICON[r]}" alt=""><b>${fmt(S[r])}</b><small>${r === 'coins' ? ITEMS[r].name : `${ITEMS[r].name} · max ${fmt(T.cap(S, r))}`}</small></div>`).join('')}</div>
       <h3>Jouets</h3><div class="stock">${Object.keys(TOYS).filter(k => S.inv[k] > 0).map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k]}</b><small>${ITEMS[k].name}</small></div>`).join('') || '<p class="meta">Aucun jouet : fabrique-les à l’Atelier des jouets.</p>'}</div>
@@ -587,12 +605,12 @@ function renderPanel(){
   }
   else if (panel === 'expand'){
     const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n);
-    h = hd('Agrandir le village', 'Nouveau terrain') + `<p>Dégage cette forêt pour agrandir ton village de 121 cases.</p><div class="lines">${need(c)}</div>
+    h = hd('Agrandir le village', T.zoneName(cx, cy)) + `<p>Dégage cette forêt pour agrandir ton village de 121 cases.</p><div class="lines">${need(c)}</div>
       <button class="btn green wide" data-a="expand" ${T.has(S, c) ? '' : 'disabled'}>Agrandir</button><p class="meta">Les haches et les scies s'obtiennent avec les lettres, le cadeau du jour et les mini-jeux.</p>`;
   }
   else if (panel === 'site'){
     const o = panelArg, end = workEnd(o), total = o.build ? o.btotal : o.utotal, left = Math.max(0, end - now()), st = speedCost(o);
-    h = hd(o.build ? 'Construction' : `Amélioration vers le niveau ${o.upTo}`, B(o).name) + `<div class="work"><div class="bar"><i style="width:${Math.min(100, (1 - left / (total || 1)) * 100)}%"></i></div><span>Encore <b data-until="${end}"></b></span></div>
+    h = hd(o.build ? 'Construction' : `Amélioration vers le niveau ${o.upTo}`, B(o).name) + `<div class="work"><div class="bar"><i data-end="${end}" data-total="${total || 1}"></i></div><span>Encore <b data-until="${end}"></b></span></div>
       <div class="acts">${st ? `<button class="btn gold" data-a="speed">Terminer · <i class="i star"></i>${st}</button>` : '<button class="btn green" data-a="speed">Terminer gratuitement</button>'}</div>
       <p class="meta">Moins de 3 minutes restantes : c'est gratuit.</p>`;
   }
@@ -617,7 +635,15 @@ function renderPanel(){
   }
   if (h !== panelHtml){ panelHtml = h; $('#sheet').innerHTML = h; }
   for (const n of $('#sheet').querySelectorAll('[data-until]')) n.textContent = fmtTime((+n.dataset.until - now()) / 1000);
+  // barres qui avancent : mises à jour sur place (redessiner la fenêtre ferait perdre les touchers)
+  for (const n of $('#sheet').querySelectorAll('[data-end]')) n.style.width = Math.min(100, Math.max(0, (1 - (+n.dataset.end - now()) / +n.dataset.total) * 100)) + '%';
 }
+// pendant qu'on touche la fenêtre (et juste après), on ne la redessine pas : sinon le bouton est remplacé sous le doigt
+let sheetDown = 0;
+$('#sheet').addEventListener('pointerdown', () => { sheetDown = Infinity; });
+addEventListener('pointerup', () => { if (sheetDown === Infinity) sheetDown = performance.now() + 250; });
+addEventListener('pointercancel', () => { sheetDown = 0; });
+const sheetHeld = () => performance.now() < sheetDown;
 $('#sheet').addEventListener('click', e => {
   const b = e.target.closest('[data-a]'); if (!b) return;
   const a = b.dataset.a;
@@ -629,6 +655,8 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'queue') return queueToy(panelArg, b.dataset.k);
   if (a === 'toys'){ collectToys(panelArg, b); return renderPanel(); }
   if (a === 'collect'){ collectBld(panelArg); return renderPanel(); }
+  if (a === 'albumclaim'){ const all = {}; for (const [k, st] of T.albumClaimable(S)){ S.album[k] = Math.max(S.album[k] || 0, st); for (const [r, n] of Object.entries(T.albumReward(k, st))) all[r] = (all[r] || 0) + n; } closePanel(); return bravo(all, 'Album des jouets'); }
+  if (a === 'advent'){ const d = +b.dataset.d; if (!T.adventCan(S, d)) return; S.advent[d] = 1; closePanel(); return bravo(T.ADVENT[d - 1], `Calendrier de l'Avent · jour ${d}`); }
   if (a === 'upgrade') return startUpgrade(panelArg, b);
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
@@ -711,7 +739,7 @@ function keeperLine(o){
 
 function keeperBox(o){
   const k = o.keeper || 0, why = T.keeperBlock(S, o), stars = '★'.repeat(k) + '☆'.repeat(T.KEEPER_MAX - k);
-  if (T.hqLv(S) < T.keeperHq) return `<div class="kbox lock"><b>Gardien</b><span>Se débloque avec la Maison du Père Noël niv. ${T.keeperHq} : il récoltera tout seul pour toi.</span></div>`;
+  if (T.hqLv(S) < T.keeperHq) return `<div class="kbox klock"><b>Gardien</b><span>Se débloque avec la Maison du Père Noël niv. ${T.keeperHq} : il récoltera tout seul pour toi.</span></div>`;
   return `<div class="kbox"><div><b>${k ? `Gardien engagé <i class="kst">${stars}</i>` : 'Engager le gardien'}</b><span>${k ? `Récolte automatique · production <b>+${Math.round((T.keeperMult(o) - 1) * 100)} %</b>${k < T.KEEPER_MAX ? ` → <b>+${Math.round(k * 10)} %</b>` : ''}` : 'Il récoltera tout seul dans le stock du village, même quand tu ne joues pas.'}</span></div>
     ${k < T.KEEPER_MAX ? `<button class="btn ${k ? 'gold' : 'green'} sm" data-a="keeper" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>${k ? 'Améliorer' : 'Engager'}<span class="costs">${costChips(T.keeperCost(o))}</span></button>` : ''}</div>`;
 }
@@ -768,6 +796,8 @@ function openDaily(){
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
+$('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); });
+$('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
 $('#b-tgames').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
 $('#b-village').addEventListener('click', () => { sfx.tap(); closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } });
 
@@ -861,7 +891,7 @@ function step(t, dt){
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
   draw();
   hudT -= dt; if (hudT <= 0){ hudT = .2; hud(); }
-  panelT -= dt; if (panel && panelT <= 0){ panelT = .3; renderPanel(); }
+  panelT -= dt; if (panel && panelT <= 0 && !sheetHeld()){ panelT = .3; renderPanel(); }
   saveT -= dt; if (saveT <= 0){ saveT = 4; save(); }
 }
 requestAnimationFrame(frame);
