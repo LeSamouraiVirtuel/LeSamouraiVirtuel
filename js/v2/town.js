@@ -353,7 +353,11 @@ export function questAt(s, i){
   const j = i - QUESTS.length, g = GEN[j % GEN.length], n = Math.round(g[2] * (1 + Math.floor(j / GEN.length) * .5));
   return {t: g[1].replace('%n', n), k: g[0], n, r: {coins: 100 + s.lvl * 40, xp: 15 + s.lvl * 5, stars: j % 3 === 2 ? 2 : 0}};
 }
+// crochet appelé à chaque action comptée (missions, événement…)
+let trackHook = null;
+export const setTrackHook = f => { trackHook = f; };
 export function track(s, key, n = 1){
+  trackHook?.(s, key, n);
   s.cnt[key] = (s.cnt[key] || 0) + n;
   const base = key.split(':')[0]; if (base !== key) s.cnt[base] = (s.cnt[base] || 0) + n;
 }

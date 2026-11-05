@@ -1136,6 +1136,14 @@ body.tutoring #sideL2,body.sheet-open #sideL2,body.placing #sideL2,body:not(.pla
 .wrapbtn .tog{flex:none;width:44px;height:26px;border-radius:13px;background:#c9bda6;position:relative;transition:background .2s}
 .wrapbtn .tog::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .2s}
 .wrapbtn.on{border-color:#e5383b;background:#fff0ee}.wrapbtn.on .tog{background:#4cc85a}.wrapbtn.on .tog::after{left:21px}
+
+#sideL2 .evic{font-size:26px;line-height:1;color:#3aa8ff;text-shadow:0 0 6px #fff,0 2px 0 #0c3f75;margin-top:-4px}
+#b-event{background:radial-gradient(circle at 50% 35%,#ffffff,#d9eeff 70%,#9cc9f0)!important}
+.evping{position:fixed;z-index:30;pointer-events:none;font:400 15px var(--display);color:#fff;-webkit-text-stroke:3px #0c3f75;paint-order:stroke fill;animation:rise 1.3s ease-out forwards}
+.evtop{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.evtop>div{flex:1}.evtop .bar{height:12px;border-radius:6px;background:#3a2a18;overflow:hidden}.evtop .bar i{display:block;height:100%;background:linear-gradient(90deg,#9cf0ff,#3aa8ff)}
+.evtop small{font-size:12px;color:#7a6650}
+.evpts{font:400 20px var(--display);color:#fff;background:linear-gradient(180deg,#5cc8ff,#1f6fc0);border:2px solid #0c3f75;border-radius:12px;padding:4px 10px;white-space:nowrap}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>
@@ -1154,7 +1162,7 @@ body.tutoring #sideL2,body.sheet-open #sideL2,body.placing #sideL2,body:not(.pla
   <div class="row2"><div id="xpbar"><i></i><b>0 / 20</b></div><span class="chipx" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="chipx joy" id="h-joy" title="Bonheur">+0 %</span><span class="title" id="h-title">Lutin apprenti</span></div>
 </div>
 <nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button><button id="b-album" aria-label="Album des jouets"><img id="i-album" alt=""><small>Album</small><span class="badge stroke" hidden>0</span></button><button id="b-parcels" aria-label="Colis mystère" hidden><img id="i-parcels" alt=""><small>Colis</small><span class="badge stroke" hidden>0</span></button><button id="b-advent" aria-label="Calendrier de l'Avent"><img id="i-advent" alt=""><small>Avent</small><span class="badge stroke" hidden>!</span></button></nav>
-<nav id="sideL2" class="side"><button id="b-missions" aria-label="Missions du jour"><img id="i-missions" alt=""><small>Missions</small><span class="badge stroke" hidden>0</span></button><button id="b-pass" aria-label="Pass de Noël"><img id="i-pass" alt=""><small>Pass</small><span class="badge stroke" hidden>0</span></button><button id="b-market" aria-label="Marché" hidden><img id="i-market" alt=""><small>Marché</small></button></nav>
+<nav id="sideL2" class="side"><button id="b-missions" aria-label="Missions du jour"><img id="i-missions" alt=""><small>Missions</small><span class="badge stroke" hidden>0</span></button><button id="b-event" aria-label="Événement de la semaine" hidden><span class="evic">❄</span><small>Événement</small><span class="badge stroke" hidden>0</span></button><button id="b-pass" aria-label="Pass de Noël"><img id="i-pass" alt=""><small>Pass</small><span class="badge stroke" hidden>0</span></button><button id="b-market" aria-label="Marché" hidden><img id="i-market" alt=""><small>Marché</small></button></nav>
 <nav id="tabbar">
   <button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Lettres</b><span class="badge stroke" hidden>0</span></button>
   <button id="b-barn"><img class="ico" id="i-barn" alt=""><b>Stock</b><small>0</small></button>

@@ -158,3 +158,37 @@ export function merchant(s, t = Date.now()){
 /* ===================== TITRES (profil) ===================== */
 export const TITLES = [[1, 'Lutin apprenti'], [5, 'Lutin malin'], [10, 'Chef des lutins'], [15, 'Gardien des rennes'], [20, 'Seigneur des neiges'], [30, 'Prince du Pôle'], [45, 'Roi de l’Hiver'], [60, 'Légende de Noël']];
 export const titleOf = L => TITLES.filter(([n]) => L >= n).pop()[1];
+
+/* ===================== ÉVÉNEMENT DE LA SEMAINE (Township, Hay Day) ===================== */
+// Une semaine = un thème. Chaque action rapporte des flocons d'or ; 10 paliers de récompenses jusqu'à la fin.
+export const EVENTS = [
+  {name: 'La Course aux flocons', icon: '❄', story: 'Les lutins ramassent les flocons d’or tombés des aurores. Chaque action au village en rapporte !'},
+  {name: 'La Grande Fournée', icon: '🍪', story: 'Mère Michou organise le concours du plus grand goûter du Pôle. Les biscuits valent double !'},
+  {name: 'Le Rallye des rennes', icon: '🦌', story: 'Les rennes s’entraînent pour la grande nuit : expéditions et mini-jeux rapportent plus de flocons.'},
+  {name: 'La Fête des lettres', icon: '✉', story: 'Le sac du facteur déborde ! Chaque lettre livrée rapporte beaucoup de flocons.'},
+];
+const WEEK = 7 * 864e5, EPOCH = Date.UTC(2026, 0, 5);
+export const EV_STEPS = [40, 100, 180, 280, 400, 550, 730, 950, 1200, 1500];
+const EV_PTS = {'collect': 1, 'orders': 10, 'make': 2, 'dig': 2, 'exp': 8, 'job': 5, 'visitor': 12, 'parcel': 4, 'upgrade': 6, 'games': 6, 'sell': 2, 'wrap': 2};
+export function eventState(s, t = Date.now()){
+  const id = Math.floor((t - EPOCH) / WEEK), E = EVENTS[((id % EVENTS.length) + EVENTS.length) % EVENTS.length];
+  if (!s.ev || s.ev.id !== id) s.ev = {id, pts: 0, got: {}};
+  return {...E, id, end: EPOCH + (id + 1) * WEEK, pts: s.ev.pts, got: s.ev.got};
+}
+/** Points d'une action : le thème de la semaine double son action vedette. */
+export function eventOnTrack(s, key, n){
+  if (s.lvl < 3) return 0;
+  const base = key.split(':')[0]; if (base !== key && base !== 'collect') return 0;  // une seule fois par action
+  let p = EV_PTS[base] || 0; if (!p) return 0;
+  const E = eventState(s);
+  if ((E.name === 'La Grande Fournée' && key === 'collect:cookies') || (E.name === 'Le Rallye des rennes' && (base === 'exp' || base === 'games')) || (E.name === 'La Fête des lettres' && base === 'orders')) p *= 2;
+  const add = base === 'collect' ? p : p * Math.min(n, 5);
+  s.ev.pts += add; return add;
+}
+export function eventReward(s, i){
+  const m = 1 + s.lvl * .25, big = (i + 1) % 5 === 0;
+  if (i === EV_STEPS.length - 1) return {stars: 25, parcel: 2, gold: 6};
+  if (big) return {stars: 10, ice: 15, coins: R5(1500 * m)};
+  return [{coins: R5(400 * m)}, {wood: R5(500 * m), cookies: R5(300 * m)}, {ice: 6 + i}, {stars: 3, coins: R5(300 * m)}][i % 4];
+}
+export const eventClaimable = s => { const E = eventState(s); return EV_STEPS.filter((p, i) => E.pts >= p && !E.got[i]).length; };
