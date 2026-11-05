@@ -48,7 +48,15 @@ async function loadPack(){
   const P = await r.json(), dir = ROOT + 'assets/pack/', q = '?v=' + P.v;
   const keys = Object.keys(P.spr); let done = 0;
   const img = src => new Promise((ok, ko) => { const i = new Image(); i.decoding = 'async'; i.onload = () => ok(i); i.onerror = ko; i.src = src; });
-  await Promise.all(keys.map(async k => { const m = P.spr[k]; SPR[k] = {canvas: await img(dir + m.f + q), ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / keys.length); }));
+  // Mémoire des iPhone : on ne charge tout de suite que ce qui sert partout (sol, forêts, lutins, chantiers, allées, décor)
+  // et les bâtiments du village ; le reste se charge la première fois qu'il apparaît à l'écran.
+  let saved0 = null; try { saved0 = JSON.parse(localStorage.getItem('village-du-pole-v5')); } catch(e){}
+  const used = new Set((saved0?.objs || []).map(o => o.type));
+  const eager = k => !k.startsWith('b:') || used.has(k.slice(2).split(':')[0]) || /^b:(santa|sawmill|letters|orders|cabin|path|wildtree|tree|lantern|bench|gifts|reindeer|snowman|candy)/.test(k);
+  const lazy = (k, m) => { let im = null; SPR[k] = {ax: m.ax, ay: m.ay, w: m.w, h: m.h, get canvas(){ if (!im){ im = new Image(); im.decoding = 'async'; im.src = dir + m.f + q; } return im; }}; };
+  const now0 = keys.filter(eager);
+  for (const k of keys) if (!eager(k)) lazy(k, P.spr[k]);
+  await Promise.all(now0.map(async k => { const m = P.spr[k]; SPR[k] = {canvas: await img(dir + m.f + q), ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / now0.length); }));
   for (const [k, f] of Object.entries(P.icon)) ICON[k] = dir + f + q;
   for (const [k, f] of Object.entries(P.thumb)) thumbs[k] = dir + f + q;
   portrait = dir + P.portrait + q; buildIcon = dir + P.buildIcon + q;
@@ -135,6 +143,12 @@ function resize(){
 }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 250)); visualViewport?.addEventListener('resize', resize);
 resize(); for (const ms of [100, 400, 1200]) setTimeout(resize, ms);
+// iPhone : quand l'app revient du fond (ou se relance depuis l'écran d'accueil), iOS peut vider la mémoire du dessin ;
+// l'image affichée devient alors floue ou « bave ». On recrée la surface de dessin à chaque retour.
+const rebuild = () => { cv.width = 1; cv.height = 1; resize(); };
+addEventListener('pageshow', rebuild); addEventListener('focus', rebuild);
+document.addEventListener('visibilitychange', () => { if (!document.hidden){ rebuild(); setTimeout(rebuild, 300); } });
+cv.addEventListener('contextlost', e => e.preventDefault()); cv.addEventListener('contextrestored', rebuild);
 const iso = (tx, ty) => ({x: (tx - ty) * TW / 2, y: (tx + ty) * TH / 2});
 const toScreen = (tx, ty) => { const p = iso(tx, ty); return {x: (p.x - cam.x) * cam.z + W / 2, y: (p.y - cam.y) * cam.z + H / 2}; };
 function toTile(sx, sy){ const wx = (sx - W / 2) / cam.z + cam.x, wy = (sy - H / 2) / cam.z + cam.y; return {x: wy / TH + wx / TW, y: wy / TH - wx / TW}; }
@@ -357,7 +371,8 @@ function drawSprite(key, cx, cy, alpha = 1){
   const x = Math.round((cx - s.ax * cam.z) * DPR) / DPR, y = Math.round((cy - s.ay * cam.z) * DPR) / DPR, w = s.w * cam.z, h = s.h * cam.z;
   if (x > W || y > H || x + w < 0 || y + h < 0) return; // hors écran
   ctx.globalAlpha = alpha;
-  ctx.drawImage(s.canvas, x, y, w, h);
+  const cv0 = s.canvas; if (cv0.complete === false || cv0.naturalWidth === 0) return;
+  ctx.drawImage(cv0, x, y, w, h);
   ctx.globalAlpha = 1;
 }
 const bubbleImgs = {};
@@ -1089,6 +1104,7 @@ function renderPanel(){
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
+      ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<div class="mis"><div><b>Dernier souci d'affichage</b><small style="word-break:break-all">${e.slice(0, 160).replace(/</g, '&lt;')}</small></div></div>` : ''; })()}
       <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
       <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
   }
