@@ -1006,6 +1006,18 @@ i.i.joy{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org
 .letter i{display:block;text-align:right;margin-top:2px;font-size:13px;color:#7a5a30;font-weight:700}
 .lnk{border:0;background:none;padding:0;margin-left:4px;color:#0d5bd6;font:inherit;font-weight:800;text-decoration:underline;cursor:pointer}
 .stock .st[data-a]{cursor:pointer}
+
+/* barre du haut compacte : 5 ressources tiennent sur un iPhone */
+#hud2 .row1{gap:4px!important}
+#hud2 .res.pill{flex:1 1 0!important;margin-left:10px!important;padding:0 4px 0 20px!important;justify-content:center}
+#hud2 .res.pill b{font-size:12.5px!important}
+#hud2 #h-coins .plus{display:none!important}
+#hud2 .res.pill img,#hud2 .res.pill .staric{width:26px!important;height:26px!important;left:-10px!important}
+.btn .i.star{width:1.15em;height:1.15em;vertical-align:-.15em}
+.btn{white-space:nowrap}
+.lack small{font-family:Fredoka,system-ui,sans-serif!important;-webkit-text-stroke:0!important;text-shadow:none!important}
+i.pk{width:28px!important;height:28px!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M15 9 25 29' stroke='%232e202c' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M15 9 25 29' stroke='%23b8743a' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M3 12C9 3 21 2 29 7c-6-1-12 0-17 3z' fill='%23d9e2ee' stroke='%232e202c' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E")!important}
+#modal.bravo h2.long{font-size:clamp(30px,10vw,44px)!important;white-space:nowrap}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>

@@ -68,6 +68,7 @@ if (!packed){
 }
 clearInterval(tipTimer);
 bar(1);
+ICON.ice = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g stroke="#1d2b4a" stroke-width="3" stroke-linejoin="round"><path d="M20 52 12 30l8-16 8 16z" fill="#7fd3ff"/><path d="M44 54 34 26l10-20 10 20z" fill="#a9e6ff"/><path d="M32 58 24 34l8-14 8 14z" fill="#4fb4f5"/></g><path d="M40 12l-4 10M18 20l-3 7" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/><ellipse cx="32" cy="58" rx="22" ry="3" fill="#1d2b4a" opacity=".25"/></svg>`);
 ICON.cookies = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="33" r="26" fill="#2e202c"/><circle cx="32" cy="31" r="23" fill="#c8793a"/><circle cx="32" cy="31" r="23" fill="none" stroke="#e9a35f" stroke-width="3" stroke-dasharray="4 5"/><circle cx="32" cy="31" r="18" fill="#b5652c"/><circle cx="25" cy="26" r="3.2" fill="#fff6e8"/><circle cx="39" cy="25" r="3.2" fill="#fff6e8"/><circle cx="33" cy="35" r="3.2" fill="#ff4d6a"/><circle cx="24" cy="38" r="2.6" fill="#7ad36b"/><circle cx="41" cy="38" r="2.6" fill="#fff6e8"/><path d="M14 22a20 20 0 0 1 14-12" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`);
 $('#h-coins img').src = ICON.coins; $('#h-avatar').src = portrait; $('#i-village').src = thumbs.santa; $('#i-tgames').src = ICON.mg_sleigh;
 for (const im of document.querySelectorAll('.resimg')) im.src = ICON[im.dataset.r];
@@ -296,7 +297,7 @@ function draw(){
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
   // noms des bâtiments, puis indicateurs au-dessus
-  labels = [];
+  labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width);
   for (const o of S.objs) plate(o);
   for (const l of T.lotsShown(S)) lotLabel(l);
   for (const o of S.objs) drawHint(o);
@@ -316,12 +317,12 @@ function vignette(){ // calculée une fois en petite taille, puis étirée (dég
 }
 // Étiquettes : jamais coupées au bord de l'écran, jamais sous la barre du haut, les boutons de droite ou la barre du bas,
 // et jamais l'une sur l'autre (la première posée gagne : bâtiments d'abord, terrains réservés ensuite).
-let labels = [];
+let labels = [], labelZones = [];
 function labelSpot(x, y, w, h){
   x = Math.round(Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, x))); y = Math.round(y);
   const L = x - w / 2, R = x + w / 2, T_ = y - h / 2, Bm = y + h / 2;
   if (T_ < 120 || Bm > H - 170) return null;
-  if (R > W - 96 && T_ < H * .62) return null;
+  for (const z of labelZones) if (L < z.right && R > z.left && T_ < z.bottom && Bm > z.top) return null;
   for (const r of labels) if (L < r.R + 4 && R > r.L - 4 && T_ < r.B + 3 && Bm > r.T - 3) return null;
   labels.push({L, R, T: T_, B: Bm}); return {x, y};
 }
@@ -535,6 +536,8 @@ function tap(o, at){
 /* =====================================================================
    INTERFACE
    ===================================================================== */
+// barre du haut : 4 caractères au plus (999, 9,5k, 40k, 1,2M) pour que tout tienne sur un iPhone
+const fmtS = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(n < 1e7 ? 1 : 0).replace('.', ',') + 'M' : n >= 1e4 ? Math.floor(n / 1e3) + 'k' : n >= 1e3 ? (Math.floor(n / 100) / 10).toFixed(1).replace('.', ',') + 'k' : String(n); };
 const fmt = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + 'k' : String(n); };
 const fmtTime = s => { s = Math.max(0, Math.ceil(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return h ? `${h}h ${String(m).padStart(2, '0')}` : m ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`; };
 const icon = k => `<img class="i" src="${ICON[k]}" alt="">`;
@@ -561,13 +564,13 @@ const TITLES = ['Lutin apprenti', 'Lutin confirmé', 'Chef des lutins', 'Maître
 function hud(){
   $('#h-lvl').textContent = S.lvl;
   $('#xpbar i').style.width = Math.min(100, S.xp / T.xpNeed(S.lvl) * 100) + '%';
-  $('#xpbar b').textContent = `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}`;
-  $('#h-coins b').textContent = fmt(S.coins);
-  $('#h-stars b').textContent = fmt(S.stars);
+  $('#xpbar b').textContent = `XP ${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}`;
+  $('#h-coins b').textContent = fmtS(S.coins);
+  $('#h-stars b').textContent = fmtS(S.stars);
   for (const r of ['wood', 'cookies', 'fabric']){
     const e = $('#h-' + r), c = T.cap(S, r);
     e.hidden = r === 'fabric' && !S.fabric && !S.objs.some(o => o.type === 'mill');
-    e.querySelector('b').textContent = fmt(S[r]); e.querySelector('.cap i').style.width = Math.min(100, S[r] / c * 100) + '%'; e.classList.toggle('full', S[r] >= c);
+    e.querySelector('b').textContent = fmtS(S[r]); e.querySelector('.cap i').style.width = Math.min(100, S[r] / c * 100) + '%'; e.classList.toggle('full', S[r] >= c);
   }
   const L = T.lutins(S), E = T.employed(S);
   $('#h-pop').textContent = `${Math.min(E, L)} / ${L}`; $('#h-pop').classList.toggle('bad', E > L);
@@ -645,7 +648,7 @@ function renderPanel(){
     if (!st) h = hd('', 'Grotte aux cristaux') + '<p class="meta">La grotte est encore en travaux.</p>';
     else {
       const {o, M, max, next} = st;
-      h = hd(`Étage ${M.floor} · record ${M.best || M.floor}`, 'Grotte aux cristaux') + `<div class="minebar"><span class="picks"><i class="pk"></i><b>${M.picks} / ${max}</b></span><small>${next ? `+1 pioche dans <b data-until="${next}"></b>` : 'Pioches au maximum'}</small>${M.picks < max ? `<button class="btn gold sm" data-a="refill">Remplir · <i class="i star"></i>${T.PICK_REFILL}</button>` : ''}</div>
+      h = hd(`Étage ${M.floor} · record ${M.best || M.floor}`, 'Grotte aux cristaux') + `<div class="minebar"><span class="picks"><i class="pk"></i><b>${M.picks} / ${max}</b></span><small>${next ? `+1 pioche dans <b data-until="${next}"></b>` : 'Pioches au maximum'}</small>${M.picks < max ? `<button class="btn gold sm" data-a="refill">Remplir <i class="i star"></i>${T.PICK_REFILL}</button>` : ''}</div>
         <div class="mgrid f${Math.min(5, Math.ceil(M.floor / 10))}">${M.cells.map((c, i) => c.open ? `<div class="mc open k-${c.k}">${cellIcon(c)}</div>` : `<button class="mc" data-a="dig" data-i="${i}" aria-label="Creuser"></button>`).join('')}</div>
         ${M.stairs ? `<button class="btn green wide" data-a="down">Descendre à l'étage ${M.floor + 1}</button>` : '<p class="meta">Chaque case coûte une pioche. Trouve l’<b>escalier</b> pour descendre : plus profond, plus de cristaux, de lingots et de colis rares.</p>'}
         <div class="acts"><button class="btn blue sm" data-a="bldinfo">Améliorer la grotte (niv. ${o.lv})</button></div>`;
@@ -655,7 +658,7 @@ function renderPanel(){
     const o = panelArg, slots = T.expSlots(o.lv), run = S.exps || [];
     const runs = run.map((e, i) => { const d = T.EXP_DEST.find(d => d.k === e.k), st = T.speedStars(e.end - now());
       return `<div class="erun"><b>${d.name}</b><div class="work"><div class="bar"><i data-end="${e.end}" data-total="${e.end - e.start}"></i></div><span>Retour dans <b data-until="${e.end}"></b></span></div><button class="btn gold sm" data-a="expspeed" data-i="${i}">${st ? `<i class="i star"></i>${st}` : 'Rentrer'}</button></div>`; }).join('');
-    h = hd(`Écurie niv. ${o.lv} · ${run.length} / ${slots} équipe${slots > 1 ? 's' : ''} partie${run.length > 1 ? 's' : ''}`, 'Expéditions des rennes') + (runs ? `<h3>En route</h3>${runs}` : '') + `<h3>Destinations</h3><div class="dests">${T.EXP_DEST.map(d => { const why = T.expBlock(S, d.k), lock = d.lv > o.lv;
+    h = hd(`Écurie niv. ${o.lv} · ${run.length} équipe${run.length > 1 ? 's' : ''} en route sur ${slots}`, 'Expéditions des rennes') + (runs ? `<h3>En route</h3>${runs}` : '') + `<h3>Destinations</h3><div class="dests">${T.EXP_DEST.map(d => { const why = T.expBlock(S, d.k), lock = d.lv > o.lv;
       return `<div class="dest ${lock ? 'locked' : ''}"><div class="dt"><b>${d.name}</b><small>${fmtTime(d.time / 1000)} · ${d.n} colis</small></div><div class="odds">${d.odds.map((p, r) => p ? `<i style="flex:${p};background:${T.RARITY[r].c}" title="${T.RARITY[r].name} ${p} %"></i>` : '').join('')}</div><div class="oddl">${d.odds.map((p, r) => p ? `<span style="color:${T.RARITY[r].c}">${T.RARITY[r].name} ${p} %</span>` : '').join('')}</div>
         ${lock ? `<span class="why">Écurie niv. ${d.lv}</span>` : `<div class="acts"><span class="costs">${costChips(T.expCost(S, d))}</span><button class="btn green sm" data-a="expgo" data-k="${d.k}" ${why && why !== 'Pas assez de biscuits pour les rennes' ? 'disabled' : ''}>Partir</button></div>`}</div>`; }).join('')}</div>
       <p class="meta">Les rennes rapportent des <b>colis mystère</b> : plus la destination est lointaine, plus les colis rares sont fréquents.</p>
@@ -698,7 +701,7 @@ function renderPanel(){
   else if (panel === 'site'){
     const o = panelArg, end = workEnd(o), total = o.build ? o.btotal : o.utotal, left = Math.max(0, end - now()), st = speedCost(o);
     h = hd(o.build ? 'Construction' : `Amélioration vers le niveau ${o.upTo}`, B(o).name) + `<div class="work"><div class="bar"><i data-end="${end}" data-total="${total || 1}"></i></div><span>Encore <b data-until="${end}"></b></span></div>
-      <div class="acts">${st ? `<button class="btn gold" data-a="speed">Terminer · <i class="i star"></i>${st}</button>` : '<button class="btn green" data-a="speed">Terminer gratuitement</button>'}</div>
+      <div class="acts">${st ? `<button class="btn gold" data-a="speed">Terminer <i class="i star"></i>${st}</button>` : '<button class="btn green" data-a="speed">Terminer gratuitement</button>'}</div>
       <p class="meta">Moins de 3 minutes restantes : c'est gratuit.</p>`;
   }
   else if (panel === 'bld'){
@@ -879,7 +882,7 @@ function openParcel(){
   m.querySelector('.mcard').innerHTML = `<small>Colis ${1} sur ${list.length}</small><h2 class="stroke" style="color:${R.c}">Colis ${R.name.toLowerCase()}</h2><div class="pbig r${r}" style="--rc:${R.c}"><i></i></div><button class="btn green" data-m="open">Ouvrir</button>`;
   m.hidden = false; sfx.tap();
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; const box = m.querySelector('.pbig'); box.classList.add('shake'); b.disabled = true;
-    setTimeout(() => { list.shift(); const rw = T.parcelReward(S, r); T.track(S, 'parcel'); save(); bravo(rw, `Colis ${R.name.toLowerCase()}`, r >= 2 ? (r === 3 ? 'LÉGENDAIRE !' : 'ÉPIQUE !') : null); }, 650); };
+    setTimeout(() => { list.shift(); const rw = T.parcelReward(S, r); T.track(S, 'parcel'); save(); bravo(rw, `Colis ${R.name.toLowerCase()}`, r === 3 ? 'LÉGENDAIRE !' : r === 2 ? 'ÉPIQUE !' : 'BRAVO !'); }, 650); };
 }
 $('#b-parcels').addEventListener('click', () => openParcel());
 for (const id of ['#h-stars', '#h-coins']) $(id).querySelector('.plus')?.addEventListener('click', e => { e.stopPropagation(); sfx.tap(); openPanel('shop'); });
@@ -930,7 +933,7 @@ function showMissing(req, what, retry){
   const st = T.missingStars(S, Object.fromEntries(lack.map(([k]) => [k, req[k]]))), m = $('#modal'); m.className = 'glow rinfo';
   m.querySelector('.mcard').innerHTML = `<small>${what}</small><h2 class="stroke">Il te manque…</h2>
     <div class="lacks">${lack.map(([k, d]) => `<div class="lack">${resImg(k)}<div><b>${fmt(d)} ${(RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase()}</b><small>${RINFO[k]?.from || ''}</small></div>${RINFO[k]?.go ? `<button class="btn green sm" data-m="go" data-k="${RINFO[k].go}">Y aller</button>` : ''}</div>`).join('')}</div>
-    <div class="acts">${isFinite(st) ? `<button class="btn gold" data-m="buy">Compléter · <i class="i star"></i>${st}</button>` : ''}<button class="btn blue" data-m="ok">Plus tard</button></div>`;
+    <div class="acts">${isFinite(st) ? `<button class="btn gold" data-m="buy">Compléter <i class="i star"></i>${st}</button>` : ''}<button class="btn blue" data-m="ok">Plus tard</button></div>`;
   m.hidden = false;
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return;
     if (b.dataset.m === 'go'){ m.hidden = true; return goTo(b.dataset.k); }
@@ -953,7 +956,7 @@ function story(i){
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
   const m = $('#modal'); m.className = 'cere bravo';
   const cards = Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<div class="rcard r-${k}">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : `<img src="${ICON[k]}" alt="">`}<b>${fmt(n)}</b></div>`).join('');
-  m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2>${title}</h2><small>${sub}</small><div class="rcards">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
+  m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2${title.length > 9 ? ' class="long"' : ''}>${title}</h2><small>${sub}</small><div class="rcards">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
   m.hidden = false; sfx.level();
   m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; giveReward(r, m.querySelector('.rcards') || $('#quest2')); if (pendingStory >= 0){ const k = pendingStory; pendingStory = -1; setTimeout(() => story(k), 900); } };
 }
