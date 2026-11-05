@@ -1111,7 +1111,7 @@ function renderPanel(){
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
       ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<div class="mis"><div><b>Dernier souci d'affichage</b><small style="word-break:break-all">${e.slice(0, 160).replace(/</g, '&lt;')}</small></div></div>` : ''; })()}
-      <div class="mis"><b>Version du jeu</b><span class="meta">60</span></div>
+      <div class="mis"><b>Version du jeu</b><span class="meta">${GAME_V}</span></div>
       <div class="mis"><div><b>Diagnostic d'affichage</b><small>Si l'écran est flou : touche, puis envoie une capture</small></div><button class="btn blue sm" data-a="diag">Voir</button></div>
       <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
       <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
@@ -1624,10 +1624,21 @@ $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent');
 $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o) panTo(o.x + 2, o.y + 2, {zoom: startZoom()}); return; } openPanel('todo'); });
 function rsCheck(){ const R = T.rsTick(S); if (!R) return; const r = T.RESEARCH.find(x => x.k === R.k); toast(`Recherche terminée : ${r.name} niveau ${R.lv} !`); sfx.level(); save(); if (panel === 'lab') renderPanel(); }
 
+/* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
+const GAME_V = 61;
+async function checkUpdate(){
+  try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
+    if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
+      toast('Mise à jour du jeu…');
+      if ('caches' in window) for (const c of await caches.keys()) await caches.delete(c);
+      const reg = await navigator.serviceWorker?.getRegistration(); await reg?.update().catch(() => {});
+      setTimeout(() => location.replace(location.pathname + '?v=' + j.v), 600); } } catch(e){}
+}
+setTimeout(checkUpdate, 2500); document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 /* ---------- diagnostic d'affichage (pour trouver un bug qu'on ne voit que sur un téléphone précis) ---------- */
 function diagText(){
   const L = [], vv = window.visualViewport, mem = performance.memory;
-  L.push(`v60 · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 90)}`);
+  L.push(`v${GAME_V} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 90)}`);
   L.push(`écran ${screen.width}×${screen.height} · fenêtre ${innerWidth}×${innerHeight} · vv ${vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : '-'} · DPR ${devicePixelRatio} (jeu ${DPR}) · appli ${STANDALONE ? 'oui' : 'non'}`);
   L.push(`canevas ${cv.width}×${cv.height} affiché ${cv.style.width}×${cv.style.height} · caméra z ${cam.z.toFixed(2)}`);
   let nS = 0, nOk = 0, nBad = 0; for (const k in SPR){ nS++; const c = SPR[k]._c || null; } 

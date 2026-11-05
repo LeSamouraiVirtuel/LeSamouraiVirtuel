@@ -15,7 +15,7 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     if (isPage){
-      try { const r = await fetch(req); if (r.ok) cache.put(req, r.clone()); return r; }
+      try { const r = await fetch(req, {cache: 'no-store'}); if (r.ok) cache.put(req, r.clone()); return r; }
       catch (err) { return (await cache.match(req)) || Response.error(); }
     }
     const hit = await cache.match(req);
