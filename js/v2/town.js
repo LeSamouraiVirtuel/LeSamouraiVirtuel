@@ -748,3 +748,18 @@ export function sackCards(s){
   return cards;
 }
 export const sackTake = (s, now = Date.now()) => { s.sackAt = now + SACK_EVERY; };
+
+/* ===================== COUP DE MAIN DES LUTINS (chalets) ===================== */
+// Chaque chalet peut envoyer ses lutins aider les chantiers : -15 % sur tous les chantiers en cours, toutes les 2 h.
+export const HELP_EVERY = 2 * 3600e3, HELP_CUT = .15;
+export const helpCost = o => ({cookies: R5(40 * Math.pow(1.35, (o.lv || 1) - 1))});
+export const helpReady = (o, now = Date.now()) => now >= (o.helpAt || 0);
+export function helpGive(s, o, now = Date.now()){
+  if (!helpReady(o, now)) return 'Les lutins se reposent';
+  const sites = s.objs.filter(x => (x.build && x.build > now) || (x.up && x.up > now));
+  if (!sites.length) return 'Aucun chantier en cours';
+  if (!has(s, helpCost(o))) return 'Ressources insuffisantes';
+  take(s, helpCost(o));
+  for (const x of sites){ const k = x.build ? 'build' : 'up'; x[k] = now + Math.round((x[k] - now) * (1 - HELP_CUT - .02 * ((o.lv || 1) - 1))); }
+  o.helpAt = now + HELP_EVERY; return null;
+}
