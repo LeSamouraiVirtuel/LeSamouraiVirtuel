@@ -287,7 +287,7 @@ export const cap = (s, r) => r === 'coins' ? Infinity : hqStock(hqLv(s)) + s.obj
 /** Ce qu'un bâtiment de production a accumulé (plafonné à son stock interne). */
 export function stored(s, o, now = Date.now()){
   const b = BUILDINGS[o.type]; if (b.kind !== 'prod' || !built(o) || o.up) return 0;
-  return Math.min(o.keeper ? keeperBuffer(o) : buffer(o.type, o.lv), Math.floor(rate(o.type, o.lv) * prodMult(s) * keeperMult(o) * (now - o.t) / 3.6e6));
+  return Math.min(o.keeper ? keeperBuffer(o) : buffer(o.type, o.lv), Math.floor(rate(o.type, o.lv) * prodMult(s) * keeperMult(o) * zoneProd(s, b.res) * (now - o.t) / 3.6e6));
 }
 export function collect(s, o, now = Date.now()){
   const b = BUILDINGS[o.type], n = stored(s, o, now); if (!n) return 0;
@@ -297,7 +297,7 @@ export function collect(s, o, now = Date.now()){
   if (!got) return -1;                                   // stock plein
   s[b.res] += got;
   // ce qui n'a pas pu rentrer reste dans le bâtiment
-  const left = n - got; o.t = now - Math.round(left / (rate(o.type, o.lv) * prodMult(s) * keeperMult(o)) * 3.6e6);
+  const left = n - got; o.t = now - Math.round(left / (rate(o.type, o.lv) * prodMult(s) * keeperMult(o) * zoneProd(s, b.res)) * 3.6e6);
   return got;
 }
 export const maxOf = (s, type) => {
@@ -347,7 +347,7 @@ export function makeOrder(s, bureauLv = 1){
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const used = new Set((s.orders || []).map(o => o?.kid)), kid = pick(KIDS.filter(k => !used.has(k)).length ? KIDS.filter(k => !used.has(k)) : KIDS);
   const first = Object.keys(items)[0], why = pick(WISHES);
-  const o = {kid, age: 4 + Math.floor(Math.random() * 7), city: pick(CITIES), msg: `${pick(HELLO)} je voudrais ${ARTICLE[first] || 'un'} ${ITEMS[first].name.toLowerCase()} ${why}`, items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
+  const o = {kid, age: 4 + Math.floor(Math.random() * 7), city: pick(CITIES), msg: `${pick(HELLO)} je voudrais ${ARTICLE[first] || 'un'} ${ITEMS[first].name.toLowerCase()} ${why}`, items, coins: Math.round(value * 1.3 * m * (1 + zoneB(s, 'letters'))), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
   const r = Math.random();
   if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .23) o.stars = 1;   // étoiles d'or : rares
   return o;
@@ -547,6 +547,50 @@ export const ZONE_NAMES = {'0,0': 'Montagne des Étoiles', '1,0': 'Forêt des Mu
   '0,1': 'Lac Gelé', '3,1': 'Vallée des Rennes', '0,2': 'Collines Sucrées', '3,2': 'Bois aux Lutins',
   '0,3': 'Port des Glaces', '1,3': 'Champs de Neige', '2,3': 'Grotte des Cristaux', '3,3': 'Phare du Nord'};
 export const zoneName = (cx, cy) => ZONE_NAMES[`${cx},${cy}`] || 'Terre inconnue';
+/* Chaque zone a son ambiance (teinte du sol, décor offert à l'ouverture), un niveau requis, un cadeau d'arrivée
+   et un bonus permanent (comme les régions de Township). Bonus : res (production d'une ressource), all (toute la
+   production), exp (durée des expéditions), picks (pioches de la grotte), letters (récompenses des lettres), sell (marché). */
+export const ZONES = {
+  '1,0': {lvl: 1, tint: '#2f7a4a', feat: 'pines', b: {k: 'res', res: 'wood', p: .1}, gift: {wood: 300, axe: 1}, txt: 'Les vieux sapins chuchotent des secrets de bûcheron.', decor: [['tree', 2, 2], ['tree', 7, 3], ['tree', 4, 7], ['tree', 8, 8], ['lantern', 5, 5]]},
+  '0,1': {lvl: 1, tint: '#4aa8e8', feat: 'lake', b: {k: 'res', res: 'ice', p: .2}, gift: {ice: 15, coins: 300}, txt: 'Un grand lac gelé où les lutins patinent.', decor: [['snowman', 2, 8], ['bench', 8, 2], ['lantern', 8, 8]]},
+  '2,0': {lvl: 5, tint: '#b8c8e8', feat: 'drifts', b: {k: 'res', res: 'fabric', p: .1}, gift: {fabric: 200, saw: 1}, txt: 'Le vent du col apporte la laine des chèvres des neiges.', decor: [['snowman2d', 3, 3], ['tree', 8, 7], ['tree', 2, 8]]},
+  '3,1': {lvl: 5, tint: '#c99a5a', feat: 'hay', b: {k: 'exp', p: .1}, gift: {cookies: 300, coins: 400}, txt: 'Les rennes y broutent le lichen avant les longs voyages.', decor: [['reindeer', 3, 3], ['reindeer', 6, 7], ['reindeer', 8, 3]]},
+  '0,2': {lvl: 8, tint: '#ff7fae', feat: 'candy', b: {k: 'res', res: 'cookies', p: .1}, gift: {cookies: 500, stars: 2}, txt: 'Des collines de sucre glace qui sentent la cannelle.', decor: [['candy', 2, 2], ['candy', 8, 3], ['gingerd', 5, 7], ['candy', 3, 8]]},
+  '3,2': {lvl: 10, tint: '#7cc25a', feat: 'pines', b: {k: 'res', res: 'coins', p: .1}, gift: {coins: 1200, axe: 1}, txt: 'Le bois où les lutins cachent leurs économies.', decor: [['tree', 2, 3], ['lampdd', 5, 5], ['tree', 8, 2], ['tree', 7, 8]]},
+  '1,3': {lvl: 12, tint: '#e8f0ff', feat: 'drifts', b: {k: 'letters', p: .1}, gift: {coins: 1500, stars: 2}, txt: 'Les lettres des enfants atterrissent ici, portées par le vent.', decor: [['gifts', 3, 3], ['present3d', 7, 6], ['lantern', 3, 8]]},
+  '2,3': {lvl: 15, tint: '#8a7cff', feat: 'gems', b: {k: 'picks', n: 2}, gift: {ice: 40, gold: 3}, txt: 'Les parois brillent : la Grotte aux cristaux est toute proche.', decor: [['bellgd', 5, 5], ['tree', 2, 8], ['tree', 8, 2]]},
+  '3,0': {lvl: 18, tint: '#3fe0a0', feat: 'aurora', b: {k: 'all', p: .03}, gift: {stars: 5, coins: 2500}, txt: 'Sous les aurores, tout le village travaille plus vite.', decor: [['xtreed', 5, 5], ['lampdd', 2, 2], ['lampdd', 8, 8]]},
+  '0,3': {lvl: 22, tint: '#2f8fd0', feat: 'lake', b: {k: 'sell', p: .2}, gift: {coins: 4000, gold: 4}, txt: 'Les bateaux des marchands accostent au port gelé.', decor: [['chocod', 3, 3], ['bench', 7, 2], ['lantern', 2, 7]]},
+  '3,3': {lvl: 26, tint: '#ffcf4a', feat: 'drifts', b: {k: 'all', p: .05}, gift: {stars: 8, ice: 60}, txt: 'La lumière du phare guide les rennes et réchauffe les ateliers.', decor: [['nutdd', 4, 4], ['lampdd', 7, 7], ['trainsetd', 2, 7]]},
+  '0,0': {lvl: 30, tint: '#c9b8ff', feat: 'gems', b: {k: 'res', res: 'gold', p: .25}, gift: {stars: 12, gold: 10}, txt: 'Au sommet, les étoiles tombent en poussière d’or.', decor: [['mistled', 5, 5], ['xtreed', 2, 2], ['xtreed', 8, 8]]},
+};
+export const zoneOf = (cx, cy) => ZONES[`${cx},${cy}`];
+export const zoneLock = (s, cx, cy) => { const z = zoneOf(cx, cy); return z && s.lvl < z.lvl ? z.lvl : 0; };
+/** Somme des bonus d'un type sur les zones ouvertes. */
+export function zoneB(s, k, res){
+  let v = 0;
+  for (const key of s.chunks || []){ const z = ZONES[key]; if (!z || z.b.k !== k || (res && z.b.res !== res)) continue; v += z.b.p ?? z.b.n; }
+  return v;
+}
+export const zoneProd = (s, res) => 1 + zoneB(s, 'res', res) + zoneB(s, 'all');
+export function zoneBonusText(b){
+  const pc = Math.round((b.p || 0) * 100);
+  switch (b.k){
+    case 'res': return `+${pc} % de ${{wood: 'bois', cookies: 'biscuits', fabric: 'tissu', coins: 'pièces', ice: 'cristaux de glace', gold: 'lingots d’or polaire'}[b.res]} produits`;
+    case 'all': return `+${pc} % sur toute la production`;
+    case 'exp': return `Expéditions des rennes ${pc} % plus rapides`;
+    case 'picks': return `+${b.n} pioches à la Grotte aux cristaux`;
+    case 'letters': return `+${pc} % de pièces pour chaque lettre`;
+    case 'sell': return `+${pc} % au Marché quand tu vends`;
+  }
+  return '';
+}
+/** Ouvre une zone et pose son décor offert (gratuit, sans bonheur). Le cadeau d'arrivée est remis par l'interface. */
+export function openZone(s, cx, cy){
+  const z = zoneOf(cx, cy); s.chunks.push(`${cx},${cy}`); if (!z) return null;
+  for (const [t, dx, dy] of z.decor){ const x = cx * CHUNK + dx, y = cy * CHUNK + dy; if (!overlap(s, t, x, y)) s.objs.push({id: nid(), type: t, x, y, free: 1}); }
+  return z;
+}
 
 // XP d'une récolte : fixe selon le niveau du bâtiment (sinon l'XP suivrait la production, qui grandit de façon exponentielle)
 export const collectXp = o => 1 + Math.floor((o.lv || 1) / 2);
@@ -624,7 +668,7 @@ export function mineFloor(floor){
 export function mineState(s, now = Date.now()){
   const o = s.objs.find(o => o.type === 'mine' && built(o)); if (!o) return null;
   s.mine ||= {floor: 1, cells: mineFloor(1), picks: minePicks(o.lv), t: now, best: 1};
-  const M = s.mine, max = minePicks(o.lv), every = minePickMin(o.lv) * 60e3;
+  const M = s.mine, max = minePicks(o.lv) + zoneB(s, 'picks'), every = minePickMin(o.lv) * 60e3;
   if (M.picks >= max) M.t = now;
   else { const n = Math.floor((now - M.t) / every); if (n > 0){ M.picks = Math.min(max, M.picks + n); M.t = M.picks >= max ? now : M.t + n * every; } }
   return {o, M, max, next: M.picks >= max ? 0 : M.t + every};
@@ -672,7 +716,7 @@ export function expBlock(s, k, now = Date.now()){
 export function expStart(s, k, now = Date.now()){
   const why = expBlock(s, k, now); if (why) return why;
   const d = EXP_DEST.find(d => d.k === k); take(s, expCost(s, d));
-  (s.exps ||= []).push({k, end: now + d.time * deerSpeed(s, now), start: now}); return null;
+  (s.exps ||= []).push({k, end: now + d.time * deerSpeed(s, now) * (1 - zoneB(s, 'exp')), start: now}); return null;
 }
 /** Rentre les expéditions terminées : renvoie les colis rapportés (raretés). */
 export function expCollect(s, now = Date.now()){
