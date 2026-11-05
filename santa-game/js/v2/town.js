@@ -418,6 +418,22 @@ export const QUESTS = [
   {t: "Livre 60 lettres", k: 'orders', n: 60, r: {coins: 6000, stars: 4, xp: 220}},
   {t: "Allume les illuminations au niveau 15", k: 'lights', n: 15, r: {gold: 6, xp: 220}},
   {t: "Atteins le niveau 25", k: 'lvl', n: 25, r: {stars: 15, gold: 5, xp: 300}},
+  // chapitre 15 : la Salle des ventes et le musée
+  {t: 'Participe à 2 ventes à la Salle des ventes (Marché)', k: 'auction', n: 2, r: {coins: 2000, xp: 120}},
+  {t: 'Remporte une enchère', k: 'auctionwin', n: 1, r: {stars: 4, xp: 150}},
+  {t: 'Trouve un objet rare pour le Musée', k: 'relic', n: 1, r: {coins: 3000, xp: 150}},
+  // chapitre 16 : la Bibliothèque et la Gare
+  {t: 'Construis la Bibliothèque des lutins', k: 'have:library', n: 1, r: {coins: 3000, ice: 10, xp: 160}},
+  {t: 'Lance 2 recherches à la Bibliothèque', k: 'research', n: 2, r: {stars: 4, xp: 160}},
+  {t: 'Construis la Gare du Pôle', k: 'have:station', n: 1, r: {coins: 4000, xp: 180}},
+  {t: 'Charge 4 wagons du train', k: 'train', n: 4, r: {stars: 5, parcel: 1, xp: 200}},
+  // chapitre 17 : Flocon et le lac
+  {t: 'Fais un câlin à Flocon (Écurie)', k: 'petpat', n: 1, r: {cookies: 600, xp: 120}},
+  {t: 'Fais grandir Flocon jusqu’au niveau 5', k: 'petlv', n: 5, r: {stars: 5, xp: 200}},
+  {t: 'Pêche 5 poissons au Lac Gelé', k: 'fish', n: 5, r: {coins: 3000, ice: 15, xp: 200}},
+  // chapitre 18 : la menace des trolls
+  {t: 'Gagne 3 combats contre les trolls (Jeux)', k: 'camp', n: 3, r: {coins: 4000, xp: 220}},
+  {t: 'Bats le chef du Bois des Trolls', k: 'campat', n: 10, r: {stars: 10, gold: 3, xp: 300}},
 ];
 const GEN = [['orders', 'Livre %n lettres', 5], ['dig', 'Creuse %n cases à la grotte', 15], ['make', 'Fabrique %n jouets', 6], ['exp', 'Envoie %n expéditions', 2], ['collect:wood', 'Récolte %n bois', 1500], ['parcel', 'Ouvre %n colis', 3], ['collect:cookies', 'Récolte %n biscuits', 1000]];
 export function questAt(s, i){
@@ -441,6 +457,8 @@ function questValue(s, q, i){
   if (kind === 'level') return Math.max(0, ...s.objs.filter(o => o.type === what && built(o)).map(o => o.lv || 0));
   if (kind === 'have') return s.objs.filter(o => o.type === what && built(o) && !o.free).length + (what === 'cabin' ? s.objs.filter(o => o.type === 'cabin' && o.free).length : 0);
   if (kind === 'expand') return s.chunks.length - START_CHUNKS.length;
+  if (kind === 'petlv') return s.pet ? s.pet.lv : 0;
+  if (kind === 'campat') return s.camps ? s.camps.at : 0;
   const total = s.cnt[q.k] || 0;
   return i >= 28 ? total - (s.quest.base[q.k] || 0) : total;   // à partir du chapitre 8 : seules les actions faites depuis le début de la tâche comptent
 }
@@ -513,6 +531,10 @@ export const CHAPTERS = [
   {from: 43, title: 'La grande commande', who: 'Gros Ours', story: "Le Grand Nord tout entier passe commande. Gros Ours a besoin d'un entrepôt immense et de lutins bien organisés."},
   {from: 47, title: 'Les jouets de luxe', who: 'Maître Rouage', story: "Maître Rouage a dessiné des jouets jamais vus : pain d'épices, wagons de cadeaux… Les enfants vont adorer !"},
   {from: 51, title: 'La nuit de Noël approche', who: 'Le vieux Père Noël', story: "Le vieux Père Noël revient voir son village. « Tu es prêt pour la grande nuit, mon ami ? » Montre-lui ce dont tu es capable !"},
+  {from: 55, title: 'La Salle des ventes', who: 'Baron Glaçon', story: "« Hé hé, petit Père Noël… » Le Baron Glaçon, rival des enchères, te défie à la Salle des ventes du Marché. Des trésors perdus t'y attendent, et le Musée veut les exposer !"},
+  {from: 58, title: 'Le savoir des lutins', who: 'Mademoiselle Plume', story: "Mademoiselle Plume a rangé mille grimoires. Une Bibliothèque, des recherches… et un train pour livrer tout le Grand Nord !"},
+  {from: 62, title: 'Flocon et le lac', who: 'Dame Rennes', story: "Un petit renne tout blanc est né à l'Écurie : il s'appelle Flocon. Prends-en soin… et profites-en pour pêcher au Lac Gelé."},
+  {from: 65, title: 'La menace des trolls', who: 'Le vieux Père Noël', story: "Les trolls des neiges volent les cadeaux ! Le vieux Père Noël compte sur toi : chasse-les de leurs camps à coups de boules de neige."},
 ];
 export const chapterOf = i => { let c = 0; for (let k = 0; k < CHAPTERS.length; k++) if (i >= CHAPTERS[k].from) c = k; return i >= QUESTS.length ? CHAPTERS.length : c; };
 

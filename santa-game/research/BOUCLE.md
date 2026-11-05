@@ -220,5 +220,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Profil : nouvelles lignes (camps vaincus, niveau de Flocon, espèces pêchées, trouvailles du musée).
 - Nouveau manque noté : les nouveautés des tours 31 à 41 ne sont présentées par aucune tâche d'histoire.
 
+## Tour 43 — L'histoire présente les nouveautés
+- 4 chapitres de plus après le chapitre 14 : « La Salle des ventes » (Baron Glaçon), « Le savoir des lutins » (Mademoiselle Plume), « Flocon et le lac » (Dame Rennes), « La menace des trolls » (le vieux Père Noël). 13 tâches : enchères, musée, Bibliothèque, recherches, Gare, wagons, câlin et niveau de Flocon, pêche, combats et chef troll.
+- Les joueurs déjà dans les tâches génériques reçoivent ces chapitres à la place (ajoutés juste avant).
+- Toucher la tâche emmène au bon écran (Salle des ventes, Musée, Bibliothèque, Gare, Flocon, pêche, Campagne).
+- Testé sur iPhone 13 et SE (passage au chapitre 15, fenêtre d'histoire, carte de tâche), tutoriel et simulateur OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

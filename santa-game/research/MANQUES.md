@@ -6,7 +6,7 @@ Liste tenue à jour par la boucle. On traite du plus important au moins importan
 |---|---|---|---|---|
 | 1 | Profondeur du catalogue | Des dizaines de produits débloqués jusqu'au niveau 60+ | 18 jouets jusqu'au niveau 45 (cristaux et lingots en haut) | fait (tour 28) |
 | 2 | Décorations | Des centaines, par thème, certaines d'événement | 20 décorations (Maison niv. 1 à 18) + 3 de la boutique d'événement | fait (tour 29) |
-| 3 | Histoire | Des dizaines de chapitres avec des personnages récurrents | 14 chapitres, 55 tâches, 7 personnages, puis tâches génériques | fait (tour 30) |
+| 3 | Histoire | Des dizaines de chapitres avec des personnages récurrents | 18 chapitres, 68 tâches, 10 personnages, puis tâches génériques | fait (tour 30) |
 | 4 | Nouveaux bâtiments de production | Une nouvelle usine tous les quelques niveaux | 6 bâtiments de ressources : Puits de cristaux (Maison niv. 7) et Fonderie d'or polaire (niv. 11) produisent les matériaux rares | fait (tour 31) |
 | 5 | Zones à débloquer | Nouvelles régions avec leur ambiance (mine, île, zoo) | 12 zones nommées : sol et décor propres (lac gelé, collines de sucre, aurore), niveau requis, cadeau d'arrivée, bonus permanent | fait (tour 32) |
 | 6 | Rappel des activités prêtes | Notifications | Rappels du navigateur (chantiers, rennes, stocks pleins, pioches, jouets), liste « Bientôt prêt » et accueil « Bon retour » | fait (tour 33) ; rappels jeu fermé : demandent un serveur de push |
@@ -20,4 +20,4 @@ Liste tenue à jour par la boucle. On traite du plus important au moins importan
 | 14 | Compagnon qui grandit | DoA (dragon à élever), Hay Day (animaux) | Flocon, le renne magique (Écurie) : niveaux sans fin, 6 stades, nourriture + jouet préféré du jour, câlin toutes les 4 h, +1 %/niv. de production, cœurs en plus dans la Campagne | fait (tour 39) |
 | 15 | Pêche | Hay Day (pêche au lac, carnet des poissons) | Pêche sur glace au Lac Gelé et au Port des Glaces : appât en biscuits, ferrer au bon moment, 12 espèces, records de taille | fait (tour 40) |
 | 16 | Musée des trouvailles | Bid Master (musée qui expose les objets rares des enchères, bonus de collection) | Musée (depuis l'Album) : 4 collections de 5 objets rares trouvés aux enchères, dans les colis, chez les chefs trolls et en pêche ; +2 % de production par collection, doubles revendables | fait (tour 41) |
-| 17 | Faire découvrir les nouveautés | Township et Hay Day présentent chaque nouveau bâtiment par une tâche d'histoire | Gare, Bibliothèque, Campagne, Flocon, pêche, musée, enchères arrivent sans tâche qui les présente | à faire |
+| 17 | Faire découvrir les nouveautés | Township et Hay Day présentent chaque nouveau bâtiment par une tâche d'histoire | 4 nouveaux chapitres (15 à 18, 13 tâches, 4 personnages) présentent enchères, musée, Bibliothèque, Gare, Flocon, pêche et Campagne ; la carte de tâche mène au bon écran | fait (tour 43) |

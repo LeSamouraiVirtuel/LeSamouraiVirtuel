@@ -1192,7 +1192,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'relicclaim'){ const st = T.RELIC_SETS.find(x => x.k === b.dataset.k); if (!st || !T.relicSetDone(S, st) || S.relicClaim[st.k]) return; S.relicClaim[st.k] = 1; save(); bravo(T.relicSetReward(st), st.name, 'COLLECTION !'); return renderPanel(); }
   if (a === 'fishtap') return fishTap();
   if (a === 'petfeed'){ const r = T.petFeed(S, b.dataset.k); if (r.why){ sfx.err(); return r.cost ? showMissing(r.cost, 'Nourrir Flocon', null) : toastOnce(r.why); } sfx.collect(); petUp(r.up, b); save(); return renderPanel(); }
-  if (a === 'petpat'){ const r = T.petPat(S); if (!r) return; sfx.pop(); giveReward(r.gift, b); petUp(r.up, b); toast('Flocon est tout content !'); save(); return renderPanel(); }
+  if (a === 'petpat'){ const r = T.petPat(S); if (!r) return; T.track(S, 'petpat'); sfx.pop(); giveReward(r.gift, b); petUp(r.up, b); toast('Flocon est tout content !'); save(); return renderPanel(); }
   if (a === 'campgo') return campGo(+b.dataset.i);
   if (a === 'tload'){ const i = +b.dataset.i, w = S.train?.wag[i], why = T.trainLoad(S, i); if (why){ sfx.err(); if (w && !T.has(S, w.want)) return showMissing(w.want, 'Charger le wagon', () => { if (!T.trainLoad(S, i)){ giveReward(w.rw, $('#h-coins')); T.track(S, 'train'); save(); } renderPanel(); }); return toastOnce(why); } sfx.collect(); giveReward(w.rw, b); T.track(S, 'train'); save(); return renderPanel(); }
   if (a === 'tsend'){ const bon = T.trainSend(S); if (!bon) return; sfx.level(); if (Object.keys(bon).length) bravo(bon, 'Le train est parti plein !', 'TRAIN COMPLET'); else toast('Le train est parti. Il revient bientôt avec de nouveaux wagons.'); save(); return renderPanel(); }
@@ -1526,6 +1526,13 @@ function questGo(q){
   if (kind === 'exp') return has('stable') ? goTo('stable') : openPanel('build', 'town');
   if (kind === 'parcel') return openParcel();
   if (kind === 'lights') return openPanel('lights');
+  if (kind === 'auction' || kind === 'auctionwin') return T.hqLv(S) >= M.MARKET_HQ ? openPanel('auction') : openPanel('market');
+  if (kind === 'relic') return openPanel('museum');
+  if (kind === 'research') return has('library') ? openPanel('lab') : openPanel('build', 'town');
+  if (kind === 'train') return has('station') ? openPanel('train') : openPanel('build', 'town');
+  if (kind === 'petpat' || kind === 'petlv') return T.petState(S) ? openPanel('pet') : openPanel('build', 'town');
+  if (kind === 'fish') return T.canFish(S) ? openPanel('fish') : toast('Ouvre le Lac Gelé (forêt à dégager) pour pêcher.');
+  if (kind === 'camp' || kind === 'campat') return openPanel('camp');
 }
 /* ---------- cadeau du jour (série de 7 jours) ---------- */
 function openDaily(){
@@ -1585,7 +1592,7 @@ function aucDraw(){
 function aucEnd(){
   const a = auc; if (!a || a.done) return; a.done = true; clearInterval(aucOpen.t);
   const val = Math.round(M.lotValue(S, a.l.items) / 5) * 5, m = $('#modal'), won = a.lead === -2, all = {...a.l, seen: a.l.items.map((_, j) => j)};
-  if (won){ S.coins -= a.price; save(); if (Math.random() < .3 + a.l.r * .15) relicFound(a.l.r); }
+  if (won){ S.coins -= a.price; T.track(S, 'auctionwin'); save(); if (Math.random() < .3 + a.l.r * .15) relicFound(a.l.r); }
   const diff = val - a.price - a.l.fee;
   m.className = 'glow aucm';
   m.querySelector('.mcard').innerHTML = won
@@ -1708,7 +1715,7 @@ function playGame(k){
 /* ---------- musée des trouvailles ---------- */
 function museumEntry(){ const n = T.RELICS.filter(x => (S.relics || {})[x.k]).length; return `<button class="museumentry" data-a="museum"><span>🏛️</span><div><b>Musée des trouvailles</b><small>${n} / ${T.RELICS.length} objets rares · production +${Math.round(T.museumProd(S) * 100)} %</small></div><span class="btn blue sm">Visiter</span></button>`; }
 function relicFound(rar){
-  const it = T.relicDrop(S, rar); save();
+  const it = T.relicDrop(S, rar); T.track(S, 'relic'); save();
   setTimeout(() => { toast(`Trouvaille pour le musée : ${it.ico} ${it.name} !`); sfx.level(); }, 1200);
   return it;
 }
