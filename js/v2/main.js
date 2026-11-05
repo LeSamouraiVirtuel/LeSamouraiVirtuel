@@ -644,6 +644,7 @@ function hud(){
   $('#h-pop').textContent = `${Math.min(E, L)} / ${L}`; $('#h-pop').classList.toggle('bad', E > L);
   $('#h-joy').textContent = `+${Math.round(T.joyBonus(S) * 100)} %`;
   $('#h-title').textContent = M.titleOf(S.lvl);
+  { const e = $('#h-joy'), sb = T.showBonus(S); e.textContent = `+${Math.round((T.joyBonus(S) + T.lightsBonus(S) + sb) * 100)} %`; e.classList.toggle('boost', sb > 0); }
   const toys = Object.entries(S.inv).filter(([k, n]) => ITEMS[k]?.toy && n > 0).reduce((a, [, n]) => a + n, 0);
   $('#b-barn small').textContent = toys;
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
@@ -845,6 +846,7 @@ function renderPanel(){
     let extra = '';
     if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); extra = `<div class="work"><div class="bar"><i style="width:${n / buf * 100}%"></i></div><span>${fmt(n)} / ${fmt(buf)} ${ITEMS[b.res].name.toLowerCase()} dans le bâtiment${T.workRatio(S) < 1 ? ' · <b class="bad">pas assez de lutins !</b>' : ''}</span></div>${ripe(o) ? '<button class="btn gold wide" data-a="collect">Récolter</button>' : ''}`; }
     if (T.JOBS[o.type]) extra += jobsBox(o);
+    if (b.kind === 'fun') extra += showsBox(o);
     if (b.kind === 'stable') extra = '<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>';
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
     if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>`; }
@@ -886,6 +888,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'showgo'){ const o = panelArg, sh = T.SHOWS.find(x => x.k === b.dataset.k), why = T.showStart(S, sh.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.showCost(sh, o.lv), sh.name, null) : toast(why); } T.track(S, 'show'); sfx.level(); toast(`Lever de rideau ! Production +${Math.round(S.show.pct * 100)} %`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'evclaim'){ const i = +b.dataset.i, E = M.eventState(S); if (E.pts < M.EV_STEPS[i] || E.got[i]) return; S.ev.got[i] = 1; closePanel(); return bravo(M.eventReward(S, i), `${E.name} · palier ${i + 1}`); }
   if (a === 'wrap'){ S.wrapOn = !S.wrapOn; if (S.wrapOn && !(S.inv.paper > 0)) toast('Fabrique du papier cadeau à l’Atelier des jouets'); sfx.tap(); save(); return renderPanel(); }
   if (a === 'jobgo'){ const o = panelArg, j = T.JOBS[o.type].find(x => x.k === b.dataset.k), why = T.jobStart(S, o, b.dataset.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.jobPlan(S, o, j).cost, j.name, null) : toast(why); } sfx.build(); T.track(S, 'job'); toast(`Les lutins s'y mettent : ${j.name}`); save(); panelHtml = ''; return renderPanel(); }
@@ -1000,6 +1003,12 @@ function keeperLine(o){
   return b.desc;
 }
 
+function showsBox(o){
+  const on = S.show && S.show.end > now() ? T.SHOWS.find(x => x.k === S.show.k) : null;
+  if (on) return `<h3>À l'affiche</h3><div class="jobrun"><b>${on.name} · production +${Math.round(S.show.pct * 100)} %</b><div class="work"><div class="bar"><i data-end="${S.show.end}" data-total="${S.show.end - S.show.start}"></i></div><span>Encore <b data-until="${S.show.end}"></b></span></div></div>`;
+  return `<h3>Monter un spectacle <small class="meta">· toute la production du village augmente</small></h3><div class="jobs">${T.SHOWS.map(sh => { const c = T.showCost(sh, o.lv), ok = T.has(S, c);
+    return `<div class="job"><div class="jt"><b>${sh.name}</b><span class="chip time">${fmtTime(sh.time / 1000)}</span></div><div class="jr"><span class="boostp">+${Math.round(T.showPct(sh, o.lv) * 100)} % de production</span></div><button class="btn ${ok ? 'green' : 'blue'} sm" data-a="showgo" data-k="${sh.k}"><span class="costs">${costChips(c)}</span>Jouer</button></div>`; }).join('')}</div>`;
+}
 function jobsBox(o){
   if (o.job){ const j = T.JOBS[o.type].find(x => x.k === o.job.k), done = o.job.end <= now(), st = T.speedStars(o.job.end - now());
     return `<h3>Commande spéciale</h3><div class="jobrun"><b>${j.name}</b>${done ? '<button class="btn gold wide" data-a="jobget">Récupérer</button>' : `<div class="work"><div class="bar"><i data-end="${o.job.end}" data-total="${o.job.end - o.job.start}"></i></div><span>Prêt dans <b data-until="${o.job.end}"></b></span></div><button class="btn gold sm" data-a="jobspeed">${st ? `Finir <i class="i star"></i>${st}` : 'Finir'}</button>`}</div>`; }
