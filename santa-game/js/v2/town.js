@@ -136,7 +136,7 @@ export const rate = (type, lv) => { const v = BUILDINGS[type].rate * Math.pow(1.
 export const buffer = (type, lv) => RARE.includes(BUILDINGS[type].res) ? Math.max(1, Math.floor(rate(type, lv) * 12)) : R5(rate(type, lv) * (lv < 3 ? .5 : lv < 6 ? 2 : lv < 9 ? 6 : 12));   // stock interne : 30 min → 2 h → 6 h → une nuit
 export const workers = (type, lv) => BUILDINGS[type].kind === 'prod' ? 2 * lv : 0;
 export const housing = lv => 6 + 4 * (lv - 1);                                             // lutins par chalet
-export const storageAdd = lv => R5(300 * Math.pow(1.5, lv - 1));                           // stock en plus par entrepôt
+export const storageAdd = lv => R5(500 * Math.pow(1.55, lv - 1));                           // stock en plus par entrepôt (chaque niveau : +55 %)
 export const hqStock = lv => R5(1000 * Math.pow(1.45, lv - 1));
 export const craftSlots = lv => Math.min(8, 2 + Math.floor(lv / 2));
 export const craftSpeed = lv => 1 + .08 * (lv - 1);
@@ -151,6 +151,10 @@ export function upCost(type, lv){        // coût pour passer au niveau lv (lv =
   if (b.kind === 'hq' && lv >= 2) c.cookies = R5(70 * m / 1.6);
   if (isUpgradable(b) && lv >= 3 && !c.cookies) c.cookies = R5((b.cost.wood || 50) * .4 * m);   // les gros chantiers nourrissent les lutins
   const big = b.kind === 'hq' ? 3 : 1;
+  // Règle de Clash of Clans : un chantier ne demande jamais plus que ce que le stock peut contenir.
+  // Plafond : 60 % du stock de la Maison du niveau précédent avec les entrepôts disponibles à ce niveau.
+  if (isUpgradable(b) && lv >= 2){ const L = Math.max(1, lv - 1), fit = R5((hqStock(L) + Math.min(4, 1 + Math.floor(L / 6)) * storageAdd(L)) * .6);
+    for (const k of ['wood', 'cookies', 'fabric']) if (c[k] > fit) c[k] = fit; }
   if (isUpgradable(b) && lv >= 6) c.ice = Math.round(big * 4 * Math.pow(1.38, lv - 6));        // niv. 6+ : cristaux de glace
   if (isUpgradable(b) && lv >= 11) c.gold = Math.round(big * 2 * Math.pow(1.38, lv - 11));     // niv. 11+ : lingots d'or polaire
   return c;

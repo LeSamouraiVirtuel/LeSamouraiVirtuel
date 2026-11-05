@@ -231,5 +231,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Corrigé : avant de recharger la page, l'ancien village se ré-enregistrait par-dessus celui qu'on venait de charger (même souci pour « Recommencer à zéro »).
 - Testé : code copié sur un iPhone, collé dans un autre navigateur, village retrouvé (niveau 17, 77 777 pièces). Tutoriel OK.
 
+## Tour 45 — Retour du joueur : chantiers impossibles
+- Signalé en jouant : certaines améliorations demandent plus de ressources que le stock ne peut en contenir, et améliorer l'Entrepôt n'aide presque pas.
+- Vérifié : Bibliothèque (dès la Maison 6), Puits, Gare, Fonderie et Grotte (Maison 11+) demandaient jusqu'à 3 fois le stock maximum. Impossible à payer.
+- Corrigé comme Clash of Clans : bois, biscuits et tissu d'un chantier ne dépassent jamais 60 % du stock possible au niveau d'avant. Vérifié pour tous les bâtiments jusqu'au niveau 25 : 0 chantier impossible.
+- Entrepôt : +500 au niveau 1 (au lieu de 300) et +55 % par niveau (au lieu de 50 %).
+- Simulateur : rythme inchangé (Maison 10 vers J8, 20 vers J71). Tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
