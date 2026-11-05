@@ -64,7 +64,7 @@ const DRESS = {
   storage: [['Containers_Crate_Medium_Wood', 1.4, 1.3, .45], ['Pallet_Wood', 1.5, .4, .45, .3, 2], ['Containers_Pile_Medium', .4, 1.5, .4, 0, 2], ['Food_Barrel_Empty', -.5, 1.5, .4, 0, 3]],
   workshop: [['present_A_red', 1.4, 1.3, .5], ['train_locomotive', 1.35, .35, .4, -.8, 2], ['present_C_yellow', .55, 1.5, .45, .5, 2], ['nutcracker', -.4, 1.5, .5, 0, 3]],
   stable: [['snowball_pile', 1.4, 1.3, .5], ['sled', 1.3, .3, .5, -.7, 2], ['Food_Basket_A_Berries', .5, 1.5, .45, 0, 2], ['bell_decorated', -.4, 1.5, .4, 0, 3]],
-  santa: [['snowman_A', 1.5, 1.45, .4], ['present_B_green', 1.2, 1.6, .35, 0, 2], ['candycane_large', 1.6, .5, .45, 0, 2], ['lantern_decorated', -.3, 1.6, .45, 0, 3]],
+  santa: [['snowman_A', 1.6, 1.55, .17], ['present_B_green', 1.25, 1.65, .25, 0, 2], ['candycane_small', 1.65, .6, .3, 0, 2], ['lantern_decorated', -.3, 1.65, .3, 0, 3]],
   cabin: [['snow-pile', 1.3, 1.3, .55], ['lantern_mini', 1.45, .3, .45, 0, 2], ['present_D_blue', .4, 1.45, .4, .3, 3]],
 };
 function dress(g, type, t){
