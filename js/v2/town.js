@@ -247,7 +247,7 @@ export const cap = (s, r) => r === 'coins' ? Infinity : hqStock(hqLv(s)) + s.obj
 /** Ce qu'un bâtiment de production a accumulé (plafonné à son stock interne). */
 export function stored(s, o, now = Date.now()){
   const b = BUILDINGS[o.type]; if (b.kind !== 'prod' || !built(o) || o.up) return 0;
-  return Math.min(buffer(o.type, o.lv), Math.floor(rate(o.type, o.lv) * prodMult(s) * keeperMult(o) * (now - o.t) / 3.6e6));
+  return Math.min(o.keeper ? keeperBuffer(o) : buffer(o.type, o.lv), Math.floor(rate(o.type, o.lv) * prodMult(s) * keeperMult(o) * (now - o.t) / 3.6e6));
 }
 export function collect(s, o, now = Date.now()){
   const b = BUILDINGS[o.type], n = stored(s, o, now); if (!n) return 0;
@@ -392,7 +392,10 @@ export function dailyClaim(s){
 export const KEEPER_MAX = 5;
 export const keeperMult = o => 1 + .1 * Math.max(0, (o.keeper || 0) - 1);
 export const keeperCost = (o, next = (o.keeper || 0) + 1) => next === 1 ? {coins: R5(250 * Math.pow(1.4, o.lv - 1)), cookies: 60} : {stars: 2 * (next - 1), cookies: R5(80 * next)};
-export const keeperHq = 2;     // la Maison du Père Noël niveau 2 débloque les gardiens
+export const keeperHq = 2;
+// Un gardien continue de produire pendant l'absence du joueur : 12 h au ★1, +3 h par étoile (★5 = 24 h)
+export const keeperHours = o => 12 + 3 * Math.max(0, (o.keeper || 1) - 1);
+export const keeperBuffer = o => Math.max(buffer(o.type, o.lv), R5(rate(o.type, o.lv) * keeperMult(o) * keeperHours(o)));     // la Maison du Père Noël niveau 2 débloque les gardiens
 export function keeperBlock(s, o){
   if (BUILDINGS[o.type].kind !== 'prod') return 'Seuls les bâtiments de production ont un gardien';
   if (hqLv(s) < keeperHq) return `Maison du Père Noël niv. ${keeperHq}`;

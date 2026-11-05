@@ -305,7 +305,7 @@ function draw(){
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
   // noms des bâtiments, puis indicateurs au-dessus
-  labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width);
+  labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden]), #sideL2 > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width).map(r => ({left: r.left - 8, right: r.right + 8, top: r.top - 6, bottom: r.bottom + 16}));
   for (const o of S.objs) plate(o);
   for (const l of T.lotsShown(S)) lotLabel(l);
   for (const o of S.objs) drawHint(o);
@@ -399,7 +399,8 @@ function drawHint(o){
   if (r.cx < -60 || r.cx > W + 60 || top < -60 || r.cy > H + 80) return;
   const w = workEnd(o);
   if (w){ const total = o.build ? o.btotal : o.utotal; timerPill(r.cx, top, (speedCost(o) ? '' : '✓ ') + fmtTime((w - now()) / 1000), 1 - (w - now()) / (total || 1)); return; }
-  if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); if (ripe(o)) bubble(r.cx, top, b.res, n >= buf ? 'MAX' : ''); }
+  if (b.kind === 'prod' && o.keeper){ if (keeperFull.has(o)) bubble(r.cx, top, b.res, 'PLEIN'); }
+  else if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); if (ripe(o)) bubble(r.cx, top, b.res, n >= buf ? 'MAX' : ''); }
   if (b.kind === 'craft'){ const d = craftDone(o); if (d.length) bubble(r.cx, top, d[0].item, d.length > 1 ? 'x' + d.length : ''); else if (o.q?.length){ const j = o.q[0]; timerPill(r.cx, top, fmtTime((j.end - now()) / 1000), 1 - (j.end - now()) / (TOYS[j.item].time / T.craftSpeed(o.lv) * 1000)); } }
   if (b.kind === 'orders'){ const ok = S.orders.some(od => od.items && T.has(S, od.items)); if (ok) return bubble(r.cx, top, 'coins', '!'); }
   if (b.kind === 'mine'){ const st = T.mineState(S); if (st && st.M.picks >= st.max) return bubble(r.cx, top, 'ice', String(st.M.picks)); }
@@ -928,7 +929,7 @@ function keeperLine(o){
 function keeperBox(o){
   const k = o.keeper || 0, why = T.keeperBlock(S, o), stars = '★'.repeat(k) + '☆'.repeat(T.KEEPER_MAX - k);
   if (T.hqLv(S) < T.keeperHq) return `<div class="kbox klock"><b>Gardien</b><span>Se débloque avec la Maison du Père Noël niv. ${T.keeperHq} : il récoltera tout seul pour toi.</span></div>`;
-  return `<div class="kbox"><div><b>${k ? `Gardien engagé <i class="kst">${stars}</i>` : 'Engager le gardien'}</b><span>${k ? `Récolte automatique · production <b>+${Math.round((T.keeperMult(o) - 1) * 100)} %</b>${k < T.KEEPER_MAX ? ` → <b>+${Math.round(k * 10)} %</b>` : ''}` : 'Il récoltera tout seul dans le stock du village, même quand tu ne joues pas.'}</span></div>
+  return `<div class="kbox"><div><b>${k ? `Gardien engagé <i class="kst">${stars}</i>` : 'Engager le gardien'}</b><span>${k ? `Récolte automatique, même absent : <b>${T.keeperHours(o)} h</b> · production <b>+${Math.round((T.keeperMult(o) - 1) * 100)} %</b>${k < T.KEEPER_MAX ? ` → <b>+${Math.round(k * 10)} %</b>` : ''}` : `Il récoltera tout seul dans le stock du village, même quand tu ne joues pas (jusqu'à ${T.keeperHours({keeper: 1})} h d'absence).`}</span></div>
     ${k < T.KEEPER_MAX ? `<button class="btn ${k ? 'gold' : 'green'} sm" data-a="keeper" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>${k ? 'Améliorer' : 'Engager'}<span class="costs">${costChips(T.keeperCost(o))}</span></button>` : ''}</div>`;
 }
 
@@ -1194,11 +1195,24 @@ function frame(t){
 }
 let autoT = 0;
 /** Les gardiens récoltent tout seuls (en silence, avec un petit effet si le bâtiment est à l'écran). */
-function autoCollect(){
-  for (const o of S.objs){ if (!o.keeper || B(o).kind !== 'prod' || !ripe(o)) continue; const k = B(o).res, got = T.collect(S, o); if (got > 0){ T.track(S, 'collect:' + k, got); const c = toScreen(o.x + 1.5, o.y + 1.5); if (c.x > 0 && c.x < W && c.y > 0 && c.y < H) fxHarvest(o, k, got); } }
+// Toutes les 3 s (vraie horloge) : les gardiens rangent la production dans le stock. Si le stock est plein,
+// ils le disent (bulle « Stock plein » sur le bâtiment) et gardent tout dans leur réserve jusqu'à ce qu'il y ait de la place.
+const keeperFull = new Set();
+function autoCollect(quiet){
+  const got = {};
+  for (const o of S.objs){
+    if (!o.keeper || B(o).kind !== 'prod' || !built(o) || o.up) continue;
+    const k = B(o).res, n = T.stored(S, o); if (n < 1) { keeperFull.delete(o); continue; }
+    const g = T.collect(S, o);
+    if (g === -1){ if (!keeperFull.has(o) && !quiet) toastOnce(`${(KEEPER[o.type] || KEEPER.cabin).name} attend : stock de ${ITEMS[k].name.toLowerCase()} plein`); keeperFull.add(o); continue; }
+    keeperFull.delete(o);
+    if (g > 0){ T.track(S, 'collect:' + k, g); got[k] = (got[k] || 0) + g; if (!quiet){ const c = toScreen(o.x + 1.5, o.y + 1.5); if (c.x > 0 && c.x < W && c.y > 0 && c.y < H) fxHarvest(o, k, g); } if (T.stored(S, o) > 0 && T.cap(S, k) <= S[k]) keeperFull.add(o); }
+  }
+  return got;
 }
+const built = o => !o.build;
 function step(t, dt){
-  autoT -= dt; if (autoT <= 0){ autoT = 3; autoCollect(); checkExps(); }
+  if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); }
   fxDt = dt;
   refreshOrders(); finishWorks(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
@@ -1211,6 +1225,14 @@ requestAnimationFrame(frame);
 addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pointerdown', () => sfx.tap(), {once: true});
 // entrée directe dans le village (pas de menu titre)
+// Pendant ton absence : les gardiens ont travaillé (comme l'écran de retour de Clash of Clans / Township)
+function welcomeBack(){
+  const away = now() - (saved?.t || now()); const got = autoCollect(true);
+  if (!Object.keys(got).length || away < 5 * 60e3 || tuto.active()) return;
+  const h = Math.floor(away / 36e5), m = Math.round(away % 36e5 / 6e4);
+  bravo(got, `Pendant ton absence (${h ? h + ' h ' : ''}${m} min), tes gardiens ont récolté`, 'BON RETOUR !');
+}
+setTimeout(welcomeBack, 1400);
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {4: 3, 6: 5, 8: 7, 9: 7}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp};
+window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
