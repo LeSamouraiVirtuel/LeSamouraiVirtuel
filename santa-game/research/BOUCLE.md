@@ -51,6 +51,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Léger balancement des ateliers qui travaillent (commande spéciale, fabrication de jouets).
 - Étincelles qui jaillissent des chantiers.
 
+## Tour 11 — La hotte du Père Noël (surprise à la Bid Master)
+- Toutes les 4 h, depuis la fiche de la Maison (et une bulle sur la carte) : 3 cartes cachées, on en choisit une.
+- Ressources, cristaux, outils, étoiles, colis ou lingots ; 8 % de chances d'un gros lot de 10 étoiles.
+- Retournement de carte en animation simple (fiable sur iPhone).
+
 ## Idées pour la suite
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
 5. Fumée et petites animations propres à chaque bâtiment (roue de la scierie, four).

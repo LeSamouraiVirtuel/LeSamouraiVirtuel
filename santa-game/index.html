@@ -1147,6 +1147,23 @@ body.tutoring #sideL2,body.sheet-open #sideL2,body.placing #sideL2,body:not(.pla
 .boostp{font-weight:900;color:#2f6d2f;font-size:13px}
 #hud2 .chipx.joy.boost{background:linear-gradient(180deg,#ffb84a,#e5383b)!important;color:#fff}
 .evimg{width:44px;height:40px;object-fit:contain}.chip.free{background:#e7f8e9;color:#2f6d2f;font-weight:900}
+
+.cards3{display:grid!important;grid-template-columns:repeat(3,1fr);gap:10px;perspective:600px;margin:6px 0;width:100%;align-self:stretch}
+.cards3 .card3{width:auto!important;min-width:0;height:130px!important;border-radius:14px}
+.card3{position:relative;height:130px;border:0;padding:0;background:none;cursor:pointer}
+.card3 span{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:4px;border-radius:14px}
+.card3 .back{font-size:44px;background:linear-gradient(160deg,#e5383b,#9e1b20);border:3px solid #fff;box-shadow:0 0 0 2px #5a0e10,0 6px 10px rgba(0,0,0,.35)}
+.card3 .front{display:none;background:linear-gradient(160deg,#fff7d9,#ffe08a);border:3px solid #fff;box-shadow:0 0 0 2px #7a4a05;padding:6px}
+.card3 .front .chip{font-size:12px}
+.card3.flip{animation:cflip .5s ease-in-out}
+.card3.flip .back{animation:cback .5s steps(1) forwards}
+.card3.flip .front{display:flex;animation:cfront .5s steps(1) both}
+@keyframes cflip{0%{transform:scaleX(1)}50%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+@keyframes cback{0%{opacity:1}50%,100%{opacity:0}}
+@keyframes cfront{0%{opacity:0}50%,100%{opacity:1}}
+.card3.mine .front{box-shadow:0 0 0 3px #4cc85a,0 0 24px #ffd34a}
+.card3.other{opacity:.7}
+.sackbtn{margin-top:8px}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>

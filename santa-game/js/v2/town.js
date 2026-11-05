@@ -732,3 +732,19 @@ export function showStart(s, k, now = Date.now()){
   const sh = SHOWS.find(x => x.k === k), c = showCost(sh, th.lv); if (!has(s, c)) return 'Ressources insuffisantes';
   take(s, c); s.show = {k, pct: showPct(sh, th.lv), end: now + sh.time, start: now}; return null;
 }
+
+/* ===================== LA HOTTE DU PÈRE NOËL (tirage d'une carte sur 3, toutes les 4 h) ===================== */
+export const SACK_EVERY = 4 * 3600e3;
+export const sackReady = (s, now = Date.now()) => now >= (s.sackAt || 0);
+export function sackCards(s){
+  const L = s.lvl, m = 1 + L * .3, pick = a => a[Math.floor(Math.random() * a.length)];
+  const pool = [
+    {coins: R5(300 * m)}, {wood: R5(350 * m)}, {cookies: R5(250 * m)}, {coins: R5(600 * m)},
+    {ice: 3 + Math.floor(L / 3)}, {axe: 1, saw: 1}, {stars: 2}, {parcel: 1},
+  ];
+  if (L >= 8) pool.push({gold: 1 + Math.floor(L / 10)});
+  const cards = []; while (cards.length < 3) cards.push(pick(pool));
+  if (Math.random() < .08) cards[Math.floor(Math.random() * 3)] = {stars: 10};   // le gros lot, rare
+  return cards;
+}
+export const sackTake = (s, now = Date.now()) => { s.sackAt = now + SACK_EVERY; };
