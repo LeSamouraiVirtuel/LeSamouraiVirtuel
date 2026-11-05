@@ -621,3 +621,51 @@ export function lightsBlock(s){
   return null;
 }
 export function lightsUp(s){ const why = lightsBlock(s); if (why) return why; take(s, lightsCost(lightsLv(s))); s.lights = lightsLv(s) + 1; return null; }
+
+/* ===================== COMMANDES SPÉCIALES DES ATELIERS (choix à la Hay Day / Township) ===================== */
+// Chaque bâtiment de production propose 3 travaux : court, moyen, long. On choisit selon le temps qu'on a.
+// Plus c'est long, plus c'est rentable, et chaque travail a une chance de trouvaille rare.
+const MIN = 60e3;
+export const JOBS = {
+  sawmill: [
+    {k: 'kindling', name: 'Petit bois pour les poêles', time: 5 * MIN, cost: {cookies: 10}, give: {wood: .14}, bonus: [.10, 'axe']},
+    {k: 'planks', name: 'Planches de sapin poli', time: 60 * MIN, cost: {cookies: 40}, give: {wood: 1.0, coins: .3}, bonus: [.20, 'saw']},
+    {k: 'sleigh', name: 'Patins de traîneau', time: 8 * 60 * MIN, cost: {cookies: 160}, give: {wood: 4, coins: .8}, bonus: [.35, 'ice']},
+  ],
+  letters: [
+    {k: 'sort', name: 'Trier le courrier du matin', time: 5 * MIN, cost: {cookies: 10}, give: {coins: .14}, bonus: [.10, 'stars']},
+    {k: 'stamps', name: 'Tamponner les enveloppes', time: 60 * MIN, cost: {cookies: 40}, give: {coins: 1.0}, bonus: [.15, 'axe']},
+    {k: 'answer', name: 'Répondre aux enfants', time: 8 * 60 * MIN, cost: {cookies: 160}, give: {coins: 4}, bonus: [.30, 'gold']},
+  ],
+  bakery: [
+    {k: 'stars', name: 'Biscuits étoilés', time: 5 * MIN, cost: {wood: 15}, give: {cookies: .14}, bonus: [.10, 'stars']},
+    {k: 'loaf', name: 'Pain d’épices géant', time: 60 * MIN, cost: {wood: 60}, give: {cookies: 1.0, coins: .3}, bonus: [.20, 'ice']},
+    {k: 'house', name: 'Maison en pain d’épices', time: 8 * 60 * MIN, cost: {wood: 240}, give: {cookies: 4, coins: .8}, bonus: [.35, 'gold']},
+  ],
+  mill: [
+    {k: 'yarn', name: 'Pelotes de laine', time: 5 * MIN, cost: {cookies: 10}, give: {fabric: .14}, bonus: [.10, 'saw']},
+    {k: 'scarf', name: 'Écharpes rayées', time: 60 * MIN, cost: {cookies: 40}, give: {fabric: 1.0, coins: .3}, bonus: [.20, 'ice']},
+    {k: 'quilt', name: 'Courtepointe du Père Noël', time: 8 * 60 * MIN, cost: {cookies: 160}, give: {fabric: 4, coins: .8}, bonus: [.35, 'gold']},
+  ],
+};
+// Les quantités sont des « heures de production » du bâtiment : elles suivent son niveau.
+export function jobPlan(s, o, j){
+  const per = rate(o.type, o.lv), give = {}, cost = {};
+  for (const [k, h] of Object.entries(j.give)) give[k] = R5(h * (k === BUILDINGS[o.type].res ? per : per * .5));
+  for (const [k, n] of Object.entries(j.cost)) cost[k] = R5(n * (1 + (o.lv - 1) * .4));
+  return {give, cost, time: j.time};
+}
+export function jobStart(s, o, k, now = Date.now()){
+  const j = (JOBS[o.type] || []).find(j => j.k === k); if (!j) return 'Inconnu';
+  if (o.job) return 'Déjà au travail';
+  if (o.build || o.up) return 'Bâtiment en travaux';
+  const p = jobPlan(s, o, j); if (!has(s, p.cost)) return 'Ressources insuffisantes';
+  take(s, p.cost); o.job = {k, end: now + p.time, start: now}; return null;
+}
+/** Récupère un travail terminé : ressources + trouvaille éventuelle (tirée à la fin, annoncée). */
+export function jobCollect(s, o, now = Date.now()){
+  if (!o.job || o.job.end > now) return null;
+  const j = JOBS[o.type].find(j => j.k === o.job.k), p = jobPlan(s, o, j), r = {...p.give};
+  if (Math.random() < j.bonus[0]){ const b = j.bonus[1]; r[b] = (r[b] || 0) + (b === 'ice' ? 3 + Math.floor(o.lv / 2) : b === 'gold' ? 1 + Math.floor(o.lv / 8) : 1); }
+  delete o.job; return r;
+}
