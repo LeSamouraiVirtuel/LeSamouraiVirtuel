@@ -107,6 +107,12 @@ function modelFor(type, t = 1){
       if (t >= 2) g.add(prop('cart', {x: .9, z: -.4, y: .27, s: .6})); if (t >= 3) g.add(prop('Gems_Chest', {x: -.9, z: -.9, y: .27, s: .45}), prop('lights-colored', {y: 1, s: .7})); return dress(g, 'icewell', t); }
     case 'foundry': { const g = new THREE.Group(); g.add(scaled(plotBase(t), .78)); g.add(scaled(cabin({len: 1, front: ['cabin-window-a', 'door'], chimney: 1}), .7).translateX(-.3).translateZ(-.3).translateY(.27)); g.add(prop('Gold_Bars_Stack_Small', {x: .9, z: .8, y: .27, s: .6})); g.add(prop('Containers_Crate_Large', {x: 1.1, z: -.3, y: .27, s: .4}));
       if (t >= 2) g.add(prop('Gold_Bars_Stack_Small', {x: .4, z: 1.2, y: .27, s: .5})); if (t >= 3) g.add(prop('lantern_decorated', {x: -1.2, z: 1.1, y: .27, s: .5})); return dress(g, 'foundry', t); }
+    case 'station': { const g = new THREE.Group(); g.add(scaled(plotBase(t), .78));
+      g.add(scaled(cabin({len: 1, front: ['cabin-window-a', 'door'], chimney: 1}), .5).translateX(-.55).translateZ(-.75).translateY(.27));
+      for (const x of [-1.15, -.05, 1.05]) g.add(prop('tracks_straight', {x, z: .55, y: .27, s: 1.1}));
+      g.add(prop('train_locomotive', {x: .75, z: .55, y: .27, s: .95})); g.add(prop(t >= 2 ? 'train_tender_presents_A' : 'train_wagon', {x: -.3, z: .55, y: .27, s: .95}));
+      g.add(prop('bench', {x: .8, z: -.65, y: .27, s: .55})); if (t >= 3) g.add(prop('train_tender_presents_B', {x: -1.25, z: .55, y: .27, s: .95}), prop('lights-colored', {y: 1, s: .7}));
+      return dress(g, 'station', t); }
     case 'library': { const g = new THREE.Group(); g.add(scaled(plotBase(t), .78)); g.add(scaled(cabin({len: 2, front: ['cabin-window-a', 'door', 'cabin-window-a'], chimney: 1}), .62).translateZ(-.2).translateY(.27)); g.add(prop('banner-red', {x: -1.15, z: 1, y: .27, s: .55})); g.add(prop('lantern', {x: 1.15, z: 1.05, y: .27, s: .55}));
       if (t >= 2) g.add(prop('banner-green', {x: 1.15, z: -.9, y: .27, s: .55}), prop('Gems_Chest', {x: .2, z: 1.15, y: .27, s: .38})); if (t >= 3) g.add(prop('lantern_decorated', {x: -1.2, z: -.9, y: .27, s: .5}), prop('lights-colored', {y: 1, s: .7})); return dress(g, 'library', t); }
     case 'cabin': return t === 1 ? house(1, .985) : t === 2 ? house(2, .33) : (() => { const g = house(2, .6); g.add(prop('tree-decorated-snow', {x: .75, z: .75, s: .35})); return g; })();

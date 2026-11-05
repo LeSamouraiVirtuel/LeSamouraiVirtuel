@@ -759,6 +759,7 @@ function tap(o, at){
   if (b.kind === 'stable') return openPanel('exp', o);
   if (b.kind === 'mine') return openPanel('mine', o);
   if (b.kind === 'lab') return openPanel('lab', o);
+  if (b.kind === 'train') return openPanel('train', o);
   if (T.isUpgradable(b)) return openPanel('bld', o);
   openPanel('info', o);
 }
@@ -969,6 +970,20 @@ function renderPanel(){
         <h3>Vendre des jouets</h3><div class="mlist">${toys.length ? toys.map(k => `<div class="mis"><div><b>${ITEMS[k].name}</b><small>${S.inv[k]} en stock · gardés pour les lettres ?</small></div><button class="btn green sm" data-a="selltoy" data-k="${k}">Vendre 1 → ${icon('coins')}${M.sellToy(k)}</button></div>`).join('') : '<p class="meta">Aucun jouet en stock.</p>'}</div>`;
     }
   }
+  else if (panel === 'train'){
+    const st = T.trainState(S), o = st?.o;
+    if (!st) h = hd('', 'Gare du Pôle') + '<p class="help">Construis la Gare du Pôle pour recevoir le train.</p>';
+    else if (st.away){ const tr = st.tr, sp = T.speedStars(tr.back - now());
+      h = hd(`Gare niv. ${o.lv} · ${T.trainWagons(o.lv)} wagons`, 'Gare du Pôle') + `<div class="trainaway"><img src="${thumbs.station || ICON.mg_sleigh}" alt=""><b>Le train est en voyage</b><div class="work"><div class="bar"><i data-end="${tr.back}" data-total="${tr.back - (tr.start || tr.back - 3600e3)}"></i></div><span>Retour dans <b data-until="${tr.back}"></b></span></div>
+        <button class="btn ${sp ? 'gold' : 'green'}" data-a="tspeed">${sp ? `Faire revenir <i class="i star"></i>${sp}` : 'Faire revenir gratuitement'}</button></div>`; }
+    else { const W = st.tr.wag, n = W.filter(w => w.done).length;
+      h = hd(`Gare niv. ${o.lv} · ${n} / ${W.length} wagons chargés`, 'Le train est à quai') + `<p class="help">Charge les wagons : chacun donne sa récompense tout de suite. Si le train part <b>plein</b>, bonus en plus !</p>
+        <div class="wagons">${W.map((w, i) => { const [k, q] = Object.entries(w.want)[0], hv = haveOf(k);
+          return `<div class="wagon ${w.done ? 'done' : ''}"><div class="wt">${resImg(k)}<b>${fmt(q)}</b><small>${w.done ? 'Chargé' : `${fmt(Math.min(hv, q))} / ${fmt(q)}`}</small></div><div class="costs">${rewardChips(w.rw)}</div>${w.done ? '<span class="ok">✓</span>' : `<button class="btn ${hv >= q ? 'green' : 'blue'} sm" data-a="tload" data-i="${i}">${hv >= q ? 'Charger' : 'Où trouver ?'}</button>`}</div>`; }).join('')}</div>
+        <div class="tbonus"><span>Bonus train complet</span><span class="costs">${rewardChips(T.trainBonus(S))}</span></div>
+        <button class="btn ${n === W.length ? 'green' : 'blue'} wide" data-a="tsend">${n === W.length ? 'Faire partir le train plein !' : `Faire partir le train (${n} / ${W.length})`}</button>`; }
+    if (o) h += '<button class="btn blue wide" data-a="bldinfo" style="margin-top:8px">Améliorer la Gare</button>';
+  }
   else if (panel === 'lab'){
     const o = panelArg && panelArg.type === 'library' ? panelArg : S.objs.find(x => x.type === 'library'), R = S.rsRun, cap = T.rsCap(S), Lb = T.libLv(S);
     const run = R ? T.RESEARCH.find(x => x.k === R.k) : null, st = R ? T.speedStars(R.end - now()) : 0;
@@ -1049,6 +1064,7 @@ function renderPanel(){
       extra += `<h3>Coup de main des lutins</h3><div class="job"><div class="jt"><b>Accélérer tous les chantiers</b><span class="boostp">-${Math.round((T.HELP_CUT + .02 * (o.lv - 1)) * 100)} %</span></div><div class="jr"><small class="meta">${busy ? `${busy} chantier${busy > 1 ? 's' : ''} en cours` : 'Aucun chantier en cours'} · une fois toutes les 2 h par chalet</small></div>${ready ? `<button class="btn ${busy ? 'green' : 'blue'} sm" data-a="help" ${busy ? '' : 'disabled'}><span class="costs">${costChips(T.helpCost(o))}</span>Aider</button>` : `<span class="meta">Repos : <b data-until="${o.helpAt}"></b></span>`}</div>`; }
     if (b.kind === 'stable') extra = '<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>';
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
+    if (b.kind === 'train') extra = '<button class="btn green wide" data-a="gotrain">Voir le train</button>';
     if (b.kind === 'lab') extra = '<button class="btn green wide" data-a="golab">Recherches</button>';
     if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
@@ -1130,10 +1146,14 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'gocraft'){ const w = workshopOf(); return w ? goTo('workshop') : null; }
   if (a === 'gomine') return openPanel('mine', panelArg);
   if (a === 'golab') return openPanel('lab', panelArg);
+  if (a === 'gotrain') return openPanel('train', panelArg);
+  if (a === 'tload'){ const i = +b.dataset.i, w = S.train?.wag[i], why = T.trainLoad(S, i); if (why){ sfx.err(); if (w && !T.has(S, w.want)) return showMissing(w.want, 'Charger le wagon', () => { if (!T.trainLoad(S, i)){ giveReward(w.rw, $('#h-coins')); T.track(S, 'train'); save(); } renderPanel(); }); return toastOnce(why); } sfx.collect(); giveReward(w.rw, b); T.track(S, 'train'); save(); return renderPanel(); }
+  if (a === 'tsend'){ const bon = T.trainSend(S); if (!bon) return; sfx.level(); if (Object.keys(bon).length) bravo(bon, 'Le train est parti plein !', 'TRAIN COMPLET'); else toast('Le train est parti. Il revient bientôt avec de nouveaux wagons.'); save(); return renderPanel(); }
+  if (a === 'tspeed'){ const tr = S.train; if (!tr || tr.back <= now()) return; const st = T.speedStars(tr.back - now()); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; tr.back = now(); sfx.level(); save(); return renderPanel(); }
   if (a === 'rsgo'){ const why = T.rsStart(S, b.dataset.k); if (why){ sfx.err(); return toastOnce(why); } sfx.build(); T.track(S, 'research'); save(); return renderPanel(); }
   if (a === 'rsspeed'){ const R = S.rsRun; if (!R) return; const st = T.speedStars(R.end - now()); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; R.end = now(); rsCheck(); return renderPanel(); }
   if (a === 'golights') return openPanel('lights');
-  if (a === 'bldinfo'){ const o = panel === 'mine' ? T.mineState(S)?.o : panel === 'lab' ? S.objs.find(x => x.type === 'library') : panelArg; return o && openPanel('bld', o); }
+  if (a === 'bldinfo'){ const o = panel === 'mine' ? T.mineState(S)?.o : panel === 'lab' ? S.objs.find(x => x.type === 'library') : panel === 'train' ? S.objs.find(x => x.type === 'station') : panelArg; return o && openPanel('bld', o); }
   if (a === 'dig') return digCell(+b.dataset.i, b);
   if (a === 'down'){ if (T.mineDown(S)){ sfx.level(); toast(`Étage ${S.mine.floor} !`); T.track(S, 'floor'); save(); } return renderPanel(); }
   if (a === 'refill'){ const st = T.mineState(S); if (!st) return; if (S.stars < T.PICK_REFILL){ sfx.err(); return openPanel('shop'); } S.stars -= T.PICK_REFILL; st.M.picks = st.max; st.M.t = now(); sfx.level(); save(); return renderPanel(); }
@@ -1206,6 +1226,7 @@ const KEEPER = {
   icewell:  {name: 'Lutine Givre', img: elfImg},
   foundry:  {name: 'Forgeron Braise', img: elfImg},
   library:  {name: 'Mademoiselle Plume', img: elfImg},
+  station:  {name: 'Chef de gare Sifflet', img: elfImg},
 };
 function keeperLine(o){
   const b = B(o), L = o.lv, N = L + 1, f = fmt;
@@ -1216,6 +1237,7 @@ function keeperLine(o){
     case 'craft': return `Je fabrique les jouets des lettres, <b>${T.craftSlots(L)} à la fois</b>. Plus je monte, plus je vais vite.`;
     case 'orders': return `Les enfants m'envoient leurs lettres. J'en garde <b>${T.orderSlots(L)}</b> et je paie <b>+${Math.round((T.orderBonus(L) - 1) * 100)} %</b>.`;
     case 'stable': return `Mes rennes partent en expédition : <b>${T.expSlots(L)} équipe${T.expSlots(L) > 1 ? 's' : ''}</b> en même temps, <b>${T.EXP_DEST.filter(d => d.lv <= L).length} destination${T.EXP_DEST.filter(d => d.lv <= L).length > 1 ? 's' : ''}</b>. Elles reviennent avec des colis mystère !`;
+    case 'train': return `Mon train emporte <b>${T.trainWagons(L)} wagons</b> par voyage. Remplis-les tous avant le départ pour un bonus !`;
     case 'lab': return `Je cherche des secrets pour tout le village. Mes recherches vont jusqu'au <b>niveau ${Math.min(T.RS_MAX, L * 2)}</b> : améliore-moi pour aller plus loin !`;
     case 'mine': return `J'ai <b>${T.minePicks(L)} pioches</b>, une de plus toutes les <b>${T.minePickMin(L)} min</b>. Plus on descend, plus c'est riche !`;
     case 'fun': return `Mes spectacles donnent <b>+${T.theaterJoy(L)} bonheur</b> : toute la production augmente.`;
@@ -1326,7 +1348,7 @@ function goTo(where){
   const b = BUILDINGS[where];
   if (!o){ toast(`Construis d'abord : ${b.name}`); return openPanel('build', T.catOf(b)); }
   centerOn(o.x + b.w / 2, o.y + b.h / 2);
-  setTimeout(() => { if (workEnd(o)) return openPanel('site', o); if (b.kind === 'mine') return openPanel('mine', o); if (b.kind === 'lab') return openPanel('lab', o); if (b.kind === 'stable') return openPanel('exp', o); if (b.kind === 'craft') return openPanel('craft', o); if (b.kind === 'prod' && collectBld(o)) return; openPanel('bld', o); }, 350);
+  setTimeout(() => { if (workEnd(o)) return openPanel('site', o); if (b.kind === 'mine') return openPanel('mine', o); if (b.kind === 'lab') return openPanel('lab', o); if (b.kind === 'train') return openPanel('train', o); if (b.kind === 'stable') return openPanel('exp', o); if (b.kind === 'craft') return openPanel('craft', o); if (b.kind === 'prod' && collectBld(o)) return; openPanel('bld', o); }, 350);
 }
 /** Ce qui manque pour une action : combien, où le trouver, et la possibilité de compléter en étoiles d'or. */
 function showMissing(req, what, retry){
@@ -1584,6 +1606,7 @@ function todoList(){
   { const busy = S.objs.some(x => (x.build || x.up) > t), ch = S.objs.find(o => o.type === 'cabin' && !o.build && T.helpReady(o, t)); if (busy && ch) add(thumbs.cabin, 'Les lutins peuvent aider les chantiers', {o: ch}); }
   { const free = T.builders(S) - T.busyBuilders(S, t); if (free > 0) add(buildIcon, `${free} bâtisseur${free > 1 ? 's' : ''} libre${free > 1 ? 's' : ''}`, 'build'); }
   { const Ms = M.missions(S), n = Ms.list.filter(m => !m.done && m.v >= m.n).length + M.achClaimable(S); if (n) add(SVGI.missions, `${n} mission${n > 1 ? 's' : ''} ou succès à récupérer`, 'missions'); }
+  { const ts = T.trainState(S); if (ts && !ts.away && ts.tr.wag.some(w => !w.done && T.has(S, w.want))) add(thumbs.station || buildIcon, 'Le train attend : des wagons à charger', {o: ts.o}); else if (ts && !ts.away && ts.tr.wag.every(w => w.done)) add(thumbs.station || buildIcon, 'Le train est plein : fais-le partir !', {o: ts.o}); }
   { const lb = S.objs.find(o => o.type === 'library' && !o.build); if (lb && !S.rsRun && T.RESEARCH.some(r => !T.rsBlock(S, r.k))) add(thumbs.library || buildIcon, 'La Bibliothèque peut lancer une recherche', {o: lb}); }
   if (T.hqLv(S) >= M.MARKET_HQ && M.auction(S).lots.length >= M.AUC_LOTS) add(thumbs.gifts, 'Salle des ventes : de nouveaux lots à saisir', 'auction');
   if (S.lvl >= 3 && M.eventClaimable(S)) add(ICON.ice, 'Récompense d’événement à prendre', 'event');
@@ -1596,6 +1619,7 @@ function todoGo(g){
   if (g === 'parcels') return openParcel(); if (g === 'build') return openPanel('build', 'prod');
   if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'orders' || g === 'event') return openPanel(g);
   if (g.o && g.o.type === 'library') return openPanel('lab', g.o);
+  if (g.o && g.o.type === 'station') return openPanel('train', g.o);
   if (g.o) return goTo(g.o.type === 'cabin' ? 'cabin' : g.o.type);
 }
 
@@ -1707,7 +1731,7 @@ const built = o => !o.build;
 const working = o => { const b = B(o); if (o.build || o.up || o.wild || o.free) return false;
   if (b.kind === 'prod') return !!o.job || T.stored(S, o) < (o.keeper ? T.keeperBuffer(o) : T.buffer(o.type, o.lv));
   if (b.kind === 'craft') return (o.q || []).some(j => j.end > now());
-  if (b.kind === 'lab') return !!S.rsRun; return b.kind === 'hq' || b.kind === 'house' || b.kind === 'mine' || b.kind === 'orders' || b.kind === 'storage'; };
+  if (b.kind === 'lab') return !!S.rsRun; if (b.kind === 'train') return !!(S.train && S.train.back > now()); return b.kind === 'hq' || b.kind === 'house' || b.kind === 'mine' || b.kind === 'orders' || b.kind === 'storage'; };
 let smokeT = 0;
 // position de la cheminée sur l'image du bâtiment (mesurée sur les rendus)
 // sommet de chaque cheminée, mesuré sur les images (type → [apparence 1, 2, 3], null = pas de cheminée)
