@@ -1433,6 +1433,25 @@ body.cine #hud2,body.cine #sideR,body.cine #sideL2,body.cine #tabbar,body.cine #
 #diag{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 60px);z-index:999;background:rgba(10,12,30,.94);color:#cfe;border-radius:12px;padding:10px;font:11px/1.35 ui-monospace,Menlo,monospace}
 #diag pre{margin:0 0 8px;white-space:pre-wrap;word-break:break-all;max-height:60vh;overflow:auto}
 .restorebox{background:linear-gradient(180deg,#fff3c4,#ffe08a);border:2px solid #d9a521;border-radius:14px;padding:12px 14px;margin-bottom:14px}.restorebox b{display:block;color:#6b3f1e;font-size:15px}.restorebox small{display:block;color:#7a5a3a;font-size:13px;line-height:1.4;margin:4px 0 2px}
+/* légendes */
+.best{display:flex;flex-direction:column;gap:10px}
+.bst{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:center;background:linear-gradient(180deg,#2a2150,#1c1838);border:2px solid #5a4a9a;border-radius:14px;padding:8px 12px 8px 6px;color:#fff}
+.bst img{width:76px;height:76px;object-fit:contain}.bst b{display:block;font-size:15px;color:#ffd34a}.bst small{display:block;font-size:13px;line-height:1.4;color:#d8d2f0}
+.bst.lock{background:#e9dfc8;border-color:#d4c4a0;color:#8a7a5a}.bst.lock span{display:grid;place-items:center;width:76px;height:76px;font:400 34px var(--display);color:#b9a888}.bst.lock b{color:#8a7a5a}.bst.lock small{color:#9a8a6a}
+.mis.lore small{line-height:1.45}.mis.lore.lock{opacity:.6}
+.replays{display:flex;flex-direction:column;gap:8px}.replays .btn{text-align:left;white-space:normal}
+/* défense du village */
+.mg-def .mg-pill.wide{min-width:0;flex:1;max-width:220px}
+.d-hp{display:block;width:100%;height:12px;margin:3px 0 2px;border-radius:6px;background:#3a2a1e;overflow:hidden;border:2px solid var(--ink)}
+.d-hp i{display:block;height:100%;background:linear-gradient(180deg,#7ee07e,#2f9e44);transition:width .25s}.d-hp.low i{background:linear-gradient(180deg,#ff8a8a,#d02030)}
+.d-pow{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;justify-content:center;gap:14px;pointer-events:none}
+.d-pow button{position:relative;pointer-events:auto;width:72px;height:72px;border-radius:50%;border:3px solid var(--ink);background:#2a3560;color:#fff;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;font:inherit;opacity:.75}
+.d-pow button i{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,#7fd0ff,#2a7de1);z-index:0;transition:height .2s}
+.d-pow .pi,.d-pow small{position:relative;z-index:1}.d-pow .pi{font-size:26px;line-height:1}.d-pow small{font:400 10px var(--display);text-shadow:0 1px 2px #000}
+.d-pow button.ready{opacity:1;animation:vping .5s infinite alternate;box-shadow:0 0 0 3px #ffd34a,0 0 18px #ffd34a}
+.accform{display:flex;flex-direction:column;gap:8px;margin:8px 0}.accform input{font:600 16px Fredoka,system-ui;padding:11px 12px;border-radius:12px;border:2px solid #e3cfa8;background:#fffaf0;color:#5a3a1e}
+.btn.gbtn{background:#fff!important;color:#3c4043!important;border:2px solid #dadce0!important;display:flex;align-items:center;justify-content:center;gap:10px;text-shadow:none!important;-webkit-text-stroke:0!important;font-family:Fredoka,system-ui!important}
+.gbtn .g{font:700 20px Arial,sans-serif;background:conic-gradient(from -45deg,#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0);-webkit-background-clip:text;background-clip:text;color:transparent}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">
@@ -1499,4 +1518,4 @@ window.addEventListener('unhandledrejection', e => { const l = document.getEleme
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="js/v2/main.js?v=62"></script>
+<script type="module" src="js/v2/main.js?v=63"></script>

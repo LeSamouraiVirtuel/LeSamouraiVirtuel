@@ -266,5 +266,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Toute erreur de dessin est enregistrée et affichée dans Profil → Réglages (« Dernier souci d'affichage »).
 - Tailles vérifiées image par image : iPhone 5/SE 1 (320×568), iPhone 8, iPhone 12 mini, iPhone 15 Pro Max, Android 360×640, Pixel 7, iPad mini. Aucun débordement mesuré ; cinématique, tutoriel, fiche et boutique lisibles partout. Compatibilité iOS 15+ (roundRect, Array.at, import maps).
 
+## Tour 50 — Méchants, lore, Défense du village, comptes
+- Méchants redessinés (canevas, dégradés, ombres) : Krampus des Glaces (cornes de givre, lanterne bleue), Baron Glaçon, Grognard chef des trolls, 6 types de trolls.
+- Lore : l'Étoile du Nord forgée par le premier Père Noël ; le Krampus, ancien Gardien de l'Hiver, en a volé des éclats (les cristaux de la Grotte) ; la Citadelle de Glace ; Flocon, renne né de la lumière. 18 chapitres avec cinématiques dialoguées ; panneau « Légendes du Grand Nord » (bestiaire, légendes, revoir les cinématiques).
+- Nouvelle bataille « Défense du village » : trolls sur 3 chemins en perspective vers la palissade, types (coureur, bouclier, lanceur dont on pare les tirs, yéti), chef ou Krampus en boss (téléportation, pluie d'éclats), pouvoirs Avalanche, Grand Gel, charge de Flocon ; étoiles selon l'état de la palissade.
+- Comptes : module prêt (Google, e-mail, mot de passe oublié, relier Google et e-mail, sauvegarde en ligne toutes les minutes et au départ, reprise du village le plus avancé). Attend la configuration Firebase du propriétaire.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
