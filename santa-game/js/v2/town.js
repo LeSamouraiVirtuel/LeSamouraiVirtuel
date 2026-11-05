@@ -669,3 +669,36 @@ export function jobCollect(s, o, now = Date.now()){
   if (Math.random() < j.bonus[0]){ const b = j.bonus[1]; r[b] = (r[b] || 0) + (b === 'ice' ? 3 + Math.floor(o.lv / 2) : b === 'gold' ? 1 + Math.floor(o.lv / 8) : 1); }
   delete o.job; return r;
 }
+
+/* ===================== VISITEURS DU VILLAGE (Township) ===================== */
+// Un personnage arrive toutes les 12 à 25 min, demande quelque chose et propose une récompense. On accepte ou on refuse.
+export const VISITORS = [
+  {who: 'Mère Noël', say: 'Il me faudrait de quoi préparer le goûter des lutins…'},
+  {who: 'Le bonhomme de neige', say: 'Brrr ! Tu aurais quelque chose pour mon igloo ?'},
+  {who: 'Rodolphe', say: 'Mon nez brille, mais mon ventre crie famine !'},
+  {who: 'Un ourson polaire', say: 'Je collectionne les jolies choses du village.'},
+  {who: 'Le facteur des neiges', say: 'Un enfant a écrit en urgence, peux-tu m’aider ?'},
+  {who: 'La fée des glaces', say: 'Un échange ? Je paie toujours en magie.'},
+];
+export function visitorTick(s, now = Date.now()){
+  if (s.visitor && s.visitor.until > now) return s.visitor;
+  if (s.visitor && s.visitor.until <= now) s.visitor = null;
+  s.visitNext ||= now + 3 * 60e3;
+  if (now < s.visitNext || s.lvl < 3) return null;
+  const pick = a => a[Math.floor(Math.random() * a.length)], v = pick(VISITORS), L = s.lvl;
+  const toys = toysAvailable(s).filter(k => (s.inv[k] || 0) > 0);
+  let want;
+  if (toys.length && Math.random() < .5){ const k = pick(toys); want = {[k]: 1 + Math.floor(Math.random() * Math.min(3, s.inv[k]))}; }
+  else { const k = pick(['wood', 'cookies', 'fabric'].filter(k => k !== 'fabric' || s.objs.some(o => o.type === 'mill'))); want = {[k]: R5((80 + L * 40) * (.8 + Math.random() * .6))}; }
+  const value = Object.entries(want).reduce((a, [k, n]) => a + (TOYS[k] ? TOYS[k].value * n : n * .9), 0);
+  const give = {coins: R5(value * 1.6), xp: Math.round(6 + value / 25)};
+  const r = Math.random(); if (r < .12) give.stars = 1; else if (r < .35 && L >= 5) give.ice = 2 + Math.floor(L / 4); else if (r < .5) give[Math.random() < .5 ? 'axe' : 'saw'] = 1;
+  s.visitor = {...v, want, give, until: now + 20 * 60e3};
+  s.visitNext = now + (12 + Math.random() * 13) * 60e3;
+  return s.visitor;
+}
+export function visitorAnswer(s, yes){
+  const v = s.visitor; if (!v) return null;
+  if (yes){ if (!has(s, v.want)) return 'missing'; take(s, v.want); }
+  s.visitor = null; return yes ? v.give : {};
+}
