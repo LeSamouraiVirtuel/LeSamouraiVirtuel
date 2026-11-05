@@ -226,5 +226,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Toucher la tâche emmène au bon écran (Salle des ventes, Musée, Bibliothèque, Gare, Flocon, pêche, Campagne).
 - Testé sur iPhone 13 et SE (passage au chapitre 15, fenêtre d'histoire, carte de tâche), tutoriel et simulateur OK.
 
+## Tour 44 — Sauvegarde transférable
+- Profil → Sauvegarde : « Copier mon code » (village compressé en un code) ou « Enregistrer un fichier » ; sur l'autre appareil, coller le code ou ouvrir le fichier.
+- Corrigé : avant de recharger la page, l'ancien village se ré-enregistrait par-dessus celui qu'on venait de charger (même souci pour « Recommencer à zéro »).
+- Testé : code copié sur un iPhone, collé dans un autre navigateur, village retrouvé (niveau 17, 77 777 pièces). Tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
