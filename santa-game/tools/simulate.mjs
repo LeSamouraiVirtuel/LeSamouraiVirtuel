@@ -10,7 +10,8 @@ const spot = (() => { let i = 0; return () => { i++; return {x: 2 + (i % 8) * 4,
 const DAYS = +process.argv[2] || 30, sessions = [[0, 25 * 60], [4 * 3600, 10 * 60], [9 * 3600, 10 * 60]];
 for (let d = 1; d < DAYS; d++) for (const h of [8, 13, 20]) sessions.push([d * 86400 + (h - 10) * 3600, 10 * 60]);
 const inSession = t => sessions.some(([a, l]) => t >= a && t < a + l);
-const seen = {};
+const fmtT = t => t < 3600 ? Math.round(t / 60) + ' min' : t < 86400 ? (t / 3600).toFixed(1) + ' h' : 'J' + (t / 86400).toFixed(1);
+const seen = {}, rar = [0, 0, 0, 0], block = {}; let starsWon = 0;
 for (let t = 0; t <= DAYS * 86400; t += 30){
   if (!inSession(t)) continue;
   now = Date.UTC(2026, 10, 10, 10) + t * 1000;
@@ -31,25 +32,42 @@ for (let t = 0; t <= DAYS * 86400; t += 30){
   const ws = s.objs.find(o => o.type === 'workshop' && !o.build);
   if (ws){ ws.q ||= []; for (const j of ws.q.filter(j => j.end <= now)){ T.give(s, j.item); T.addXp(s, T.TOYS[j.item].xp); T.track(s, 'make:' + j.item); } ws.q = ws.q.filter(j => j.end > now);
     for (const od of s.orders) for (const [k, q] of Object.entries(od.items || {})){ const have = (s.inv[k] || 0) + ws.q.filter(j => j.item === k).length; if (have < q && ws.q.length < T.craftSlots(ws.lv) && T.has(s, T.TOYS[k].cost)){ T.take(s, T.TOYS[k].cost); const st = Math.max(now, ws.q.length ? ws.q[ws.q.length - 1].end : 0); ws.q.push({item: k, end: st + T.TOYS[k].time / T.craftSpeed(ws.lv) * 1000}); acted = true; } } }
+  // grotte : on creuse toutes les pioches, on descend dès qu'on trouve l'escalier
+  { const st = T.mineState(s, now); if (st){ let g = 0; while (s.mine.picks > 0 && g++ < 60){ const i = s.mine.cells.findIndex(c => !c.open); if (i < 0 || s.mine.stairs){ T.mineDown(s); continue; } const r = T.mineDig(s, i, now); T.track(s, 'dig'); if (r.k === 'stairs') T.track(s, 'floor'); for (const [k, n] of Object.entries(r.r || {})) if (k !== 'picks' && k !== 'parcel') T.give(s, k, T.RES.includes(k) && k !== 'coins' ? Math.min(n, Math.max(0, T.cap(s, k) - s[k])) : n); } } }
+  // expéditions : on rentre les rennes et on repart vers la meilleure destination possible
+  T.expCollect(s, now);
+  for (const d of [...T.EXP_DEST].reverse()) while (!T.expStart(s, d.k, now)) T.track(s, 'exp');
+  while ((s.parcels || []).length){ const r = s.parcels.shift(); rar[r]++; T.track(s, 'parcel'); for (const [k, n] of Object.entries(T.parcelReward(s, r))){ if (k === 'stars') starsWon += n; T.give(s, k, T.RES.includes(k) && k !== 'coins' ? Math.min(n, Math.max(0, T.cap(s, k) - s[k])) : n); } }
+  // ce qui bloque la prochaine amélioration de la Maison
+  { const h = s.objs.find(o => o.type === 'santa'); if (h && !h.up && h.lv < T.BUILDINGS.santa.max){ const c = T.upCost('santa', h.lv + 1), lack = Object.keys(c).filter(k => !T.has(s, {[k]: c[k]})); for (const k of lack) block[k] = (block[k] || 0) + 30; if (!lack.length && T.busyBuilders(s, now) >= T.builders(s)) block.builders = (block.builders || 0) + 30; } }
   // constructions et améliorations (la Maison d'abord quand c'est possible)
   const opts = [];
   for (const type of Object.keys(T.BUILDINGS)){ const b = T.BUILDINGS[type]; if (b.kind === 'path' || b.kind === 'deco') continue; if (!T.buildBlock(s, type)) opts.push(['build', type]); }
   for (const o of s.objs) if (T.isUpgradable(B(o)) && !o.wild && !T.upBlock(s, o)) opts.push(['up', o]);
-  opts.sort((a, b) => (a[0] === 'up' && a[1].type === 'santa' ? -1 : 0) - (b[0] === 'up' && b[1].type === 'santa' ? -1 : 0));
+  const prio = ([k, x]) => k === 'up' && x.type === 'santa' ? -100 : k === 'build' ? -50 : (x.lv || 0) + (['mine', 'stable', 'workshop', 'orders'].includes(x.type) ? -3 : 0);
+  opts.sort((a, b) => prio(a) - prio(b));
   for (const [kind, x] of opts.slice(0, 2)){
     if (kind === 'build' && !T.buildBlock(s, x)){ T.take(s, T.upCost(x, 1)); const p = spot(); const o = {id: 'x' + t + x, type: x, x: p.x, y: p.y, lv: 1, t: now}; const ms = T.upTime(x, 1) * 1000; if (ms){ o.build = now + ms; } if (T.BUILDINGS[x].kind === 'craft') o.q = []; s.objs.push(o); acted = true; }
     if (kind === 'up' && !T.upBlock(s, x)){ T.take(s, T.upCost(x.type, x.lv + 1)); x.up = now + T.upTime(x.type, x.lv + 1) * 1000; x.upTo = x.lv + 1; acted = true; }
   }
   // décorations quand on a des pièces en trop
   if (s.coins > 2000 && !T.buildBlock(s, 'tree')){ T.take(s, T.upCost('tree', 1)); const p = spot(); s.objs.push({id: 'd' + t, type: 'tree', x: p.x, y: p.y}); }
+  // un bâtisseur de plus dès qu'on a économisé assez d'étoiles
+  { const n = s.extraBuilders || 0; if (n < T.BUILDER_PRICE.length && s.stars >= T.BUILDER_PRICE[n]){ s.stars -= T.BUILDER_PRICE[n]; s.extraBuilders = n + 1; log.push('bâtisseur ' + (n + 3) + ' : ' + fmtT(t)); } }
+  // le surplus part dans les illuminations
+  while (!T.lightsUp(s)){ T.addXp(s, 2); T.track(s, 'lights'); }
   // tâches
   for (let k = 0; k < 3; k++){ const r = T.questClaim(s); if (!r) break; for (const [rk, rn] of Object.entries(r)){ if (rk === 'xp') T.addXp(s, rn); else T.give(s, rk, rn); } }
   if (!acted) idle += 30;
   if (s.lvl !== lastLvl){ if (!seen[s.lvl]) seen[s.lvl] = t; } { const h = T.hqLv(s); if (!seen["M" + h]) seen["M" + h] = t; } if (false){ log.push(`${String(Math.floor(t / 60)).padStart(3)} min · niv ${s.lvl} · maison ${T.hqLv(s)} · tâche ${s.quest.i} · pièces ${s.coins} bois ${s.wood} biscuits ${s.cookies} tissu ${s.fabric} · bâtiments ${s.objs.filter(o => !o.free && !o.wild && T.isUpgradable(B(o))).map(o => o.type + o.lv).join(' ')}`); lastLvl = s.lvl; }
 }
-const fmtT = t => t < 3600 ? Math.round(t / 60) + ' min' : t < 86400 ? (t / 3600).toFixed(1) + ' h' : 'J' + (t / 86400).toFixed(1);
+const fmtT0 = t => t < 3600 ? Math.round(t / 60) + ' min' : t < 86400 ? (t / 3600).toFixed(1) + ' h' : 'J' + (t / 86400).toFixed(1);
 console.log(Object.entries(seen).filter(([l]) => [2,3,5,7,10,12,15,20,25,30,40,50,60].includes(+l)).map(([l, t]) => `niv ${l} : ${fmtT(t)}`).join(' | '));
 console.log(Object.entries(seen).filter(([l]) => /^M(10|15|20|25)$/.test(l)).map(([l, t]) => `Maison ${l.slice(1)} : ${fmtT(t)}`).join(" | "));
 console.log('fin : niveau', s.lvl, '· Maison', T.hqLv(s), '· tâche', s.quest.i, '· pièces', s.coins, 'bois', s.wood, 'biscuits', s.cookies, 'tissu', s.fabric);
+console.log('colis (commun/rare/épique/légendaire) :', rar.join(' / '), '· étoiles gagnées dans les colis :', starsWon, '· étoiles en poche :', s.stars, '· cristaux', s.inv.ice || 0, '· lingots', s.inv.gold || 0, '· grotte étage', s.mine?.floor, '· illuminations', s.lights || 0, '· bâtiments', s.objs.filter(o => T.isUpgradable(B(o)) && !o.free).map(o => o.type + o.lv).join(' '));
+console.log('Maison bloquée par (heures de session) :', Object.entries(block).map(([k, v]) => k + ' ' + (v / 3600).toFixed(1)).join(', '));
+console.log(log.join(' | '));
 console.log('minutes en session sans rien à faire :', Math.round(idle / 60), 'sur', sessions.reduce((a, [, l]) => a + l, 0) / 60);
+{ const reasons = {}; for (const o of s.objs) if (T.isUpgradable(B(o)) && !o.free) { const w = T.upBlock(s, o) || 'ok'; reasons[w] = (reasons[w] || 0) + 1; } console.log('blocages des bâtiments :', JSON.stringify(reasons)); }
 Date.now = realNow;

@@ -44,6 +44,15 @@ function theater(t){
   g.add(prop('bench', {x: -.4, z: 1.0, y: .27, s: .6}), prop('bench', {x: .4, z: 1.0, y: .27, s: .6}), prop('lantern', {x: 1.1, z: 1.1, y: .27, s: .55}));
   return g;
 }
+/** Grotte aux cristaux : rochers enneigés, wagonnet, coffre de gemmes ; plus riche à chaque apparence. */
+function cave(t){
+  const g = new THREE.Group(); g.add(scaled(plotBase(t), .78));
+  g.add(prop('rocks-large', {x: -.25, z: -.45, y: .27, s: 1.25}), prop('rocks-large', {x: .75, z: -.6, y: .27, s: .9, ry: 1.2}), prop('rocks-medium', {x: -1.05, z: .1, y: .27, s: .9}));
+  g.add(prop('cart', {x: .55, z: .65, y: .27, s: .7, ry: -.5}), prop('Gems_Chest', {x: -.45, z: .75, y: .27, s: .45, ry: .4}), prop('lantern', {x: 1.1, z: .1, y: .27, s: .55}));
+  if (t >= 2) g.add(prop('Gold_Bars_Stack_Small', {x: .55, z: .65, y: .62, s: .35}), prop('lantern', {x: -1.1, z: .95, y: .27, s: .55}), prop('rocks-small', {x: 1.05, z: 1.05, y: .27, s: .9}));
+  if (t >= 3) g.add(prop('lights-colored', {x: -.2, z: -.1, y: 1.15, s: .8}), prop('Gems_Chest', {x: -1.0, z: -.75, y: .27, s: .4, ry: -.6}), prop('Gold_Bars_Stack_Small', {x: .05, z: 1.05, y: .27, s: .4}));
+  return g;
+}
 /** Modèle d'un bâtiment pour une apparence t (1, 2, 3). */
 function modelFor(type, t = 1){
   const lv = TIER_LV[t], mk = (k, s = .78) => scaled(buildModel(k, lv).group, s);
@@ -58,6 +67,7 @@ function modelFor(type, t = 1){
     case 'stable': return mk('stable');
     case 'orders': { const g = mk('wrap'); g.add(prop(t >= 3 ? 'sled-long' : 'sled', {x: 1.1, z: 1.05, s: .8, ry: .6})); if (t >= 2) g.add(prop('reindeer', {x: 1.25, z: -.2, s: .55, ry: .6})); return g; }
     case 'theater': return theater(t);
+    case 'mine': return cave(t);
     case 'cabin': return t === 1 ? house(1, .985) : t === 2 ? house(2, .33) : (() => { const g = house(2, .6); g.add(prop('tree-decorated-snow', {x: .75, z: .75, s: .35})); return g; })();
     case 'path': return pathTile(1);
     default: return deco(type);

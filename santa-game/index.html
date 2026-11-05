@@ -905,6 +905,61 @@ body.sheet-open #sheet{transform:none!important}
 .door2.open b{color:var(--ink-2);-webkit-text-stroke:0}
 .door2.big{grid-column:span 2;aspect-ratio:auto}
 @media (max-width:380px){.orders{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ===== Grotte aux cristaux ===== */
+.minebar{display:flex;align-items:center;gap:10px;margin:2px 0 10px;flex-wrap:wrap}
+.minebar small{flex:1;color:var(--ink-2,#6b5a48)}
+.picks{display:flex;align-items:center;gap:6px;background:#2b3a55;color:#fff;border-radius:12px;padding:5px 12px 5px 8px;font-family:var(--display);font-size:17px}
+i.pk{display:inline-block;width:24px;height:24px;background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 6c4-4 12-4 16 0-3-1.5-6-2-8-2s-5 .5-8 2z' fill='%23cfd8e3' stroke='%23384a63' stroke-width='1.3'/%3E%3Cpath d='M11 5h2l-1 17h0z' fill='%23a0662a' stroke='%235a3510' stroke-width='1.2'/%3E%3C/svg%3E")}
+.mgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px;border-radius:16px;background:linear-gradient(180deg,#3e5578,#1f2c44);box-shadow:inset 0 3px 8px rgba(0,0,0,.5)}
+.mgrid.f2{background:linear-gradient(180deg,#3d4c86,#1d2350)}.mgrid.f3{background:linear-gradient(180deg,#4b3c86,#24184f)}.mgrid.f4,.mgrid.f5{background:linear-gradient(180deg,#5a2f78,#2a0f40)}
+.mc{aspect-ratio:1;border-radius:10px;border:0;padding:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#f4fbff 0,#cfe3f2 55%,#a9c3da 100%);box-shadow:inset 0 -4px 0 rgba(60,90,130,.35),0 2px 0 rgba(0,0,0,.35);cursor:pointer;transition:transform .08s}
+.mc:active{transform:scale(.92)}
+.mc.open{background:rgba(10,18,34,.55);box-shadow:inset 0 2px 6px rgba(0,0,0,.6);animation:digin .25s ease-out both}
+.mc.open img{width:70%;height:70%;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.mc .stairs{width:70%;height:70%;background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 21h18V5h-5v4h-4v4H8v4H3z' fill='%23ffd34a' stroke='%237a4a05' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.mc .pk{width:60%;height:60%}
+@keyframes digin{0%{transform:scale(1.15);filter:brightness(2)}100%{transform:none}}
+i.pbox{display:block;width:62%;height:62%;border-radius:6px;background:var(--rc);box-shadow:inset 0 -5px 0 rgba(0,0,0,.25),0 0 12px var(--rc);position:relative}
+i.pbox::before{content:"";position:absolute;left:42%;top:0;bottom:0;width:16%;background:#fff8;}
+i.pbox::after{content:"";position:absolute;top:38%;left:0;right:0;height:16%;background:#fff8}
+/* ===== Expéditions ===== */
+.erun{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;background:#fff6e6;border-radius:12px;padding:8px 10px;margin-bottom:6px}
+.erun .work{grid-column:1}.erun .btn{grid-row:1/3;grid-column:2}
+.dests{display:flex;flex-direction:column;gap:8px}
+.dest{background:#fffaf0;border:2px solid #ead7b5;border-radius:14px;padding:10px}
+.dest.locked{opacity:.55}
+.dest .dt{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.dest .dt small{color:#7a6650}
+.odds{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:7px 0 4px;border:1.5px solid #3a2a18}
+.oddl{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;font-weight:800;margin-bottom:6px}
+.dest .acts{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0}
+/* ===== Colis mystère ===== */
+.pbig{width:130px;height:130px;margin:6px auto;position:relative;border-radius:20px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 70%,#fff),var(--rc));box-shadow:0 0 0 4px #fff,0 0 40px var(--rc),inset 0 -12px 0 rgba(0,0,0,.2);animation:pfloat 1.6s ease-in-out infinite}
+.pbig::before{content:"";position:absolute;left:43%;top:0;bottom:0;width:14%;background:#fffd}
+.pbig::after{content:"";position:absolute;top:40%;left:0;right:0;height:14%;background:#fffd}
+.pbig.r3{box-shadow:0 0 0 4px #fff,0 0 70px var(--rc),0 0 120px #ffd34a}
+.pbig.shake{animation:pshake .6s ease-in both}
+@keyframes pfloat{50%{transform:translateY(-6px) rotate(-2deg)}}
+@keyframes pshake{0%,100%{transform:none}20%{transform:rotate(-9deg) scale(1.05)}40%{transform:rotate(9deg) scale(1.1)}60%{transform:rotate(-7deg) scale(1.15)}80%{transform:scale(1.35);filter:brightness(2)}}
+/* ===== Boutique ===== */
+.packs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pack{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px 10px;border-radius:16px;border:2px solid #e2b54a;background:linear-gradient(180deg,#fff7d9,#ffe7a3);cursor:pointer}
+.pack i.i.star{width:44px;height:44px}
+.pack b{font-family:var(--display);font-weight:400;font-size:24px;color:#7a4a05}
+.pack .ptag{position:absolute;top:-9px;right:8px;background:#e5383b;color:#fff;font-size:10.5px;font-weight:900;border-radius:8px;padding:2px 7px}
+.builders{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.bcard{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5}
+.bcard img{width:52px;height:52px;object-fit:contain}
+.bcard.own{border-color:#4cc85a;background:#effbea}
+/* ===== Illuminations ===== */
+.garland{display:flex;justify-content:space-between;padding:12px 6px 18px;margin:4px 0;border-radius:14px;background:linear-gradient(180deg,#1b2440,#2c3a62);position:relative}
+.garland::before{content:"";position:absolute;left:8px;right:8px;top:14px;height:12px;border-bottom:2px solid #2d5a2a;border-radius:0 0 50% 50%}
+.garland i{position:relative;top:12px;width:12px;height:16px;border-radius:50% 50% 45% 45%;background:#4a4f63}
+.garland i.on:nth-child(4n+1){background:#ff4d4d;box-shadow:0 0 10px #ff4d4d}.garland i.on:nth-child(4n+2){background:#ffd34a;box-shadow:0 0 10px #ffd34a}
+.garland i.on:nth-child(4n+3){background:#4cd2ff;box-shadow:0 0 10px #4cd2ff}.garland i.on:nth-child(4n){background:#6cff7a;box-shadow:0 0 10px #6cff7a}
+.rcard.r-ice{background:linear-gradient(160deg,#9fe9ff,#2f8fd6);box-shadow:0 0 0 2px #0c4a75,0 6px 14px rgba(0,0,0,.4)}
+.rcard.r-gold{background:linear-gradient(160deg,#ffe58a,#d69b10);box-shadow:0 0 0 2px #7a4a05,0 6px 14px rgba(0,0,0,.4),0 0 24px rgba(255,220,120,.6)}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>
@@ -922,7 +977,7 @@ body.sheet-open #sheet{transform:none!important}
   </div>
   <div class="row2"><div id="xpbar"><i></i><b>0 / 20</b></div><span class="chipx" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="chipx joy" id="h-joy" title="Bonheur">+0 %</span><span class="title" id="h-title">Lutin apprenti</span></div>
 </div>
-<nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button><button id="b-album" aria-label="Album des jouets"><img id="i-album" alt=""><small>Album</small><span class="badge stroke" hidden>0</span></button><button id="b-advent" aria-label="Calendrier de l'Avent"><img id="i-advent" alt=""><small>Avent</small><span class="badge stroke" hidden>!</span></button></nav>
+<nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button><button id="b-album" aria-label="Album des jouets"><img id="i-album" alt=""><small>Album</small><span class="badge stroke" hidden>0</span></button><button id="b-parcels" aria-label="Colis mystère" hidden><img id="i-parcels" alt=""><small>Colis</small><span class="badge stroke" hidden>0</span></button><button id="b-advent" aria-label="Calendrier de l'Avent"><img id="i-advent" alt=""><small>Avent</small><span class="badge stroke" hidden>!</span></button></nav>
 <nav id="tabbar">
   <button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Lettres</b><span class="badge stroke" hidden>0</span></button>
   <button id="b-barn"><img class="ico" id="i-barn" alt=""><b>Stock</b><small>0</small></button>

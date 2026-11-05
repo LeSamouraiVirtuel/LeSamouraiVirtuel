@@ -25,7 +25,12 @@ export const ITEMS = {
   // outils pour dégager la forêt (lettres, train, mini-jeux, tâches)
   axe:    {name: 'Hache', ic: 'Wood_Log_A', mat: true},
   saw:    {name: 'Scie', ic: 'Wood_Planks_Stack_Small', mat: true},
+  // matériaux rares, sans plafond : ils se farment à la Grotte aux cristaux et avec les expéditions des rennes,
+  // et les gros niveaux de bâtiment les exigent (comme l'élixir noir de Clash of Clans ou les minerais de DoA)
+  ice:    {name: 'Cristal de glace', ic: 'Gems_Chest', mat: true, rare: true},
+  gold:   {name: "Lingot d'or polaire", ic: 'Gold_Bars_Stack_Small', mat: true, rare: true},
 };
+export const RARE = ['ice', 'gold'];
 export const RES = ['coins', 'wood', 'cookies', 'fabric'];
 
 // jouets : coût, temps de fabrication (s), XP, valeur, niveau joueur requis
@@ -64,6 +69,8 @@ export const BUILDINGS = {
              desc: 'Les enfants y déposent leurs commandes de jouets. Livre-les pour gagner pièces, XP et étoiles.'},
   stable:   {name: 'Écurie des rennes', kind: 'stable', w: 3, h: 3, unique: true, cost: {coins: 400, wood: 350, cookies: 120}, time: 40, hq: 4,
              desc: 'Les rennes s’entraînent pour la Tournée de Noël (mini-jeu).'},
+  mine:     {name: 'Grotte aux cristaux', kind: 'mine', w: 3, h: 3, unique: true, cost: {coins: 900, wood: 700, cookies: 250}, time: 60, hq: 5,
+             desc: 'Creuse la glace étage par étage : cristaux, lingots et colis perdus t’attendent. Plus on descend, plus c’est riche.'},
   theater:  {name: 'Théâtre de marionnettes', kind: 'fun', w: 3, h: 3, unique: true, cost: {coins: 600, wood: 400, fabric: 100}, time: 60, hq: 5,
              desc: 'Des spectacles pour les lutins : le bonheur augmente toute la production.'},
   tree:     {name: 'Sapin décoré', kind: 'deco', w: 1, h: 1, cost: {coins: 40}, joy: 2, hq: 1, desc: '+2 bonheur'},
@@ -81,7 +88,7 @@ export const isUpgradable = b => !['deco', 'path'].includes(b.kind);
 
 /* ---------- chiffres par niveau (tout ce que l'amélioration change) ---------- */
 const R5 = n => n < 100 ? Math.round(n) : Math.round(n / 5) * 5;
-export const rate = (type, lv) => R5(BUILDINGS[type].rate * Math.pow(1.35, lv - 1));        // par heure
+export const rate = (type, lv) => R5(BUILDINGS[type].rate * Math.pow(1.25, lv - 1));        // par heure
 export const buffer = (type, lv) => R5(rate(type, lv) * (lv < 3 ? .5 : lv < 6 ? 2 : lv < 9 ? 6 : 12));   // stock interne : 30 min → 2 h → 6 h → une nuit
 export const workers = (type, lv) => BUILDINGS[type].kind === 'prod' ? 2 * lv : 0;
 export const housing = lv => 6 + 4 * (lv - 1);                                             // lutins par chalet
@@ -96,9 +103,12 @@ export const gameBonus = lv => 1 + .25 * (lv - 1);
 export const theaterJoy = lv => 8 * lv;
 export function upCost(type, lv){        // coût pour passer au niveau lv (lv = 1 : construction)
   const b = BUILDINGS[type], c = {}, m = Math.pow(1.6, Math.min(lv, 15) - 1) * Math.pow(1.28, Math.max(0, lv - 15));   // au-delà de 15 : +28 %/niveau
-  for (const [k, v] of Object.entries(b.cost)) c[k] = R5(v * m);
+  for (const [k, v] of Object.entries(b.cost)) c[k] = R5(v * m * (k === 'coins' && isUpgradable(b) ? 1 + Math.pow(lv / 6, 2) : 1));   // les pièces deviennent le nerf des gros chantiers
   if (b.kind === 'hq' && lv >= 2) c.cookies = R5(70 * m / 1.6);
   if (isUpgradable(b) && lv >= 3 && !c.cookies) c.cookies = R5((b.cost.wood || 50) * .4 * m);   // les gros chantiers nourrissent les lutins
+  const big = b.kind === 'hq' ? 3 : 1;
+  if (isUpgradable(b) && lv >= 6) c.ice = Math.round(big * 4 * Math.pow(1.38, lv - 6));        // niv. 6+ : cristaux de glace
+  if (isUpgradable(b) && lv >= 11) c.gold = Math.round(big * 2 * Math.pow(1.38, lv - 11));     // niv. 11+ : lingots d'or polaire
   return c;
 }
 // Durée des chantiers : secondes → minutes → heures → jours, comme l'Hôtel de ville de Clash of Clans ou la Forteresse de DoA.
@@ -109,12 +119,15 @@ export function upTime(type, lv){
   const b = BUILDINGS[type];
   if (b.kind === 'hq') return lv <= 1 ? 0 : HQ_TIME[Math.min(lv, HQ_TIME.length - 1)];
   if (!b.time) return 0;
-  const t = lv <= 1 ? b.time : Math.max(b.time, HQ_TIME[Math.min(lv, HQ_TIME.length - 1)] * .45);
+  const t = lv <= 1 ? b.time : Math.max(b.time, HQ_TIME[Math.min(lv, HQ_TIME.length - 1)] * (b.kind === 'house' || b.kind === 'storage' ? .12 : .25));   // les petits bâtiments vont plus vite
   return Math.round(Math.min(3 * D, t));
 }
 export const buildXp = lv => Math.round(6 * Math.pow(lv, 1.4));
 export const freeFinish = 3 * 60 * 1000;     // moins de 3 min restantes : « Terminer » est gratuit (comme DoA / Clash)
-export const BUILDERS = 2;                   // équipes de lutins bâtisseurs (chantiers en même temps)
+export const BUILDERS = 2;                   // équipes de lutins bâtisseurs au départ (chantiers en même temps)
+// Bâtisseurs en plus, comme les cabanes d'ouvriers de Clash of Clans : ils s'achètent en étoiles d'or.
+export const BUILDER_PRICE = [250, 500, 1000];
+export const builders = s => BUILDERS + (s.extraBuilders || 0);
 
 /** Ce que chaque niveau donne, sous forme de lignes affichables {label, now, next}. */
 export function stats(s, o, lv = o.lv){
@@ -125,8 +138,9 @@ export function stats(s, o, lv = o.lv){
     case 'storage': return [L('Stock en plus (bois, biscuits, tissu)', l => '+' + fmtN(storageAdd(l)))];
     case 'craft': return [L('Places dans la file', craftSlots), L('Vitesse des lutins', l => '×' + craftSpeed(l).toFixed(2))];
     case 'orders': return [L('Lettres en même temps', orderSlots), L('Récompenses', l => '+' + Math.round((orderBonus(l) - 1) * 100) + ' %')];
-    case 'stable': return [L('Tickets de jeu', ticketsMax), L('Gains de la Tournée', l => '×' + gameBonus(l).toFixed(2))];
+    case 'stable': return [L('Expéditions en même temps', expSlots), L('Destinations', l => EXP_DEST.filter(d => d.lv <= l).length), L('Tickets de jeu', ticketsMax)];
     case 'fun': return [L('Bonheur', l => '+' + theaterJoy(l))];
+    case 'mine': return [L('Pioches au maximum', minePicks), L('Une pioche toutes les', l => minePickMin(l) + ' min'), L('Trouvailles', l => '+' + Math.round((mineMult(l) - 1) * 100) + ' %')];
     case 'hq': return [L('Niveau max des bâtiments', l => l + 1), L('Stock de base', l => fmtN(hqStock(l))), L('Bâtiments débloqués', l => unlockCount(l))];
   }
   return [];
@@ -140,7 +154,7 @@ export const unlocksAtHq = L => Object.values(BUILDINGS).filter(b => b.hq === L 
 // rafale au début (niv. 2 en ~1 min, niv. 5 en ~10 min), niv. 10 en fin de jour 1, 20 en une semaine, 30 en ~3 semaines,
 // 60 en ~5 mois. Le temps par niveau est multiplié par ~1 000 entre le niveau 2 et le niveau 60.
 const XP_START = [10, 25, 45, 75, 120, 180, 260];
-export const xpNeed = L => L <= XP_START.length ? XP_START[L - 1] : Math.round(2.2 * Math.pow(L, 2.5) * Math.pow(Math.max(1, L / 40), 1.2) / 50) * 50;   // au-delà de 40 : encore plus long
+export const xpNeed = L => L <= XP_START.length ? XP_START[L - 1] : Math.round(2.2 * Math.pow(L, 2.5) * Math.pow(Math.max(1, L / 18), 1.1) / 50) * 50;   // au-delà de 18 : de plus en plus long
 export const unlocksAt = L => Object.entries(TOYS).filter(([k, t]) => t.lvl === L && L > 1).map(([k]) => ITEMS[k].name);
 // Coffres de la barre d'XP : à partir du niveau 8, les niveaux deviennent longs ; chaque tiers de barre franchi
 // donne un petit coffre (objectif à court terme, comme les coffres de la barre de niveau des jeux de référence).
@@ -170,7 +184,7 @@ const overlap = (s, type, x, y) => { const b = BUILDINGS[type]; return s.objs.so
 export function newTown(){
   const t = Date.now();
   const s = {
-    v: 5, coins: 200, wood: 120, cookies: 0, fabric: 0, stars: 15, xp: 0, lvl: 1,
+    v: 5, coins: 200, wood: 120, cookies: 0, fabric: 0, stars: 20, xp: 0, lvl: 1,
     inv: {}, objs: [], chunks: [...START_CHUNKS], orders: [], tuto: 0, t,
     cnt: {}, quest: {i: 0, base: {}}, daily: {last: '', streak: 0}, games: null, decorated: 1,
   };
@@ -228,7 +242,7 @@ export const employed = s => s.objs.reduce((a, o) => a + (built(o) ? workers(o.t
 export const workRatio = s => { const e = employed(s); return e ? Math.min(1, lutins(s) / e) : 1; };
 export const joy = s => s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'deco' && !o.wild && !o.free ? BUILDINGS[o.type].joy || 0 : BUILDINGS[o.type].kind === 'fun' && built(o) ? theaterJoy(o.lv) : 0), 0);
 export const joyBonus = s => joy(s) / 100;              // +1 % de production par point de bonheur
-export const prodMult = s => workRatio(s) * (1 + joyBonus(s));
+export const prodMult = s => workRatio(s) * (1 + joyBonus(s) + lightsBonus(s));
 export const cap = (s, r) => r === 'coins' ? Infinity : hqStock(hqLv(s)) + s.objs.reduce((a, o) => a + (o.type === 'storage' && built(o) ? storageAdd(o.lv) : 0), 0);
 /** Ce qu'un bâtiment de production a accumulé (plafonné à son stock interne). */
 export function stored(s, o, now = Date.now()){
@@ -247,9 +261,9 @@ export function collect(s, o, now = Date.now()){
 export const maxOf = (s, type) => {
   const b = BUILDINGS[type], H = hqLv(s);
   if (b.unique || b.kind === 'hq') return 1;
-  if (b.kind === 'house') return 2 + H;
-  if (b.kind === 'prod') return 1 + Math.floor(H / 4);
-  if (b.kind === 'storage') return 1 + Math.floor(H / 5);
+  if (b.kind === 'house') return Math.min(12, 2 + Math.floor(H / 2));
+  if (b.kind === 'prod') return Math.min(4, 1 + Math.floor(H / 5));
+  if (b.kind === 'storage') return Math.min(4, 1 + Math.floor(H / 6));
   if (b.kind === 'path') return Infinity;
   return 99;
 };
@@ -261,7 +275,7 @@ export function buildBlock(s, type){
   const b = BUILDINGS[type];
   if ((b.hq || 1) > hqLv(s)) return `Maison du Père Noël niv. ${b.hq}`;
   if (countOf(s, type) >= maxOf(s, type)) return b.unique ? 'Déjà construit' : 'Maximum atteint : améliore la Maison du Père Noël';
-  if (isUpgradable(b) && busyBuilders(s) >= BUILDERS) return 'Tous les bâtisseurs sont occupés';
+  if (isUpgradable(b) && busyBuilders(s) >= builders(s)) return 'Tous les bâtisseurs sont occupés';
   if (!has(s, upCost(type, 1))) return 'Ressources insuffisantes';
   return null;
 }
@@ -270,7 +284,7 @@ export function upBlock(s, o){
   if (o.build || o.up) return 'Déjà en travaux';
   if (b.kind === 'hq'){ if (o.lv >= b.max) return 'Niveau maximum'; }
   else if (o.lv >= maxLv(s)) return `Améliore d'abord la Maison du Père Noël (niv. ${o.lv})`;
-  if (busyBuilders(s) >= BUILDERS) return 'Tous les bâtisseurs sont occupés';
+  if (busyBuilders(s) >= builders(s)) return 'Tous les bâtisseurs sont occupés';
   if (!has(s, upCost(o.type, o.lv + 1))) return 'Ressources insuffisantes';
   return null;
 }
@@ -283,9 +297,9 @@ export function makeOrder(s, bureauLv = 1){
   for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
   const value = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].value * q, 0), xp = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].xp * q, 0);
   const m = orderBonus(bureauLv);
-  const o = {kid: KIDS[Math.floor(Math.random() * KIDS.length)], items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .17))};
+  const o = {kid: KIDS[Math.floor(Math.random() * KIDS.length)], items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
   const r = Math.random();
-  if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .32) o.stars = 1;
+  if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .23) o.stars = 1;   // étoiles d'or : rares
   return o;
 }
 
@@ -315,8 +329,14 @@ export const QUESTS = [
   {t: 'Dégage un nouveau terrain', k: 'expand', n: 1, r: {coins: 500, stars: 5, xp: 40}},
   {t: 'Améliore la Maison du Père Noël au niveau 5', k: 'level:santa', n: 5, r: {coins: 600, stars: 4, xp: 40}},
   {t: 'Construis le Théâtre de marionnettes', k: 'have:theater', n: 1, r: {coins: 500, xp: 35}},
+  {t: 'Construis la Grotte aux cristaux', k: 'have:mine', n: 1, r: {coins: 600, xp: 40}},
+  {t: 'Creuse 10 cases dans la grotte', k: 'dig', n: 10, r: {ice: 8, xp: 30}},
+  {t: 'Envoie les rennes en expédition', k: 'exp', n: 1, r: {cookies: 300, xp: 30}},
+  {t: 'Ouvre 3 colis mystère', k: 'parcel', n: 3, r: {coins: 800, stars: 2, xp: 40}},
+  {t: 'Allume les illuminations du village', k: 'lights', n: 1, r: {coins: 1000, xp: 40}},
+  {t: "Descends à l'étage 5 de la grotte", k: 'floor', n: 4, r: {ice: 20, xp: 50}},
 ];
-const GEN = [['orders', 'Livre %n lettres', 5], ['make', 'Fabrique %n jouets', 6], ['collect:wood', 'Récolte %n bois', 1500], ['collect:cookies', 'Récolte %n biscuits', 1000]];
+const GEN = [['orders', 'Livre %n lettres', 5], ['dig', 'Creuse %n cases à la grotte', 15], ['make', 'Fabrique %n jouets', 6], ['exp', 'Envoie %n expéditions', 2], ['collect:wood', 'Récolte %n bois', 1500], ['parcel', 'Ouvre %n colis', 3], ['collect:cookies', 'Récolte %n biscuits', 1000]];
 export function questAt(s, i){
   if (i < QUESTS.length) return QUESTS[i];
   const j = i - QUESTS.length, g = GEN[j % GEN.length], n = Math.round(g[2] * (1 + Math.floor(j / GEN.length) * .5));
@@ -330,6 +350,7 @@ function questValue(s, q, i){
   const [kind, what] = q.k.split(':');
   if (kind === 'lvl') return s.lvl;
   if (kind === 'joy') return joy(s);
+  if (kind === 'lights') return lightsLv(s);
   if (kind === 'level') return Math.max(0, ...s.objs.filter(o => o.type === what && built(o)).map(o => o.lv || 0));
   if (kind === 'have') return s.objs.filter(o => o.type === what && built(o) && !o.free).length + (what === 'cabin' ? s.objs.filter(o => o.type === 'cabin' && o.free).length : 0);
   if (kind === 'expand') return s.chunks.length - START_CHUNKS.length;
@@ -382,6 +403,7 @@ export const LOTS = [
   {type: 'mill', x: 28, y: 13},
   {type: 'stable', x: 20, y: 12},
   {type: 'theater', x: 26, y: 26},
+  {type: 'mine', x: 12, y: 12},
 ];
 export const lotsShown = s => LOTS.filter(l => !s.objs.some(o => o.type === l.type));
 
@@ -393,6 +415,7 @@ export const CHAPTERS = [
   {from: 12, title: 'Les fils de laine', story: "Les enfants veulent des peluches. La Filature va changer la vie du village."},
   {from: 16, title: 'Les rennes du Nord', story: "Il est temps de préparer la Tournée : l'Écurie des rennes ouvre ses portes."},
   {from: 20, title: 'La fête au village', story: "Un théâtre de marionnettes, et tout le Pôle Nord vient voir ton village !"},
+  {from: 22, title: 'Les trésors du Grand Nord', story: "Sous la neige dorment des cristaux et des lingots d'or polaire. Creuse la grotte, envoie les rennes au loin : les grands chantiers en auront besoin."},
 ];
 export const chapterOf = i => { let c = 0; for (let k = 0; k < CHAPTERS.length; k++) if (i >= CHAPTERS[k].from) c = k; return i >= QUESTS.length ? CHAPTERS.length : c; };
 
@@ -436,3 +459,155 @@ export const zoneName = (cx, cy) => ZONE_NAMES[`${cx},${cy}`] || 'Terre inconnue
 
 // XP d'une récolte : fixe selon le niveau du bâtiment (sinon l'XP suivrait la production, qui grandit de façon exponentielle)
 export const collectXp = o => 1 + Math.floor((o.lv || 1) / 2);
+
+
+/* ===================== ÉTOILES D'OR (monnaie rare) ===================== */
+// Accélérer coûte comme les gemmes de Clash of Clans : 1 min = 1, 1 h = 20, 1 jour = 260, 1 semaine = 1 000.
+// Les étoiles se gagnent au compte-gouttes (niveaux, tâches, album, coffres légendaires, calendrier) ou s'achètent.
+const SPEED_PTS = [[60, 1], [3600, 20], [86400, 260], [604800, 1000]];
+export function speedStars(ms){
+  const sec = ms / 1000; if (ms <= freeFinish) return 0;
+  let v = SPEED_PTS[SPEED_PTS.length - 1][1] * sec / SPEED_PTS[SPEED_PTS.length - 1][0];
+  for (let i = 1; i < SPEED_PTS.length; i++){ const [a, x] = SPEED_PTS[i - 1], [b, y] = SPEED_PTS[i]; if (sec <= b){ v = x + (y - x) * (sec - a) / (b - a); break; } }
+  return Math.max(1, Math.ceil(v));
+}
+// Boutique : les paquets d'étoiles (le paiement sera branché avec la version App Store)
+export const SHOP = [
+  {k: 'p1', stars: 80, price: '1,99 €'},
+  {k: 'p2', stars: 500, price: '9,99 €', tag: 'Populaire'},
+  {k: 'p3', stars: 1200, price: '19,99 €'},
+  {k: 'p4', stars: 2500, price: '39,99 €'},
+  {k: 'p5', stars: 6500, price: '99,99 €', tag: 'Meilleure offre'},
+];
+// Ce que les étoiles achètent en dehors des chantiers
+export const PICK_REFILL = 6;              // remplir les pioches de la grotte
+export const missingStars = (s, req) => {  // acheter les ressources qui manquent (comme Clash of Clans)
+  let n = 0;
+  for (const [k, q] of Object.entries(req)){
+    const lack = Math.max(0, q - (RES.includes(k) ? s[k] || 0 : s.inv[k] || 0)); if (!lack) continue;
+    n += k === 'gold' ? lack * 6 : k === 'ice' ? lack * 1.5 : k === 'stars' ? Infinity : k === 'axe' || k === 'saw' ? lack * 15 : Math.pow(lack, .7) / 4;
+  }
+  return Math.ceil(n);
+};
+
+/* ===================== COLIS MYSTÈRE (raretés de Bid Master : commun, rare, épique, légendaire) ===================== */
+export const RARITY = [
+  {name: 'Commun', c: '#8fa3b8'},
+  {name: 'Rare', c: '#3b8cff'},
+  {name: 'Épique', c: '#a347ff'},
+  {name: 'Légendaire', c: '#ff8a1c'},
+];
+export const rollRarity = odds => { let x = Math.random() * 100; for (let i = 0; i < odds.length; i++){ x -= odds[i]; if (x < 0) return i; } return 0; };
+/** Contenu d'un colis : tiré au hasard à l'ouverture, toujours au moins une bonne surprise. */
+export function parcelReward(s, r){
+  const L = s.lvl, m = 1 + L * .25, res = ['wood', 'cookies', 'fabric'][Math.floor(Math.random() * 3)], rnd = (a, b) => a + Math.random() * (b - a);
+  const out = {coins: R5(rnd(50, 90) * m * [1, 2.5, 6, 15][r])};
+  out[res] = R5(rnd(30, 60) * m * [1, 2, 4, 9][r]);
+  if (r >= 1) out.ice = Math.round(rnd(3, 6) * (1 + L * .12) * [0, .25, .6, 1.6][r]);
+  if (r >= 1 && L >= 8) out.gold = Math.round(rnd(1, 2) * (1 + L * .08) * [0, 0, .4, 1.2][r]);
+  if (r === 3) out.stars = 1 + Math.floor(Math.random() * 2);
+  else if (r === 2 && Math.random() < .08) out.stars = 1;
+  if (r >= 1 && Math.random() < .35) out[Math.random() < .6 ? 'axe' : 'saw'] = 1;
+  return out;
+}
+
+/* ===================== GROTTE AUX CRISTAUX (fouille par étages) ===================== */
+// Inspiré de la mine à paliers de Bid Master et de la mine de Township : des pioches qui se rechargent,
+// une grille de neige à creuser, des trouvailles au hasard, un escalier pour descendre. Chaque étage est plus riche.
+export const MINE_W = 5, MINE_N = 25;
+export const minePicks = lv => 6 + Math.floor(lv / 2);
+export const minePickMin = lv => Math.max(15, 45 - 2 * lv);
+export const mineMult = lv => 1 + .08 * (lv - 1);
+export function mineFloor(floor){
+  const cells = [];
+  for (let i = 0; i < MINE_N; i++){
+    const x = Math.random();
+    let k = 'rock';
+    if (x < .40) k = 'ice'; else if (x < .55) k = 'coins'; else if (x < .61) k = 'res';
+    else if (x < .72 && floor >= 3) k = 'gold'; else if (x < .70) k = 'parcel'; else if (x < .73) k = 'pick';
+    cells.push({k, open: 0});
+  }
+  cells[Math.floor(Math.random() * MINE_N)] = {k: 'stairs', open: 0};
+  return cells;
+}
+export function mineState(s, now = Date.now()){
+  const o = s.objs.find(o => o.type === 'mine' && built(o)); if (!o) return null;
+  s.mine ||= {floor: 1, cells: mineFloor(1), picks: minePicks(o.lv), t: now, best: 1};
+  const M = s.mine, max = minePicks(o.lv), every = minePickMin(o.lv) * 60e3;
+  if (M.picks >= max) M.t = now;
+  else { const n = Math.floor((now - M.t) / every); if (n > 0){ M.picks = Math.min(max, M.picks + n); M.t = M.picks >= max ? now : M.t + n * every; } }
+  return {o, M, max, next: M.picks >= max ? 0 : M.t + every};
+}
+/** Creuse une case : renvoie ce qu'on y trouve ({k, r} r = récompense), ou une raison de refus. */
+export function mineDig(s, i, now = Date.now()){
+  const st = mineState(s, now); if (!st) return {err: 'Construis la Grotte aux cristaux'};
+  const {o, M} = st, c = M.cells[i]; if (!c || c.open) return {err: 'Déjà creusé'};
+  if (M.picks <= 0) return {err: 'Plus de pioches'};
+  M.picks--; c.open = 1;
+  const f = M.floor, m = mineMult(o.lv), L = s.lvl, r = {};
+  if (c.k === 'ice') r.ice = Math.max(1, Math.round((.6 + .35 * Math.sqrt(f)) * m * (.7 + Math.random() * .6)));
+  if (c.k === 'coins') r.coins = R5((40 + L * 18) * (1 + Math.sqrt(f) * .3) * m * (.7 + Math.random() * .6));
+  if (c.k === 'res') r[['wood', 'cookies', 'fabric'][Math.floor(Math.random() * 3)]] = R5((30 + L * 12) * (1 + Math.sqrt(f) * .3) * m);
+  if (c.k === 'gold') r.gold = Math.max(1, Math.round((.4 + Math.sqrt(f) * .1) * m * (.6 + Math.random() * .8)));
+  if (c.k === 'pick') { M.picks += 2; r.picks = 2; }
+  if (c.k === 'parcel') { const pr = rollRarity([60, 30, 9, 1]); (s.parcels ||= []).push(pr); r.parcel = pr; }
+  if (c.k === 'stairs') M.stairs = 1;
+  return {k: c.k, r};
+}
+export function mineDown(s){
+  const M = s.mine; if (!M?.stairs) return false;
+  M.floor++; M.best = Math.max(M.best || 1, M.floor); M.cells = mineFloor(M.floor); M.stairs = 0; return true;
+}
+
+/* ===================== EXPÉDITIONS DES RENNES (Écurie) ===================== */
+// Comme les lieux d'enchères de Bid Master : chaque destination a son coût, sa durée et ses chances de rareté.
+// Les rennes reviennent avec des colis mystère qu'on ouvre ensuite.
+const H_ = 3600e3;
+export const EXP_DEST = [
+  {k: 'forest', name: 'Forêt des Murmures', time: 1 * H_, n: 1, odds: [75, 22, 3, 0], lv: 1, food: 40},
+  {k: 'pass', name: 'Col du Blizzard', time: 4 * H_, n: 1, odds: [50, 38, 11, 1], lv: 3, food: 140},
+  {k: 'aurora', name: 'Aurores Boréales', time: 8 * H_, n: 2, odds: [35, 42, 20, 3], lv: 6, food: 300},
+  {k: 'light', name: 'Phare du Nord', time: 12 * H_, n: 2, odds: [20, 42, 31, 7], lv: 10, food: 520},
+];
+export const expSlots = lv => Math.min(3, 1 + Math.floor(lv / 6));
+export const expCost = (s, d) => ({cookies: R5(d.food * (1 + s.lvl * .35))});
+export function expBlock(s, k, now = Date.now()){
+  const st = s.objs.find(o => o.type === 'stable' && built(o)); if (!st) return "Construis l'Écurie des rennes";
+  const d = EXP_DEST.find(d => d.k === k); if (d.lv > st.lv) return `Écurie niv. ${d.lv}`;
+  if ((s.exps || []).length >= expSlots(st.lv)) return 'Tous les rennes sont partis';
+  if (!has(s, expCost(s, d))) return 'Pas assez de biscuits pour les rennes';
+  return null;
+}
+export function expStart(s, k, now = Date.now()){
+  const why = expBlock(s, k, now); if (why) return why;
+  const d = EXP_DEST.find(d => d.k === k); take(s, expCost(s, d));
+  (s.exps ||= []).push({k, end: now + d.time, start: now}); return null;
+}
+/** Rentre les expéditions terminées : renvoie les colis rapportés (raretés). */
+export function expCollect(s, now = Date.now()){
+  const back = [];
+  s.exps = (s.exps || []).filter(e => { if (e.end > now) return true; const d = EXP_DEST.find(d => d.k === e.k); for (let i = 0; i < d.n; i++) back.push(rollRarity(d.odds)); return false; });
+  if (back.length) (s.parcels ||= []).push(...back);
+  return back;
+}
+
+
+/* ===================== ILLUMINATIONS DU VILLAGE (puits de ressources sans fin) ===================== */
+// Comme les remparts de Clash of Clans : pas de bâtisseur, pas d'attente, mais un prix qui grimpe à chaque niveau.
+// Chaque niveau allume plus de guirlandes et donne +1 % de production à tout le village, pour toujours.
+export const lightsLv = s => s.lights || 0;
+export const lightsBonus = s => lightsLv(s) * .01;
+export const lightsHq = 4;
+export function lightsCost(n){
+  const g = Math.pow(1.32, n);
+  const c = {coins: R5(1500 * g), wood: R5(1200 * g), cookies: R5(700 * g), fabric: R5(400 * g)};
+  if (n >= 4) c.ice = Math.round(6 * Math.pow(1.24, n - 4));
+  if (n >= 12) c.gold = Math.round(3 * Math.pow(1.22, n - 12));
+  return c;
+}
+export function lightsBlock(s){
+  if (hqLv(s) < lightsHq) return `Maison du Père Noël niv. ${lightsHq}`;
+  if (!has(s, lightsCost(lightsLv(s)))) return 'Ressources insuffisantes';
+  return null;
+}
+export function lightsUp(s){ const why = lightsBlock(s); if (why) return why; take(s, lightsCost(lightsLv(s))); s.lights = lightsLv(s) + 1; return null; }
