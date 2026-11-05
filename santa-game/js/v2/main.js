@@ -236,7 +236,7 @@ function startUpgrade(o, el){
 function finishWorks(){
   for (const o of S.objs){
     if (o.build && now() >= o.build){ delete o.build; o.t = now(); fxPoof(o); if (panel === 'site' && panelArg === o) closePanel(); gainXp(T.buildXp(1) + 2, null); sfx.level(); toast(`${B(o).name} construit !`); tutoEv('built'); save(); }
-    if (o.up && now() >= o.up){ o.lv = o.upTo; delete o.up; delete o.upTo; o.t = now(); fxPoof(o); if (panel === 'site' && panelArg === o) closePanel(); gainXp(T.buildXp(o.lv), null); sfx.level(); toast(`${B(o).name} : niveau ${o.lv} !`); tutoEv('upgraded'); save(); }
+    if (o.up && now() >= o.up){ o.lv = o.upTo; delete o.up; delete o.upTo; o.t = now(); fxPoof(o); if (panel === 'site' && panelArg === o) closePanel(); gainXp(T.buildXp(o.lv), null); sfx.level(); upBanner(o); tutoEv('upgraded'); save(); }
   }
 }
 const workEnd = o => o.build || o.up || 0;
@@ -499,6 +499,15 @@ function fxHarvest(o, k, n){
   
 }
 // bâtiment terminé : nuage de poussière + étincelles
+// bannière « niveau supérieur » : ce que l'amélioration a changé, en clair (Dragons of Atlantis)
+function upBanner(o){
+  const rows = T.stats(S, o, o.lv - 1).slice(0, 2), b = $('#upban') || Object.assign(document.createElement('div'), {id: 'upban'});
+  if (!b.parentNode) document.body.appendChild(b);
+  b.innerHTML = `<img src="${thumbs[o.type + ':' + tierOf(o.lv)] || thumbs[o.type]}" alt=""><div><b>${B(o).name} · niveau ${o.lv}</b>${rows.map(r => `<span>${r.label} : <s>${r.now}</s> → <em>${r.next}</em></span>`).join('')}</div>`;
+  b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); clearTimeout(upBanner.t); upBanner.t = setTimeout(() => b.classList.remove('on'), 3600);
+  const c = toScreen(o.x + B(o).w / 2, o.y + B(o).h / 2);
+  for (let i = 0; i < 18; i++){ const a = Math.random() * Math.PI * 2, v = 160 + Math.random() * 200; FX.push({k: 'spark', x: c.x, y: c.y - 40, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 160, t: 0, d: 1.1}); }
+}
 function fxPoof(o){
   const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2);
   for (let i = 0; i < 14; i++){ const a = i / 14 * Math.PI * 2; FX.push({k: 'puff', x: c.x + Math.cos(a) * 20 * b.w, y: c.y + Math.sin(a) * 10 * b.w, vx: Math.cos(a) * 40, vy: Math.sin(a) * 20 - 30, r: 14 + Math.random() * 12, t: 0, d: .9}); }
