@@ -1,7 +1,7 @@
 // Service worker : le jeu s'installe comme une app et se relance instantanément (même hors ligne).
 // La page est toujours rechargée depuis le réseau si possible (pour recevoir les mises à jour),
 // les modèles 3D, scripts et polices viennent du cache.
-const CACHE = 'vdp-v52';
+const CACHE = 'vdp-v53';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil((async () => {
   for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
