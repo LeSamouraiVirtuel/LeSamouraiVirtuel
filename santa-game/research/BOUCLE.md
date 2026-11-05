@@ -118,5 +118,8 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - « Jingle Bells » (domaine public) en boîte à musique douce, en boucle, générée dans le navigateur (aucun fichier).
 - Démarre au premier toucher (règle des navigateurs) ; réglage « Musique » séparé des sons dans le profil.
 
+## Tour 27 — Vérification complète de la version en ligne
+- Tutoriel, tous les écrans et petit iPhone (SE) rejoués sur la version en ligne : aucune erreur. Boucle mise en pause pour recueillir l'avis du joueur.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
