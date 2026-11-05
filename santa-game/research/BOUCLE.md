@@ -98,5 +98,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - À la fin d'un chantier : gerbe d'étincelles dorées et bannière « Scierie · niveau 3 — Bois par heure : 1 800 → 2 250 ».
 - Masquée pendant les grandes fenêtres (montée de niveau du joueur) pour ne pas se superposer.
 
+## Tour 22 — Les tâches guident le joueur (Township)
+- Toucher la carte de tâche emmène au bon endroit : page Construire, bâtiment concerné, lettres, grotte, écurie, colis, illuminations…
+- La bannière d'amélioration attend que la grande fenêtre soit fermée avant de s'afficher.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
