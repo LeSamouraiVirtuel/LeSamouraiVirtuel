@@ -18,8 +18,13 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Récompense : pièces et XP, parfois une étoile d'or, des cristaux ou un outil ; l'échange fait aussi avancer le Pass.
 - Refuser est permis ; le visiteur repart au bout de 20 min.
 
+## Tour 4 — Terrains décorés (Township)
+- Chaque bâtiment a le décor de son métier autour de lui : bûches et planches (scierie), cadeaux et pièces (lettres), biscuits, chocolat chaud et bonshommes en pain d'épices (four), tissus et paniers (filature), caisses et tonneaux (entrepôt), jouets et casse-noisette (atelier), traîneau et cloche (écurie), bonhomme de neige et cadeaux (Maison).
+- Le décor grandit avec l'apparence : lanterne au niveau 5, sucres d'orge et objets en plus au niveau 12.
+- Tailles réglées pour ne jamais cacher les portes.
+
 ## Idées pour la suite
 1. Atelier des jouets : jouets « de luxe » (emballage cadeau) qui valent plus dans les lettres.
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
-4. Bâtiments plus détaillés dans baker.js (décor, lumière chaude, neige sur les bords).
+4. Fenêtres qui s'allument la nuit (ambiance selon l'heure réelle).
 5. Événement limité de Noël avec sa propre monnaie et sa boutique.
