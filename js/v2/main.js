@@ -944,12 +944,19 @@ function renderPanel(){
     if (T.hqLv(S) < M.MARKET_HQ){ h = hd('', 'Marché du village') + `<p class="help">Le marché ouvre avec la <b>Maison du Père Noël niv. ${M.MARKET_HQ}</b>. Tu pourras y revendre ton surplus et acheter au marchand ambulant.</p>`; }
     else {
       const mer = M.merchant(S), toys = T.TOY_KEYS.filter(k => S.inv[k] > 0);
-      h = hd('Revends ton surplus, achète au marchand', 'Marché du village') + `<h3>Le marchand ambulant <small class="meta">· aujourd'hui il est <b>${mer.mood}</b></small></h3>
-        <div class="deals">${mer.offers.map(o => `<div class="deal ${o.left <= 0 ? 'done' : ''}"><b>${Object.entries(o.give).map(([k, n]) => `${fmt(n)} ${(RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase()}`).join(', ')}</b><span class="costs">${rewardChips(o.give)}</span><small class="meta">encore ${Math.max(0, o.left)} aujourd'hui</small>${o.left > 0 ? `<button class="btn blue sm" data-a="mbuy" data-k="${o.k}">${icon('coins')}${fmt(o.cost.coins)}</button>` : '<span class="meta">Épuisé</span>'}</div>`).join('')}</div>
+      const An = M.auction(S).lots.length;
+      h = hd('Revends ton surplus, achète au marchand', 'Marché du village') + `<div class="aucentry"><img src="${thumbs.gifts}" alt=""><div><b>Salle des ventes</b><small>${An ? `${An} lot${An > 1 ? 's' : ''} perdu${An > 1 ? 's' : ''} à gagner contre des rivaux` : 'Nouveaux lots bientôt'}</small></div><button class="btn gold sm" data-a="auction">Enchérir</button></div><h3>Le marchand ambulant <small class="meta">· aujourd'hui il est <b>${mer.mood}</b></small></h3>
+        <div class="deals">${mer.offers.map(o => `<div class="deal ${o.left <= 0 ? 'done' : ''}"><b>${Object.entries(o.give).map(([k, n]) => { const nm = (RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase(); return `${fmt(n)} ${n > 1 ? nm : nm.replace(/^(\S+)s\b/, '$1')}`; }).join(', ')}</b><span class="costs">${rewardChips(o.give)}</span><small class="meta">encore ${Math.max(0, o.left)} aujourd'hui</small>${o.left > 0 ? `<button class="btn blue sm" data-a="mbuy" data-k="${o.k}">${icon('coins')}${fmt(o.cost.coins)}</button>` : '<span class="meta">Épuisé</span>'}</div>`).join('')}</div>
         <h3>Vendre des ressources</h3><div class="mlist">${Object.entries(M.SELL_RATE).map(([k, r0]) => { const r = Math.round(r0 * (1 + T.zoneB(S, 'sell')) * 100) / 100, n = Math.floor((S[k] || 0) * .25);
           return `<div class="mis"><div><b>${RINFO[k].name}</b><small>${fmt(S[k] || 0)} en stock · 1 ${RINFO[k].name.toLowerCase().replace(/s$/, '')} = ${String(r).replace('.', ',')} pièce${r > 1 ? 's' : ''}</small></div><button class="btn green sm" data-a="sell" data-k="${k}" ${n >= 10 ? '' : 'disabled'}>Vendre ${fmt(n)} → ${icon('coins')}${fmt(Math.floor(n * r))}</button></div>`; }).join('')}</div>
         <h3>Vendre des jouets</h3><div class="mlist">${toys.length ? toys.map(k => `<div class="mis"><div><b>${ITEMS[k].name}</b><small>${S.inv[k]} en stock · gardés pour les lettres ?</small></div><button class="btn green sm" data-a="selltoy" data-k="${k}">Vendre 1 → ${icon('coins')}${M.sellToy(k)}</button></div>`).join('') : '<p class="meta">Aucun jouet en stock.</p>'}</div>`;
     }
+  }
+  else if (panel === 'auction'){
+    const A = M.auction(S);
+    h = hd(`${A.lots.length} lot${A.lots.length > 1 ? 's' : ''} à vendre`, 'Salle des ventes') + `<p class="help">Des rivaux veulent les mêmes lots. Tu ne vois qu'une partie du contenu : l'estimation peut mentir ! Paie l'entrée, surenchéris, puis découvre ce que tu as gagné.</p>
+      <div class="lots">${A.lots.map((l, i) => lotCard(l, i)).join('') || '<p class="meta">Tous les lots sont partis.</p>'}</div>${A.next ? `<p class="meta">Nouveau lot dans <b data-until="${A.next}"></b></p>` : ''}
+      <button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
   }
   else if (panel === 'profile'){
     const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Améliorations', S.cnt.upgrade || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Record de la grotte', 'étage ' + (S.mine?.best || 0)], ['Illuminations', 'niv. ' + T.lightsLv(S)], ['Succès', M.ACH.reduce((a, x) => a + (S.ach?.[x.k] || 0), 0) + ' / ' + M.ACH.length * 3 + ' ★']];
@@ -1080,6 +1087,10 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'selltoy'){ const k = b.dataset.k; if (!(S.inv[k] > 0)) return; S.inv[k]--; const c = M.sellToy(k); S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'rename'){ const n = prompt('Nom de ton village :', S.name || ''); if (n != null){ S.name = n.trim().slice(0, 24); save(); } return renderPanel(); }
   if (a === 'notif') return toggleNotif();
+  if (a === 'auction') return openPanel('auction');
+  if (a === 'aucgo') return aucOpen(+b.dataset.i);
+  if (a === 'aucpeek'){ const l = M.auction(S).lots[+b.dataset.i]; if (S.stars < M.AUC_PEEK){ sfx.err(); return openPanel('shop'); } if (l && M.aucPeek(S, l)){ sfx.tap(); save(); } return renderPanel(); }
+  if (a === 'aucrefill'){ if (!M.aucRefill(S)){ sfx.err(); return openPanel('shop'); } sfx.level(); save(); return renderPanel(); }
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
@@ -1428,6 +1439,57 @@ $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); }
 $('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); });
 $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
 $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } return; } openPanel('todo'); });
+/* ---------- salle des ventes (enchères contre des rivaux, comme Bid Master) ---------- */
+const lotItems = l => `<div class="lis">${l.items.map((it, j) => l.seen.includes(j) ? `<span class="li">${resImg(it.k)}<b>${fmt(it.n)}</b></span>` : '<span class="li hid">?</span>').join('')}</div>`;
+function lotCard(l, i){
+  const R = T.RARITY[l.r], hid = l.items.length - l.seen.length;
+  return `<div class="lot" style="--rc:${R.c}"><div class="lt"><span class="rar">${R.name}</span><b>${l.name}</b></div>${lotItems(l)}
+    <div class="est">Estimation : <b>${fmt(Math.round(l.est * .7 / 50) * 50)} à ${fmt(Math.round(l.est * 1.6 / 50) * 50)}</b> pièces</div><div class="lf"><button class="btn blue sm" data-a="aucpeek" data-i="${i}" ${hid ? '' : 'disabled'}>Jumelles <i class="i star"></i>${M.AUC_PEEK}</button><button class="btn green sm" data-a="aucgo" data-i="${i}"><span class="costs">${costChips({coins: l.fee})}</span>Entrer</button></div></div>`;
+}
+let auc = null;
+function aucOpen(i){
+  const l = M.auction(S).lots[i]; if (!l) return;
+  if (S.coins < l.fee){ toastOnce('Pas assez de pièces pour entrer'); return; }
+  S.coins -= l.fee; S.auc.lots.splice(i, 1); T.track(S, 'auction'); save(); closePanel();
+  auc = {l, price: Math.max(10, Math.round(l.est * .25 / 5) * 5), lead: -1, riv: M.aucRivals(l), cd: 3, said: 'Les enchères sont ouvertes !'};
+  const m = $('#modal'); m.className = 'glow aucm'; m.hidden = false; aucDraw();
+  m.onclick = e => { const b = e.target.closest('[data-b]'); if (!b || !auc) return; const k = +b.dataset.b;
+    if (k === 0){ auc.quit = true; let g = 0; while (auc.cd > 0 && g++ < 300){ if (M.aucRivalTurn(auc)) auc.cd = 3; else auc.cd--; } return aucEnd(); }
+    const np = auc.price + M.aucStep(auc.price) * k; if (S.coins < np){ toastOnce('Pas assez de pièces'); return; }
+    auc.price = np; auc.lead = -2; auc.cd = 3; auc.said = 'Tu prends la main !'; sfx.tap(); aucDraw(); };
+  clearInterval(aucOpen.t); aucOpen.t = setInterval(aucTick, 1200);
+}
+function aucTick(){
+  if (!auc || auc.done) return;
+  const r = M.aucRivalTurn(auc);
+  if (r){ auc.cd = 3; auc.said = `${r.n} : ${fmt(auc.price)} !`; sfx.collect?.(); }
+  else if (auc.lead === -1){ auc.cd--; auc.said = 'Personne ?'; }
+  else { auc.cd--; auc.said = ['Adjugé !', 'Deux fois…', 'Une fois…'][auc.cd] || auc.said; }
+  if (auc.cd <= 0) return aucEnd();
+  aucDraw();
+}
+function aucDraw(){
+  const a = auc, m = $('#modal'), lead = a.lead === -2 ? 'Toi' : a.lead >= 0 ? a.riv[a.lead].n : '—', st = M.aucStep(a.price), R = T.RARITY[a.l.r];
+  m.querySelector('.mcard').innerHTML = `<small style="color:${R.c}">${R.name} · Salle des ventes</small><h2 class="stroke">${a.l.name}</h2>${lotItems(a.l)}
+    <div class="arena">${a.riv.map((r, i) => `<span class="rv ${r.out ? 'out' : ''} ${a.lead === i ? 'lead' : ''}" style="--c:${r.c}"><i></i>${r.n}${r.out ? ' · abandonne' : ''}</span>`).join('')}<span class="rv you ${a.lead === -2 ? 'lead' : ''}" style="--c:#2f9e44"><i></i>Toi</span></div>
+    <div class="bidnow"><span>Enchère actuelle · <b>${lead}</b></span><strong>${icon('coins')}${fmt(a.price)}</strong></div>
+    <div class="gavel cd${a.cd}">${a.said}</div><div class="cdbar"><div style="width:${a.cd / 3 * 100}%"></div></div>
+    <div class="bbtns"><button class="btn green" data-b="1" ${a.lead === -2 || S.coins < a.price + st ? 'disabled' : ''}>+${fmt(st)}</button><button class="btn gold" data-b="3" ${a.lead === -2 || S.coins < a.price + st * 3 ? 'disabled' : ''}>+${fmt(st * 3)}</button><button class="btn red" data-b="0" ${a.lead === -2 ? 'disabled' : ''}>Abandonner</button></div>
+    <small class="meta">Tes pièces : ${fmt(S.coins)}</small>`;
+}
+function aucEnd(){
+  const a = auc; if (!a || a.done) return; a.done = true; clearInterval(aucOpen.t);
+  const val = Math.round(M.lotValue(S, a.l.items) / 5) * 5, m = $('#modal'), won = a.lead === -2, all = {...a.l, seen: a.l.items.map((_, j) => j)};
+  if (won){ S.coins -= a.price; save(); }
+  const diff = val - a.price - a.l.fee;
+  m.className = 'glow aucm';
+  m.querySelector('.mcard').innerHTML = won
+    ? `<small>Adjugé pour ${fmt(a.price)} pièces !</small><h2 class="stroke">${diff >= 0 ? 'Bonne affaire !' : 'Aïe, trop cher…'}</h2>${lotItems(all)}<div class="bidnow"><span>Valeur du lot</span><strong>${icon('coins')}${fmt(val)}</strong></div><p class="deal ${diff >= 0 ? 'up' : 'down'}">${diff >= 0 ? '+' : '−'}${fmt(Math.abs(diff))} par rapport à ce que tu as payé</p><button class="btn green" data-m="ok">Récupérer</button>`
+    : `<small>${a.lead >= 0 ? `Adjugé à ${a.riv[a.lead].n} pour ${fmt(a.price)}` : 'Personne n’a enchéri'}</small><h2 class="stroke">${a.quit ? 'Tu as abandonné' : 'Raté !'}</h2>${lotItems(all)}<div class="bidnow"><span>Le lot valait</span><strong>${icon('coins')}${fmt(val)}</strong></div><p class="deal ${val > a.price ? 'down' : 'up'}">${val > a.price ? 'Dommage, c’était une bonne affaire.' : 'Bien vu : il ne valait pas ce prix.'}</p><button class="btn blue" data-m="ok">Continuer</button>`;
+  if (won) sfx.level(); else sfx.err();
+  m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; const give = {}; if (won) for (const it of a.l.items) give[it.k] = (give[it.k] || 0) + it.n; auc = null; if (won) giveReward(give, $('#h-coins')); save(); openPanel('auction'); };
+}
+
 /* ---------- rappels : notifications du navigateur quand le jeu passe en arrière-plan ---------- */
 function upcomingBox(){
   const t = now(), seen = new Set(), U = T.upcoming(S, t).filter(e => !seen.has(e.txt) && seen.add(e.txt)).slice(0, 4);
@@ -1486,6 +1548,7 @@ function todoList(){
   { const busy = S.objs.some(x => (x.build || x.up) > t), ch = S.objs.find(o => o.type === 'cabin' && !o.build && T.helpReady(o, t)); if (busy && ch) add(thumbs.cabin, 'Les lutins peuvent aider les chantiers', {o: ch}); }
   { const free = T.builders(S) - T.busyBuilders(S, t); if (free > 0) add(buildIcon, `${free} bâtisseur${free > 1 ? 's' : ''} libre${free > 1 ? 's' : ''}`, 'build'); }
   { const Ms = M.missions(S), n = Ms.list.filter(m => !m.done && m.v >= m.n).length + M.achClaimable(S); if (n) add(SVGI.missions, `${n} mission${n > 1 ? 's' : ''} ou succès à récupérer`, 'missions'); }
+  if (T.hqLv(S) >= M.MARKET_HQ && M.auction(S).lots.length >= M.AUC_LOTS) add(thumbs.gifts, 'Salle des ventes : de nouveaux lots à saisir', 'auction');
   if (S.lvl >= 3 && M.eventClaimable(S)) add(ICON.ice, 'Récompense d’événement à prendre', 'event');
   return L;
 }
@@ -1494,7 +1557,7 @@ function todoGo(g){
   if (g === 'daily') return openDaily(); if (g === 'sack') return openSack(); if (g === 'visitor') return openVisitor();
   if (g === 'drop'){ centerOn(S.drop.x, S.drop.y); return; } if (g === 'quest') return $('#quest2').click();
   if (g === 'parcels') return openParcel(); if (g === 'build') return openPanel('build', 'prod');
-  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'orders' || g === 'event') return openPanel(g);
+  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'orders' || g === 'event') return openPanel(g);
   if (g.o) return goTo(g.o.type === 'cabin' ? 'cabin' : g.o.type);
 }
 
