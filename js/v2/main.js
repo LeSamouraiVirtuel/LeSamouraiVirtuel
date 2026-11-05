@@ -357,7 +357,7 @@ function draw(){
   labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden]), #sideL2 > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width).map(r => ({left: r.left - 8, right: r.right + 8, top: r.top - 6, bottom: r.bottom + 16}));
   for (const o of S.objs) plate(o);
   for (const l of T.lotsShown(S)) lotLabel(l);
-  for (const o of S.objs) drawHint(o);
+  bangs = 0; for (const o of [...S.objs].sort((a, b) => (B(b).kind === 'hq') - (B(a).kind === 'hq'))) drawHint(o);
   drawSleigh();
   // neige qui tombe
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -407,7 +407,7 @@ function vignette(){ // calculée une fois en petite taille, puis étirée (dég
 }
 // Étiquettes : jamais coupées au bord de l'écran, jamais sous la barre du haut, les boutons de droite ou la barre du bas,
 // et jamais l'une sur l'autre (la première posée gagne : bâtiments d'abord, terrains réservés ensuite).
-let labels = [], labelZones = [];
+let labels = [], labelZones = [], bangs = 0;
 function labelSpot(x, y, w, h){
   x = Math.round(Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, x))); y = Math.round(y);
   const L = x - w / 2, R = x + w / 2, T_ = y - h / 2, Bm = y + h / 2;
@@ -513,7 +513,7 @@ function drawHint(o){
   if (b.kind === 'orders'){ const ok = S.orders.some(od => od.items && T.has(S, od.items)); if (ok) return bubble(r.cx, top, 'coins', '!'); }
   if (b.kind === 'mine'){ const st = T.mineState(S); if (st && st.M.picks >= st.max) return bubble(r.cx, top, 'ice', String(st.M.picks)); }
   if (b.kind === 'stable'){ const run = S.exps || []; if (run.length >= T.expSlots(o.lv)){ const e = run.reduce((a, x) => x.end < a.end ? x : a); const d = T.EXP_DEST.find(d => d.k === e.k); return timerPill(r.cx, top, fmtTime((e.end - now()) / 1000), 1 - (e.end - now()) / d.time); } if (!T.expBlock(S, 'forest')) return bubble(r.cx, top, 'gold', '!'); }
-  if (T.isUpgradable(b) && !ripe(o) && !(b.kind === 'craft' && craftDone(o).length) && !T.upBlock(S, o)) bang(r.cx + r.width * .22, top + 6);
+  if (T.isUpgradable(b) && b.kind !== 'house' && b.kind !== 'storage' && bangs < 3 && !ripe(o) && !(b.kind === 'craft' && craftDone(o).length) && !T.upBlock(S, o)){ bangs++; bang(r.cx + r.width * .22, top + 6); }
 }
 /** « ! » rouge : ce bâtiment peut être amélioré maintenant (comme les « ! » de Bid Master). */
 function bang(x, y){
