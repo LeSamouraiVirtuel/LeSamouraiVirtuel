@@ -1111,7 +1111,8 @@ function renderPanel(){
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
       ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<div class="mis"><div><b>Dernier souci d'affichage</b><small style="word-break:break-all">${e.slice(0, 160).replace(/</g, '&lt;')}</small></div></div>` : ''; })()}
-      <div class="mis"><b>Version du jeu</b><span class="meta">59</span></div>
+      <div class="mis"><b>Version du jeu</b><span class="meta">60</span></div>
+      <div class="mis"><div><b>Diagnostic d'affichage</b><small>Si l'écran est flou : touche, puis envoie une capture</small></div><button class="btn blue sm" data-a="diag">Voir</button></div>
       <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
       <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
   }
@@ -1235,6 +1236,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'selltoy'){ const k = b.dataset.k; if (!(S.inv[k] > 0)) return; S.inv[k]--; const c = M.sellToy(k); S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'rename'){ const n = prompt('Nom de ton village :', S.name || ''); if (n != null){ S.name = n.trim().slice(0, 24); save(); } return renderPanel(); }
   if (a === 'notif') return toggleNotif();
+  if (a === 'diag'){ closePanel(); return setTimeout(showDiag, 300); }
   if (a === 'auction') return openPanel('auction');
   if (a === 'aucgo') return aucOpen(+b.dataset.i);
   if (a === 'aucpeek'){ const l = M.auction(S).lots[+b.dataset.i]; if (S.stars < M.AUC_PEEK){ sfx.err(); return openPanel('shop'); } if (l && M.aucPeek(S, l)){ sfx.tap(); save(); } return renderPanel(); }
@@ -1621,6 +1623,32 @@ $('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); }
 $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
 $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o) panTo(o.x + 2, o.y + 2, {zoom: startZoom()}); return; } openPanel('todo'); });
 function rsCheck(){ const R = T.rsTick(S); if (!R) return; const r = T.RESEARCH.find(x => x.k === R.k); toast(`Recherche terminée : ${r.name} niveau ${R.lv} !`); sfx.level(); save(); if (panel === 'lab') renderPanel(); }
+
+/* ---------- diagnostic d'affichage (pour trouver un bug qu'on ne voit que sur un téléphone précis) ---------- */
+function diagText(){
+  const L = [], vv = window.visualViewport, mem = performance.memory;
+  L.push(`v60 · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 90)}`);
+  L.push(`écran ${screen.width}×${screen.height} · fenêtre ${innerWidth}×${innerHeight} · vv ${vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : '-'} · DPR ${devicePixelRatio} (jeu ${DPR}) · appli ${STANDALONE ? 'oui' : 'non'}`);
+  L.push(`canevas ${cv.width}×${cv.height} affiché ${cv.style.width}×${cv.style.height} · caméra z ${cam.z.toFixed(2)}`);
+  let nS = 0, nOk = 0, nBad = 0; for (const k in SPR){ nS++; const c = SPR[k]._c || null; } 
+  for (const k in SPR){ const d = Object.getOwnPropertyDescriptor(SPR[k], 'canvas'); if (d && d.get) continue; const c = SPR[k].canvas; if (c && (c.width || c.naturalWidth)) nOk++; else nBad++; }
+  L.push(`images ${nS} · prêtes ${nOk} · vides ${nBad}`);
+  const top = []; for (const e of document.body.querySelectorAll('body > *')){ const cs = getComputedStyle(e); if (cs.display === 'none' || e.hidden || e.id === 'diag') continue; const r = e.getBoundingClientRect(); if (r.width < 40 || r.height < 40) continue;
+    top.push(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${e.className && typeof e.className === 'string' ? '.' + e.className.split(' ').slice(0, 2).join('.') : ''} ${Math.round(r.width)}×${Math.round(r.height)} op${(+cs.opacity).toFixed(2)} z${cs.zIndex}${cs.filter !== 'none' ? ' F' : ''}`); }
+  L.push('calques : ' + top.join(' | '));
+  L.push(`modal ${$('#modal').hidden ? 'caché' : 'VISIBLE ' + $('#modal').className} · cine ${$('#cine') ? ($('#cine').hidden ? 'caché' : 'VISIBLE') : 'absent'} · intro ${$('#intro') ? 'PRÉSENTE' : 'absente'} · tuto ${tuto.active() ? S.tuto : 'fini'}`);
+  let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){}
+  L.push('erreur : ' + (e || 'aucune'));
+  return L.join('\n');
+}
+function showDiag(){
+  let d = $('#diag'); if (!d){ d = document.createElement('div'); d.id = 'diag'; document.body.appendChild(d); }
+  d.innerHTML = `<pre>${diagText().replace(/</g, '&lt;')}</pre><div><button class="btn green sm" data-d="fix">Réparer l'affichage</button> <button class="btn blue sm" data-d="close">Fermer</button></div>`;
+  d.onclick = ev => { const b = ev.target.closest('[data-d]'); if (!b) return; if (b.dataset.d === 'fix'){ $('#intro')?.remove(); const c = $('#cine'); if (c){ c.hidden = true; document.body.classList.remove('cine'); } rebuild(); toast('Affichage recréé'); } d.remove(); };
+}
+// garde-fou au démarrage : rien ne doit rester par-dessus le village une fois le jeu lancé
+setTimeout(() => { const i = $('#intro'); if (i){ i.remove(); try { localStorage.setItem('vdp-lasterr', 'intro restée affichée'); } catch(_){} } }, 6000);
+
 /* ---------- salle des ventes (enchères contre des rivaux, comme Bid Master) ---------- */
 const lotItems = l => `<div class="lis">${l.items.map((it, j) => l.seen.includes(j) ? `<span class="li">${resImg(it.k)}<b>${fmt(it.n)}</b></span>` : '<span class="li hid">?</span>').join('')}</div>`;
 function lotCard(l, i){
