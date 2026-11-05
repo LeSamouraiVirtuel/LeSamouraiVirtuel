@@ -46,6 +46,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Les flocons s'échangent contre un renne décoré, une pile de cadeaux, un bonhomme de neige (posés gratuitement, même sans le niveau de Maison), un colis rare ou 5 étoiles d'or.
 - Dépenser ne fait pas reculer les paliers de l'événement.
 
+## Tour 10 — Bâtiments qui réagissent
+- Rebond écrasé puis étiré quand on touche un bâtiment (Township).
+- Léger balancement des ateliers qui travaillent (commande spéciale, fabrication de jouets).
+- Étincelles qui jaillissent des chantiers.
+
 ## Idées pour la suite
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
 5. Fumée et petites animations propres à chaque bâtiment (roue de la scierie, four).

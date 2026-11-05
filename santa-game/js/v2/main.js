@@ -431,7 +431,15 @@ function sign(x, y, cx, cy){
 function drawObj(o){
   const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2);
   if (selObj === o) diamond(o.x, o.y, b.w, b.h, 'rgba(255,214,90,.35)', '#ffc83a');
-  drawSprite(spriteKey(o), c.x, c.y);
+  // rebond quand on le touche (écrasé puis étiré, comme Township), petit balancement quand il travaille
+  const t = performance.now(), age = (t - (o.bounce || 0)) / 1000;
+  let sx = 1, sy = 1;
+  if (age < .45){ const k = Math.sin(age / .45 * Math.PI * 2.5) * (1 - age / .45); sx = 1 + k * .07; sy = 1 - k * .09; }
+  else if (o.job || (B(o).kind === 'craft' && (o.q || []).some(j => j.end > now()))){ const k = Math.sin(t / 260 + o.x) * .012; sx = 1 - k; sy = 1 + k; }
+  if (sx !== 1 || sy !== 1){ ctx.save(); ctx.translate(c.x, c.y); ctx.scale(sx, sy); ctx.translate(-c.x, -c.y); drawSprite(spriteKey(o), c.x, c.y); ctx.restore(); }
+  else drawSprite(spriteKey(o), c.x, c.y);
+  // chantier : étincelles des marteaux
+  if ((o.build || o.up) && Math.random() < .08){ const r = objScreenRect(o); FX.push({k: 'spark', x: r.cx + (Math.random() - .5) * r.width * .4, y: r.top + r.height * .45, vx: (Math.random() - .5) * 120, vy: -120 - Math.random() * 80, t: 0, d: .6}); }
 }
 function drawHint(o){
   const b = B(o); if (ghost?.move === o || o.wild) return;
@@ -578,6 +586,7 @@ cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.45, Ma
 function clampCam(){ const c = iso(T.MAP / 2, T.MAP / 2), r = T.MAP * TW * .45; cam.x = Math.max(c.x - r, Math.min(c.x + r, cam.x)); cam.y = Math.max(c.y - r * .5 - 200, Math.min(c.y + r * .5 + 200, cam.y)); }
 
 function tap(o, at){
+  if (o) o.bounce = performance.now();
   if (S.visitor && visitorRect && at.x > visitorRect.left && at.x < visitorRect.right && at.y > visitorRect.top && at.y < visitorRect.bottom) return openVisitor();
   sfx.tap();
   if (!o || o.wild){
