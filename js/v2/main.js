@@ -918,7 +918,7 @@ function renderPanel(){
   }
   else if (panel === 'todo'){
     const L = todoList();
-    h = hd(L.length ? `${L.length} chose${L.length > 1 ? 's' : ''} à faire` : 'Tout est en ordre', 'Mon village') + (L.length ? `<div class="mlist">${L.map((x, i) => `<div class="mis todo"><img src="${x.icon}" alt=""><div><b>${x.text}</b></div><button class="btn green sm" data-a="todo" data-i="${i}">Y aller</button></div>`).join('')}</div>` : '<p class="help">Rien n’attend pour l’instant : tes lutins travaillent. Reviens dans un moment !</p>') + '<p class="meta">Touche encore « Village » pour revenir à la Maison du Père Noël.</p>';
+    h = hd(L.length ? `${L.length} chose${L.length > 1 ? 's' : ''} à faire` : 'Tout est en ordre', 'Mon village') + (L.length ? `<div class="mlist">${L.map((x, i) => `<div class="mis todo"><img src="${x.icon}" alt=""><div><b>${x.text}</b></div><button class="btn green sm" data-a="todo" data-i="${i}">Y aller</button></div>`).join('')}</div>` : '<p class="help">Rien n’attend pour l’instant : tes lutins travaillent. Reviens dans un moment !</p>') + upcomingBox() + `<div class="mis remind"><div><b>Rappels sur ton téléphone</b><small>${S.notif ? 'Activés : je te préviens quand quelque chose est prêt.' : 'Sois prévenu quand un chantier finit ou qu’un atelier est plein.'}</small></div><button class="btn ${S.notif ? 'blue' : 'green'} sm" data-a="notif">${S.notif ? 'Couper' : 'Activer'}</button></div>` + '<p class="meta">Touche encore « Village » pour revenir à la Maison du Père Noël.</p>';
   }
   else if (panel === 'missions'){
     const tab = panelArg || 'day';
@@ -957,6 +957,7 @@ function renderPanel(){
       <div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div>
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
+      <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
       <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
   }
@@ -1078,6 +1079,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'sell'){ const k = b.dataset.k, n = Math.floor((S[k] || 0) * .25), c = Math.floor(n * M.SELL_RATE[k] * (1 + T.zoneB(S, 'sell'))); if (n < 10) return; S[k] -= n; S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'selltoy'){ const k = b.dataset.k; if (!(S.inv[k] > 0)) return; S.inv[k]--; const c = M.sellToy(k); S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'rename'){ const n = prompt('Nom de ton village :', S.name || ''); if (n != null){ S.name = n.trim().slice(0, 24); save(); } return renderPanel(); }
+  if (a === 'notif') return toggleNotif();
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
@@ -1426,6 +1428,44 @@ $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); }
 $('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); });
 $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
 $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } return; } openPanel('todo'); });
+/* ---------- rappels : notifications du navigateur quand le jeu passe en arrière-plan ---------- */
+function upcomingBox(){
+  const t = now(), seen = new Set(), U = T.upcoming(S, t).filter(e => !seen.has(e.txt) && seen.add(e.txt)).slice(0, 4);
+  return U.length ? `<h3>Bientôt prêt</h3><div class="mlist soon">${U.map(e => `<div class="mis"><div><b>${e.txt}</b></div><span class="chip time">dans ${fmtTime((e.at - t) / 1000)}</span></div>`).join('')}</div>` : '';
+}
+const canNotify = () => 'Notification' in window && Notification.permission === 'granted';
+function notify(body){
+  const opt = {body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'vdp-' + body.length, lang: 'fr'};
+  if (navigator.serviceWorker?.controller) navigator.serviceWorker.ready.then(r => r.showNotification('Le Village du Pôle', opt)).catch(() => {});
+  else try { new Notification('Le Village du Pôle', opt); } catch(e){}
+}
+let remindT = [], hiddenAt = 0;
+function clearReminders(){ remindT.forEach(clearTimeout); remindT = []; }
+function armReminders(){
+  clearReminders(); if (!S.notif || !canNotify()) return;
+  const t = now(), seen = new Set();
+  for (const e of T.upcoming(S, t)){
+    if (e.at - t > 864e5 || remindT.length >= 8) break;
+    if (seen.has(e.txt)) continue; seen.add(e.txt);
+    remindT.push(setTimeout(() => notify(e.txt), e.at - t));
+  }
+}
+function toggleNotif(){
+  if (S.notif){ S.notif = 0; clearReminders(); save(); return renderPanel(); }
+  if (!('Notification' in window)) return toast('Sur iPhone, ajoute d’abord le jeu à l’écran d’accueil (Partager → Sur l’écran d’accueil).');
+  Notification.requestPermission().then(p => {
+    S.notif = p === 'granted' ? 1 : 0;
+    if (S.notif){ notify('Rappels activés : je te préviendrai quand ton village aura besoin de toi.'); sfx.level(); }
+    else toast('Rappels refusés : tu peux les autoriser dans les réglages du navigateur.');
+    save(); if (panel) renderPanel();
+  });
+}
+addEventListener('visibilitychange', () => {
+  if (document.hidden){ hiddenAt = now(); armReminders(); return; }
+  clearReminders();
+  if (hiddenAt && now() - hiddenAt > 3 * 60e3 && !tuto.active()){ const n = todoList().length; if (n) setTimeout(() => { toast(`Bon retour ! ${n} chose${n > 1 ? 's' : ''} t’attend${n > 1 ? 'ent' : ''} au village`); $('#b-village')?.classList.add('ping'); setTimeout(() => $('#b-village')?.classList.remove('ping'), 4000); }, 600); }
+  hiddenAt = 0;
+});
 /** Tout ce qui est prêt maintenant, avec où aller (comme les notifications de Township). */
 function todoList(){
   const L = [], t = now(), find = type => S.objs.find(o => o.type === type && !o.build && !o.wild && !o.free);
@@ -1610,4 +1650,4 @@ function welcomeBack(){
 setTimeout(welcomeBack, 1400);
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
+window.__v2 = {get S(){ return S; }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
