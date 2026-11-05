@@ -12,3 +12,6 @@ Liste tenue à jour par la boucle. On traite du plus important au moins importan
 | 6 | Rappel des activités prêtes | Notifications | Rappels du navigateur (chantiers, rennes, stocks pleins, pioches, jouets), liste « Bientôt prêt » et accueil « Bon retour » | fait (tour 33) ; rappels jeu fermé : demandent un serveur de push |
 | 7 | Social (amis, guildes, classements) | Oui | Non : demande un serveur | hors de portée sans serveur |
 | 8 | Illustrations peintes | Oui | Modèles 3D gratuits | bloqué : jeton d'images |
+| 9 | Enchères contre des rivaux | Bid Master : lots à moitié cachés, rivaux IA qui bluffent, « une fois, deux fois, adjugé » | Salle des ventes au Marché : 3 lots (1 de plus toutes les 3 h), jumelles, 2 à 3 rivaux avec budget secret, révélation de la vraie valeur | fait (tour 34) |
+| 10 | Arbre de recherche | DoA (Science Center), Clash (Laboratoire) : bonus permanents longs à chercher | Rien | à faire |
+| 11 | Animations des bâtiments | Roue qui tourne, fumée, flammes (Township, Hay Day) | Fumée des cheminées seulement | à faire |

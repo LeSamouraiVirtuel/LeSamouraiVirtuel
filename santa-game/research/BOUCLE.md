@@ -154,5 +154,14 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Limite : jeu complètement fermé, il faut un serveur de push (Web Push) ; sur iPhone, les rappels demandent d'ajouter le jeu à l'écran d'accueil. Safari simple affiche ce conseil.
 - Testé : iPhone 13 et SE (WebKit, pas d'API de notification → conseil), Chromium avec permission accordée (rappels armés). Tutoriel OK.
 
+## Tour 34 — Salle des ventes (enchères de Bid Master)
+- Les manques 1 à 6 étant faits, nouvelle comparaison : il manquait le cœur de Bid Master (enchères contre des IA) et l'arbre de recherche de DoA / Clash. Ajoutés à MANQUES.md (9, 10, 11).
+- Au Marché : « Salle des ventes ». 3 lots perdus (hottes, traîneaux, coffres, trésors) aux raretés de Bid Master, un nouveau toutes les 3 h (10 étoiles pour en faire venir 3).
+- On voit un objet sur 4 ou 5, et une estimation qui peut mentir (la vraie valeur va de 0,45 à 1,65 fois l'estimation, parfois bien plus). Les jumelles (2 étoiles) dévoilent un objet de plus.
+- Droit d'entrée de 5 %, puis enchère en direct contre 2 ou 3 rivaux (Grincheux le prudent, Madame Givre la fonceuse, Baron Glaçon le bluffeur…) qui ont un budget secret ; « Une fois… Deux fois… Adjugé ! ».
+- À la fin, la vraie valeur s'affiche : bonne affaire, perte, ou « dommage, c'était une bonne affaire ».
+- Équilibre (simulation de 3 000 ventes au niveau 10) : enchérir jusqu'à l'estimation gagne 29 % des ventes avec un rendement de 1,44 ; enchérir jusqu'à 1,5 fois gagne 93 % des ventes mais rend à peine plus que la mise (1,07).
+- Corrigé pendant les tests : boutons coupés sur iPhone SE, pas d'enchère mal arrondi, trop d'étoiles dans les lots, « 1 lingots » au marchand.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

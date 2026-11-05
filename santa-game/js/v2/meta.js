@@ -209,3 +209,59 @@ export function evBuy(s, k){
   if (it.deco){ s.tokens ||= {}; s.tokens[it.deco] = (s.tokens[it.deco] || 0) + 1; return {deco: it.deco}; }
   return {give: it.give};
 }
+
+/* ===================== SALLE DES VENTES (enchères de Bid Master) ===================== */
+// Des lots perdus (hottes, traîneaux, coffres) mis aux enchères contre des rivaux. On ne voit qu'une partie du contenu :
+// l'estimation peut mentir. On paie un droit d'entrée, on surenchérit, et on découvre la vraie valeur à la fin.
+export const AUC_HQ = 3, AUC_LOTS = 3, AUC_EVERY = 3 * 3600e3, AUC_REFILL = 10, AUC_PEEK = 2;
+export const RIVALS = [
+  {n: 'Grincheux', style: 'prudent', c: '#6a8caf'}, {n: 'Madame Givre', style: 'fonceuse', c: '#b05cc8'},
+  {n: 'Baron Glaçon', style: 'bluffeur', c: '#c8743a'}, {n: 'Tante Myrtille', style: 'prudent', c: '#3fa36b'}, {n: 'Le Yéti', style: 'fonceuse', c: '#8a8f9a'},
+];
+const LOT_NAMES = [['Hotte oubliée', 'Sac du facteur', 'Caisse de la gare'], ['Traîneau perdu', 'Malle de lutin', 'Coffre du grenier'], ['Coffre d’explorateur', 'Wagon du train polaire'], ['Trésor du Grand Nord', 'Traîneau royal']];
+/** Valeur d'une unité en pièces (proche des prix du marchand). */
+export function unitValue(s, k){
+  const L = s.lvl;
+  return {coins: 1, wood: 1, cookies: 1.4, fabric: 2.4, ice: (300 + L * 60) / (5 + Math.floor(L / 3)), gold: (1200 + L * 200) / (1 + Math.floor(L / 12)), axe: 600 + L * 90, saw: 600 + L * 90, stars: 120 * (1 + L * .15)}[k] || 1;
+}
+export const lotValue = (s, items) => Math.round(items.reduce((a, it) => a + it.n * unitValue(s, it.k), 0));
+export function makeLot(s, r){
+  const L = s.lvl, E = R5(400 * (1 + L * .5) * [1, 2.2, 4.6, 9][r]), truth = .45 + Math.random() * 1.2 + (Math.random() < .1 ? 1 : 0);
+  const pool = ['coins', ['wood', 'cookies', 'fabric'][Math.floor(Math.random() * 3)], ['wood', 'cookies', 'fabric'][Math.floor(Math.random() * 3)]];
+  if (r >= 1 || Math.random() < .4) pool.push('ice');
+  if (r >= 2 || L >= 10 && Math.random() < .3) pool.push('gold');
+  if (Math.random() < .35 + r * .1) pool.push(Math.random() < .5 ? 'axe' : 'saw');
+  if (r === 3 || r === 2 && Math.random() < .3) pool.push('stars');
+  const keys = [...new Set(pool)].sort(() => Math.random() - .5).slice(0, 4 + (r >= 2 ? 1 : 0)), w = keys.map(() => .4 + Math.random()), sw = w.reduce((a, b) => a + b, 0);
+  const acc = {};
+  keys.forEach((k, i) => { const v = E * truth * w[i] / sw, bulk = k === 'coins' || ['wood', 'cookies', 'fabric'].includes(k), n = v / unitValue(s, k);
+    const cap = k === 'stars' ? 1 + r : Infinity, q = Math.min(cap, Math.round(n));
+    if (bulk) acc[k] = (acc[k] || 0) + R5(n); else if (q >= 1){ acc[k] = q; if (q < Math.round(n)) acc.coins = (acc.coins || 0) + R5((n - q) * unitValue(s, k)); } else acc.coins = (acc.coins || 0) + R5(v); });
+  const items = Object.entries(acc).map(([k, n]) => ({k, n}));
+  const names = LOT_NAMES[r];
+  return {id: Math.random().toString(36).slice(2, 8), r, name: names[Math.floor(Math.random() * names.length)], items, seen: [0], est: E, fee: R5(E * .05)};
+}
+export function auction(s, t = Date.now()){
+  s.auc ||= {lots: [], t: 0};
+  if (t - s.auc.t >= AUC_EVERY || !s.auc.t){ const n = s.auc.t ? Math.floor((t - s.auc.t) / AUC_EVERY) : AUC_LOTS; for (let i = 0; i < n && s.auc.lots.length < AUC_LOTS; i++) s.auc.lots.push(makeLot(s, T.rollRarity([55, 30, 12, 3]))); s.auc.t = s.auc.lots.length >= AUC_LOTS ? t : (s.auc.t || t) + n * AUC_EVERY; }
+  return {lots: s.auc.lots, next: s.auc.lots.length < AUC_LOTS ? s.auc.t + AUC_EVERY : 0};
+}
+export function aucRefill(s){ if (s.stars < AUC_REFILL) return false; s.stars -= AUC_REFILL; s.auc.lots = Array.from({length: AUC_LOTS}, () => makeLot(s, T.rollRarity([50, 32, 14, 4]))); s.auc.t = Date.now(); return true; }
+export function aucPeek(s, lot){ const hid = lot.items.map((_, i) => i).filter(i => !lot.seen.includes(i)); if (!hid.length || s.stars < AUC_PEEK) return false; s.stars -= AUC_PEEK; lot.seen.push(hid[0]); return true; }
+/** Les rivaux d'une vente : budget secret calculé sur l'estimation (pas la vraie valeur, comme le joueur). */
+export function aucRivals(lot){
+  const pick = [...RIVALS].sort(() => Math.random() - .5).slice(0, 2 + (lot.r >= 2 ? 1 : 0));
+  return pick.map(p => ({...p, max: R5(lot.est * (p.style === 'fonceuse' ? .9 + Math.random() * .6 : p.style === 'bluffeur' ? .7 + Math.random() * .6 : .7 + Math.random() * .45)), out: false}));
+}
+export const aucStep = price => Math.max(10, Math.round(price * .1 / 5) * 5);
+/** Un tour des rivaux : renvoie le rival qui surenchérit (ou null). */
+export function aucRivalTurn(st){
+  const next = st.price + aucStep(st.price), cand = st.riv.filter((r, i) => i !== st.lead && !r.out);
+  for (const r of cand) if (next > r.max) r.out = true;
+  const can = cand.filter(r => !r.out); if (!can.length) return null;
+  const r = can[Math.floor(Math.random() * can.length)], p = r.style === 'fonceuse' ? .85 : r.style === 'bluffeur' ? .7 : .55;
+  if (Math.random() > p) return null;
+  const jump = r.style === 'fonceuse' && Math.random() < .4 ? 2 : 1;
+  st.price = Math.min(r.max, st.price + aucStep(st.price) * jump); if (st.price < next) st.price = next;
+  st.lead = st.riv.indexOf(r); return r;
+}
