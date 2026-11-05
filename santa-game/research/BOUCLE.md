@@ -183,5 +183,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Corrigé : compléter des jouets manquants coûtait trop peu d'étoiles (3 jouets = 1 étoile) ; maintenant au moins 2 étoiles par jouet.
 - Testé sur iPhone 13 et SE, tutoriel OK.
 
+## Tour 38 — Campagne des Trolls
+- Dans « Jeux » (niveau 5) : la Campagne des Trolls, comme la campagne solo de Clash. Des camps sans fin, par chapitres de 10 (Bois des Trolls, Col du Grognon, Marais gelés…), avec un chef au 10ᵉ camp.
+- Combat : les trolls sortent de derrière les buttes de neige ; on les touche pour leur lancer des boules de neige (certains demandent plusieurs coups, barre de vie). S'ils restent trop longtemps (« ! »), ils bombardent : un cœur de moins. Le chef (couronne) arrive en dernier avec beaucoup de vie.
+- Victoire : 1 à 3 étoiles selon les cœurs restants. Première victoire : butin complet (pièces, XP, cristaux, étoiles et colis sur les chefs, lingots dès le 2ᵉ chapitre) ; rejouer donne 30 %. Chaque attaque coûte des biscuits (le goûter des lutins).
+- Difficulté qui monte : plus de trolls, plus de coups par troll, attaques plus rapides. Corrigé après test : on perdait ses 3 cœurs en 5 s au 10ᵉ camp, rythme adouci.
+- Testé sur iPhone 13 et SE (liste, combat, victoire, défaite), tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

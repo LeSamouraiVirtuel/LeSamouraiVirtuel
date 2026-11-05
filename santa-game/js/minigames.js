@@ -6,6 +6,7 @@ const load = src => new Promise(r => { const i = new Image(); i.onload = () => r
 
 export const GAMES = {
   sleigh: {name: 'Tournée de Noël', rules: "Touche l'écran pour lâcher un cadeau. Vise les cheminées ! Plusieurs réussites d'affilée font grimper le combo.", time: 40},
+  troll:  {name: 'Attaque du camp', rules: "Touche les trolls pour leur lancer des boules de neige. Certains en demandent plusieurs ! S'ils restent trop longtemps, ils te bombardent : tu perds un cœur.", time: 45},
   snow:   {name: 'Bataille de boules de neige', rules: "Touche les lutins farceurs qui sortent de la neige. Le bonhomme doré rapporte gros. Ne vise pas les rennes !", time: 30},
 };
 
@@ -15,9 +16,10 @@ export const GAMES = {
 export async function openMinigame(kind, ctx){
   const G = GAMES[kind];
   const root = document.createElement('div'); root.id = 'mg'; root.className = 'mg-' + kind;
+  const C = ctx.camp, gname = C ? C.name : G.name, grules = C ? `${G.rules}${C.boss ? ' <b>Le chef du camp est là !</b>' : ''}` : G.rules;
   root.innerHTML = `<canvas></canvas>
-    <div class="mg-hud"><div class="mg-pill"><small>Score</small><b class="mg-score">0</b></div><div class="mg-pill"><small>Temps</small><b class="mg-time">${G.time}</b></div><button class="mg-quit" aria-label="Quitter"></button></div>
-    <div class="mg-card"><small>Mini-jeu</small><h2>${G.name}</h2><p>${G.rules}</p><span class="mg-best">Record : ${ctx.best(kind)}</span><button class="btn green mg-go">C'est parti !</button></div>`;
+    <div class="mg-hud"><div class="mg-pill"><small>${C ? 'Trolls' : 'Score'}</small><b class="mg-score">0</b></div>${C ? '<div class="mg-pill"><small>Cœurs</small><b class="mg-hearts">❤❤❤</b></div>' : ''}<div class="mg-pill"><small>Temps</small><b class="mg-time">${G.time}</b></div><button class="mg-quit" aria-label="Quitter"></button></div>
+    <div class="mg-card"><small>${C ? 'Campagne' : 'Mini-jeu'}</small><h2>${gname}</h2><p>${grules}</p>${C ? `<span class="mg-best">${C.n} trolls à vaincre${C.boss ? ' + le chef' : ''}</span>` : `<span class="mg-best">Record : ${ctx.best(kind)}</span>`}<button class="btn green mg-go">C'est parti !</button></div>`;
   document.body.appendChild(root);
   const cv = root.querySelector('canvas'), x = cv.getContext('2d');
   const dpr = Math.min(2, devicePixelRatio || 1);
@@ -27,10 +29,10 @@ export async function openMinigame(kind, ctx){
   const img = {};
   await Promise.all(Object.entries(ctx.icons).map(async ([k, v]) => { img[k] = await load(v); }));
 
-  let state = 'intro', time = G.time, score = 0, raf = 0, last = performance.now(), T = 0;
+  let state = 'intro', time = C ? C.time : G.time, hearts = 3, score = 0, raf = 0, last = performance.now(), T = 0;
   const floats = [];
   const float = (txt, fx, fy, color = '#fff') => floats.push({txt, x: fx, y: fy, t: 0, color});
-  const game = kind === 'sleigh' ? sleighGame() : snowGame();
+  const game = kind === 'sleigh' ? sleighGame() : kind === 'troll' ? trollGame() : snowGame();
 
   function close(){ cancelAnimationFrame(raf); removeEventListener('resize', resize); root.remove(); ctx.onClose?.(); }
   root.querySelector('.mg-quit').onclick = () => { if (state === 'play' && !confirmQuit()) return; close(); };
@@ -39,7 +41,16 @@ export async function openMinigame(kind, ctx){
   root.querySelector('.mg-go').onclick = () => { root.querySelector('.mg-card').hidden = true; state = 'play'; ctx.sfx.tap(); };
   cv.addEventListener('pointerdown', e => { if (state === 'play') game.tap(e.clientX, e.clientY); });
 
-  function finish(){
+  function finish(win){
+    if (state === 'end') return;
+    if (C){
+      state = 'end'; const res = ctx.result({win: !!win, hearts, score}), card = root.querySelector('.mg-card');
+      card.innerHTML = `<small>${C.name}</small><h2>${win ? 'Camp vaincu !' : 'Repli !'}</h2>${win ? `<div class="mg-stars">${[1, 2, 3].map(k => `<i class="${k <= res.stars ? 'on' : ''}">★</i>`).join('')}</div>` : `<p>${hearts <= 0 ? 'Les trolls t’ont bombardé.' : 'Le temps est écoulé.'} ${score} / ${C.n + (C.boss ? 1 : 0)} trolls vaincus.</p>`}
+        <div class="costs mg-rw">${ctx.chipsHtml(res.rw)}</div><button class="btn green mg-claim">${win ? 'Récupérer' : 'Retour'}</button>`;
+      card.hidden = false;
+      card.querySelector('.mg-claim').onclick = e => { ctx.grant(res.rw, e.currentTarget); ctx.sfx.level(); setTimeout(close, 450); };
+      return;
+    }
     state = 'end'; ctx.onScore?.(score);
     const rw = ctx.reward(kind, score), best = ctx.best(kind), rec = score > best;
     if (rec) ctx.setBest(kind, score);
@@ -65,7 +76,8 @@ export async function openMinigame(kind, ctx){
       x.lineWidth = 6; x.strokeStyle = INK; x.lineJoin = 'round'; x.strokeText(f.txt, f.x, f.y - f.t * 50); x.fillStyle = f.color; x.fillText(f.txt, f.x, f.y - f.t * 50);
     }
     x.globalAlpha = 1;
-    root.querySelector('.mg-score').textContent = score;
+    root.querySelector('.mg-score').textContent = C ? `${score}/${C.n + (C.boss ? 1 : 0)}` : score;
+    if (C) root.querySelector('.mg-hearts').textContent = '❤'.repeat(Math.max(0, hearts)) + '♡'.repeat(3 - Math.max(0, hearts));
     root.querySelector('.mg-time').textContent = Math.ceil(time);
   }
   raf = requestAnimationFrame(loop);
@@ -179,6 +191,76 @@ export async function openMinigame(kind, ctx){
   /* ================================================================
      BATAILLE DE BOULES DE NEIGE
      ================================================================ */
+  /* ================================================================
+     CAMPAGNE : ATTAQUE D'UN CAMP DE TROLLS
+     ================================================================ */
+  function drawTroll(cx, by, sz, t, hurt, boss){
+    const body = boss ? '#8a5fb0' : '#6f9fb0', dark = boss ? '#5d3a80' : '#4a7383';
+    x.save(); x.translate(cx, by); if (hurt) x.rotate(Math.sin(t * 40) * .08);
+    x.lineWidth = 3; x.strokeStyle = INK;
+    x.fillStyle = '#efe6d8'; for (const sgn of [-1, 1]){ x.beginPath(); x.moveTo(sgn * sz * .22, -sz * .78); x.quadraticCurveTo(sgn * sz * .42, -sz * 1.08, sgn * sz * .36, -sz * 1.12); x.quadraticCurveTo(sgn * sz * .3, -sz * .92, sgn * sz * .12, -sz * .8); x.fill(); x.stroke(); }
+    x.fillStyle = hurt ? '#ff9aa8' : body; x.beginPath(); x.ellipse(0, -sz * .45, sz * .42, sz * .48, 0, 0, 7); x.fill(); x.stroke();
+    x.fillStyle = '#fff'; x.beginPath(); x.ellipse(0, -sz * .22, sz * .26, sz * .24, 0, 0, 7); x.fill();
+    for (const sgn of [-1, 1]){ x.fillStyle = '#fff'; x.beginPath(); x.arc(sgn * sz * .14, -sz * .6, sz * .09, 0, 7); x.fill(); x.stroke(); x.fillStyle = INK; x.beginPath(); x.arc(sgn * sz * .12, -sz * .59, sz * .045, 0, 7); x.fill();
+      x.strokeStyle = dark; x.lineWidth = 4; x.beginPath(); x.moveTo(sgn * sz * .04, -sz * .7); x.lineTo(sgn * sz * .24, -sz * .76); x.stroke(); x.strokeStyle = INK; x.lineWidth = 3; }
+    x.fillStyle = '#5a1a1a'; x.beginPath(); x.ellipse(0, -sz * .4, sz * .13, sz * .06, 0, 0, 7); x.fill(); x.fillStyle = '#fff'; x.fillRect(-sz * .08, -sz * .45, sz * .05, sz * .05); x.fillRect(sz * .03, -sz * .45, sz * .05, sz * .05);
+    if (boss){ x.fillStyle = '#ffd34a'; x.beginPath(); x.moveTo(-sz * .2, -sz * .88); x.lineTo(-sz * .2, -sz * 1.02); x.lineTo(-sz * .1, -sz * .94); x.lineTo(0, -sz * 1.06); x.lineTo(sz * .1, -sz * .94); x.lineTo(sz * .2, -sz * 1.02); x.lineTo(sz * .2, -sz * .88); x.closePath(); x.fill(); x.stroke(); }
+    x.restore();
+  }
+  function trollGame(){
+    const g = snowGame(), mounds = g.mounds, pops = [], balls = [], splats = [], shots = [];
+    let spawn = .4, shake = 0, left = C.n, bossOut = false;
+    const total = C.n + (C.boss ? 1 : 0);
+    return {
+      good: 0, great: 0,
+      tap(px, py){
+        let best = null;
+        for (const p of pops){ if (p.dead) continue; const m = mounds[p.m], sz = m.s * (p.boss ? 1.35 : .95) * p.rise; if (Math.abs(px - m.x) < sz * .5 && py < m.y + 6 && py > m.y - sz * 1.15) best = p; }
+        balls.push({x0: W / 2, y0: H + 20, x1: px, y1: py, t: 0});
+        if (!best){ ctx.sfx.tap(); return; }
+        best.hp--; best.hurt = .25; splats.push({x: px, y: py, t: 0});
+        if (best.hp <= 0){ best.dead = true; best.deadT = 0; score++; const m = mounds[best.m]; float(best.boss ? 'Chef vaincu !' : 'Ouste !', m.x, m.y - m.s, best.boss ? '#ffd84a' : '#fff'); ctx.sfx.collect(); if (score >= total) setTimeout(() => finish(true), 500); }
+        else ctx.sfx.tap();
+      },
+      update(dt, rdt){
+        g.relayout();
+        spawn -= dt;
+        if (dt > 0 && spawn <= 0){
+          spawn = C.every * (.8 + Math.random() * .4);
+          const free = mounds.map((_, i) => i).filter(i => !pops.some(p => p.m === i));
+          if (left > 0 && free.length){ left--; pops.push({m: free[Math.floor(Math.random() * free.length)], t: 0, rise: 0, hp: C.hp, atk: C.atk * (.85 + Math.random() * .3), hurt: 0}); }
+          else if (!left && C.boss && !bossOut && !pops.some(p => p.m === 4)){ bossOut = true; pops.push({m: 4, t: 0, rise: 0, hp: C.bossHp, atk: C.atk * 1.6, boss: true, hurt: 0, max: C.bossHp}); float('Le chef arrive !', W / 2, H * .3, '#ffd84a'); }
+        }
+        for (const p of pops){
+          p.t += dt; p.hurt = Math.max(0, p.hurt - rdt);
+          if (p.dead){ p.deadT += rdt; p.rise = Math.max(0, p.rise - rdt * 4); continue; }
+          p.rise = Math.min(1, p.t / .25);
+          if (dt > 0 && p.t > p.atk){ p.t = .25; const m = mounds[p.m]; shots.push({x0: m.x, y0: m.y - m.s * .6, t: 0}); }
+        }
+        for (let i = pops.length - 1; i >= 0; i--) if (pops[i].dead && pops[i].deadT > .4) pops.splice(i, 1);
+        for (const sh of shots){ sh.t += rdt * 1.6; if (sh.t >= 1 && !sh.hit){ sh.hit = true; hearts--; shake = .4; ctx.sfx.err(); if (hearts <= 0 && state === 'play') finish(false); } }
+        for (let i = shots.length - 1; i >= 0; i--) if (shots[i].t > 1.2) shots.splice(i, 1);
+        for (const b of balls) b.t += rdt * 6;
+        for (let i = balls.length - 1; i >= 0; i--) if (balls[i].t > 1) balls.splice(i, 1);
+        for (const sp of splats) sp.t += rdt;
+        for (let i = splats.length - 1; i >= 0; i--) if (splats[i].t > .5) splats.splice(i, 1);
+        shake = Math.max(0, shake - rdt);
+      },
+      draw(){
+        x.save(); if (shake) x.translate((Math.random() - .5) * 16 * shake, 0);
+        g.drawScene((i, m) => { const p = pops.find(p => p.m === i); if (!p || p.rise <= 0) return;
+          const sz = m.s * (p.boss ? 1.35 : .95); x.save(); x.beginPath(); x.rect(m.x - sz, m.y - sz * 2, sz * 2, sz * 2); x.clip();
+          drawTroll(m.x, m.y + sz * (1 - p.rise) * .9 + m.s * .05, sz, T, p.hurt > 0, p.boss); x.restore();
+          if (!p.dead && (p.boss || C.hp > 1)){ const mx = p.max || C.hp, w = sz * .7; x.fillStyle = INK; x.fillRect(m.x - w / 2 - 2, m.y - sz * 1.25 - 2, w + 4, 10); x.fillStyle = '#ff5a5a'; x.fillRect(m.x - w / 2, m.y - sz * 1.25, w * p.hp / mx, 6); }
+          if (!p.dead && p.t > p.atk - .5){ x.fillStyle = '#ff3b3b'; x.font = '400 28px "Lilita One", sans-serif'; x.textAlign = 'center'; x.fillText('!', m.x + sz * .45, m.y - sz * .9); } });
+        for (const sp of splats){ x.globalAlpha = 1 - sp.t * 2; x.fillStyle = '#fff'; for (let k = 0; k < 7; k++){ const a = k * .9, r = 10 + sp.t * 60; x.beginPath(); x.arc(sp.x + Math.cos(a) * r, sp.y + Math.sin(a) * r, 6 - sp.t * 8, 0, 7); x.fill(); } }
+        x.globalAlpha = 1;
+        for (const b of balls){ const t = b.t, bx = b.x0 + (b.x1 - b.x0) * t, by = b.y0 + (b.y1 - b.y0) * t - Math.sin(t * Math.PI) * 80; x.fillStyle = '#fff'; x.strokeStyle = INK; x.lineWidth = 2.5; x.beginPath(); x.arc(bx, by, 12 * (1 - t * .4), 0, 7); x.fill(); x.stroke(); }
+        for (const sh of shots){ const t = Math.min(1, sh.t), r = 10 + t * 70; x.globalAlpha = sh.t > 1 ? Math.max(0, 1 - (sh.t - 1) * 5) : 1; x.fillStyle = '#e8f2ff'; x.strokeStyle = INK; x.lineWidth = 3; x.beginPath(); x.arc(sh.x0 + (W / 2 - sh.x0) * t, sh.y0 + (H * .62 - sh.y0) * t, r, 0, 7); x.fill(); x.stroke(); }
+        x.globalAlpha = 1; x.restore();
+      },
+    };
+  }
   function snowGame(){
     const mounds = [], pops = [], balls = [], splats = [];
     let spawn = .6, shake = 0;
@@ -191,7 +273,19 @@ export async function openMinigame(kind, ctx){
       }
     };
     layout();
+    const mound = m => { x.lineWidth = 3; x.strokeStyle = INK;
+      const g = x.createLinearGradient(0, m.y - m.s * .2, 0, m.y + m.s * .2); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#c6d6f0');
+      x.fillStyle = g; x.beginPath(); x.moveTo(m.x - m.s * .56, m.y + m.s * .08); x.bezierCurveTo(m.x - m.s * .5, m.y - m.s * .2, m.x - m.s * .2, m.y - m.s * .26, m.x, m.y - m.s * .2); x.bezierCurveTo(m.x + m.s * .2, m.y - m.s * .28, m.x + m.s * .5, m.y - m.s * .18, m.x + m.s * .56, m.y + m.s * .08); x.quadraticCurveTo(m.x, m.y + m.s * .2, m.x - m.s * .56, m.y + m.s * .08); x.fill(); x.stroke();
+      x.fillStyle = 'rgba(255,255,255,.9)'; x.beginPath(); x.ellipse(m.x - m.s * .18, m.y - m.s * .12, m.s * .14, m.s * .04, -.2, 0, 7); x.fill(); };
+    const scene = each => {
+      const sky = x.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#6fa9ee'); sky.addColorStop(.3, '#bcd9fb'); sky.addColorStop(.32, '#f4f8ff'); sky.addColorStop(1, '#dde8f8');
+      x.fillStyle = sky; x.fillRect(-20, 0, W + 40, H);
+      for (let i = 0; i < 9; i++){ const tx = (i + .5) * W / 9, th = 50 + (i * 37 % 30); x.fillStyle = i % 2 ? '#2f8a5f' : '#3c9c6c'; x.beginPath(); x.moveTo(tx - 22, H * .32); x.lineTo(tx, H * .32 - th); x.lineTo(tx + 22, H * .32); x.fill(); x.fillStyle = '#fff'; x.beginPath(); x.moveTo(tx - 9, H * .32 - th * .62); x.lineTo(tx, H * .32 - th); x.lineTo(tx + 9, H * .32 - th * .62); x.fill(); }
+      for (let i = 0; i < mounds.length; i++){ each(i, mounds[i]); mound(mounds[i]); }
+    };
     return {
+      mounds, relayout(){ if (mounds.length && Math.abs(mounds[0].x - W / 6) > W * .2) layout(); }, drawScene: scene,
       good: 25, great: 45,
       tap(px, py){
         let best = null;
