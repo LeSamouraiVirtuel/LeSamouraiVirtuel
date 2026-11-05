@@ -128,7 +128,23 @@ addEventListener('resize', resize); resize();
 const iso = (tx, ty) => ({x: (tx - ty) * TW / 2, y: (tx + ty) * TH / 2});
 const toScreen = (tx, ty) => { const p = iso(tx, ty); return {x: (p.x - cam.x) * cam.z + W / 2, y: (p.y - cam.y) * cam.z + H / 2}; };
 function toTile(sx, sy){ const wx = (sx - W / 2) / cam.z + cam.x, wy = (sy - H / 2) / cam.z + cam.y; return {x: wy / TH + wx / TW, y: wy / TH - wx / TW}; }
-function centerOn(tx, ty){ const p = iso(tx, ty); cam.x = p.x; cam.y = p.y; }
+function centerOn(tx, ty){ const p = iso(tx, ty); cam.x = p.x; cam.y = p.y; glide = null; }
+/* Caméra qui glisse (comme Township) : accélère, voyage, puis ralentit en arrivant. Durée selon la distance. */
+let glide = null, tutoHold = 0;
+function panTo(tx, ty, opt = {}){
+  const p = iso(tx, ty), dx = p.x - cam.x, dy = p.y - cam.y, dist = Math.hypot(dx, dy) * cam.z;
+  if (dist < 4){ opt.done?.(); return 0; }
+  const ms = opt.ms ?? Math.max(650, Math.min(1700, 550 + dist * 1.4));
+  glide = {x0: cam.x, y0: cam.y, x1: p.x, y1: p.y, z0: cam.z, z1: opt.zoom ?? cam.z, t0: performance.now(), ms, done: opt.done};
+  return ms;
+}
+function glideStep(){
+  if (!glide) return; const g = glide, u = Math.min(1, (performance.now() - g.t0) / g.ms);
+  const e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;         // lent au départ, rapide, puis tout doux à l'arrivée
+  const dip = g.z0 === g.z1 && g.ms > 700 ? Math.sin(u * Math.PI) * .06 : 0;      // petit recul de la caméra pendant les longs trajets
+  cam.x = g.x0 + (g.x1 - g.x0) * e; cam.y = g.y0 + (g.y1 - g.y0) * e; cam.z = g.z0 + (g.z1 - g.z0) * e - dip * g.z0;
+  if (u >= 1){ cam.z = g.z1; glide = null; g.done?.(); }
+}
 const startZoom = () => W < 600 ? CAM0 : Math.min(1.2, CAM0 * W / 600);
 cam.z = startZoom(); centerOn(20, 20);
 
@@ -693,7 +709,7 @@ addEventListener('pointermove', e => {
   const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
   if (drag.mode === 'pinch' && ptrs.size === 2){ const [a, b] = [...ptrs.values()]; cam.z = Math.max(.45, Math.min(1.5, drag.z0 * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0)); return; }
   drag.moved += Math.abs(dx) + Math.abs(dy);
-  if (drag.mode === 'pan'){ cam.x -= dx / cam.z; cam.y -= dy / cam.z; clampCam(); return; }
+  if (drag.mode === 'pan'){ glide = null; cam.x -= dx / cam.z; cam.y -= dy / cam.z; clampCam(); return; }
   if (drag.mode === 'ghost'){ const t = toTile(e.clientX, e.clientY), b = BUILDINGS[ghost.type]; ghost.x = Math.round(t.x - b.w / 2); ghost.y = Math.round(t.y - b.h / 2); updateGhostUI(); return; }
   if (drag.mode === 'harvest'){ const o = objAt(e.clientX, e.clientY); if (o && ripe(o) && !drag.done.has(o)){ drag.done.add(o); collectBld(o); } }
 });
@@ -1267,7 +1283,7 @@ $('#pb-ok').addEventListener('click', () => {
 $('#pb-no').addEventListener('click', () => { ghost = null; $('#placebar').hidden = true; document.body.classList.remove('placing'); });
 $('#b-build').addEventListener('click', () => { sfx.tap(); openPanel('build', 'prod'); });
 $('#b-barn').addEventListener('click', () => { sfx.tap(); openPanel('stock'); });
-$('#b-orders').addEventListener('click', () => { sfx.tap(); const o = S.objs.find(o => o.type === 'orders'); if (o) centerOn(o.x + 1.5, o.y + 1.5); openPanel('orders'); });
+$('#b-orders').addEventListener('click', () => { sfx.tap(); const o = S.objs.find(o => o.type === 'orders'); if (o) panTo(o.x + 1.5, o.y + 1.5); openPanel('orders'); });
 $('#veil').addEventListener('click', () => closePanel());
 
 /* ---------- chaque bâtiment a son gardien, qui explique son rôle (comme les managers de Bid Master) ---------- */
@@ -1409,8 +1425,8 @@ function goTo(where){
   const o = S.objs.find(x => x.type === where && !x.wild && !x.free) || S.objs.find(x => x.type === where);
   const b = BUILDINGS[where];
   if (!o){ toast(`Construis d'abord : ${b.name}`); return openPanel('build', T.catOf(b)); }
-  centerOn(o.x + b.w / 2, o.y + b.h / 2);
-  setTimeout(() => { if (workEnd(o)) return openPanel('site', o); if (b.kind === 'mine') return openPanel('mine', o); if (b.kind === 'lab') return openPanel('lab', o); if (b.kind === 'train') return openPanel('train', o); if (b.kind === 'stable') return openPanel('exp', o); if (b.kind === 'craft') return openPanel('craft', o); if (b.kind === 'prod' && collectBld(o)) return; openPanel('bld', o); }, 350);
+  const ms = panTo(o.x + b.w / 2, o.y + b.h / 2);
+  setTimeout(() => { if (workEnd(o)) return openPanel('site', o); if (b.kind === 'mine') return openPanel('mine', o); if (b.kind === 'lab') return openPanel('lab', o); if (b.kind === 'train') return openPanel('train', o); if (b.kind === 'stable') return openPanel('exp', o); if (b.kind === 'craft') return openPanel('craft', o); if (b.kind === 'prod' && collectBld(o)) return; openPanel('bld', o); }, ms + 80);
 }
 /** Ce qui manque pour une action : combien, où le trouver, et la possibilité de compléter en étoiles d'or. */
 function showMissing(req, what, retry){
@@ -1564,7 +1580,7 @@ $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
 $('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); });
 $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
-$('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } return; } openPanel('todo'); });
+$('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o) panTo(o.x + 2, o.y + 2, {zoom: startZoom()}); return; } openPanel('todo'); });
 function rsCheck(){ const R = T.rsTick(S); if (!R) return; const r = T.RESEARCH.find(x => x.k === R.k); toast(`Recherche terminée : ${r.name} niveau ${R.lv} !`); sfx.level(); save(); if (panel === 'lab') renderPanel(); }
 /* ---------- salle des ventes (enchères contre des rivaux, comme Bid Master) ---------- */
 const lotItems = l => `<div class="lis">${l.items.map((it, j) => l.seen.includes(j) ? `<span class="li">${resImg(it.k)}<b>${fmt(it.n)}</b></span>` : '<span class="li hid">?</span>').join('')}</div>`;
@@ -1687,7 +1703,7 @@ function todoList(){
 function todoGo(g){
   closePanel();
   if (g === 'daily') return openDaily(); if (g === 'sack') return openSack(); if (g === 'visitor') return openVisitor();
-  if (g === 'drop'){ centerOn(S.drop.x, S.drop.y); return; } if (g === 'quest') return $('#quest2').click();
+  if (g === 'drop'){ panTo(S.drop.x, S.drop.y); return; } if (g === 'quest') return $('#quest2').click();
   if (g === 'parcels') return openParcel(); if (g === 'build') return openPanel('build', 'prod');
   if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'pet') return openPanel('pet'); if (g === 'fish') return openPanel('fish'); if (g === 'museum') return openPanel('museum'); if (g === 'orders' || g === 'event') return openPanel(g);
   if (g.o && g.o.type === 'library') return openPanel('lab', g.o);
@@ -1838,7 +1854,7 @@ const STEPS = [
   {say: "Je l'ai mis sur son terrain. Touche <b>✓</b> pour lancer le chantier !", target: () => document.querySelector('#pb-ok'), wait: 'placed', reward: {coins: 50}, praise: 'Ton premier bâtiment !'},
   {say: "Bravo, Père Noël ! Suis les <b>tâches</b> en bas à gauche : elles t'emmènent toujours au bon endroit. Le Pôle Nord est entre tes mains !", tap: true, end: true},
 ]
-const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, steps: STEPS, name: 'Père Noël', focusPlot: ([x, y]) => centerOn(x, y),
+const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, steps: STEPS, name: 'Père Noël', focusPlot: ([x, y]) => { tutoHold = performance.now() + 550; setTimeout(() => panTo(x, y), 550); }, moving: () => !!glide || performance.now() < tutoHold,
   onReward: (r, praise) => { tutoPraise(r, praise); }, onEnd: () => setTimeout(() => bravo({coins: 300, stars: 10, axe: 1}, 'Tutoriel terminé : le village est à toi !', 'BRAVO !'), 500)});
 // petite carte « Bien joué ! » avec la récompense, puis les gains volent vers les compteurs
 function tutoPraise(r, praise){
@@ -1937,7 +1953,7 @@ function step(t, dt){
   step0(t, dt);
 }
 function step0(t, dt){
-  smoke(dt); bldFx(dt);
+  glideStep(); smoke(dt); bldFx(dt);
   if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); dropTick(); rsCheck(); if (!tuto.active()){ const had = !!S.visitor; T.visitorTick(S, now()); if (!had && S.visitor){ toast(`${S.visitor.who} arrive au village !`); sfx.pop(); } } }
   fxDt = dt;
   pt('logic', () => { refreshOrders(); finishWorks(); moveElves(dt); });
@@ -1961,6 +1977,7 @@ function welcomeBack(){
 setTimeout(welcomeBack, 1400);
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__v2 = {get S(){ return S; }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
+window.__v2 = {get S(){ return S; }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier
 document.addEventListener('change', e => { if (e.target.id !== 'loadfile' || !e.target.files?.[0]) return; e.target.files[0].text().then(saveLoad); });
+window.__pan = (x, y) => panTo(x, y);
