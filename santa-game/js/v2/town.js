@@ -92,6 +92,10 @@ export const BUILDINGS = {
              desc: 'Les enfants y déposent leurs commandes de jouets. Livre-les pour gagner pièces, XP et étoiles.'},
   stable:   {name: 'Écurie des rennes', kind: 'stable', w: 3, h: 3, unique: true, cost: {coins: 400, wood: 350, cookies: 120}, time: 40, hq: 4,
              desc: 'Les rennes s’entraînent pour la Tournée de Noël (mini-jeu).'},
+  icewell:  {name: 'Puits de cristaux', kind: 'prod', res: 'ice', rate: 3, w: 3, h: 3, unique: true, cost: {coins: 2500, wood: 1500, cookies: 600}, time: 120, hq: 7,
+             desc: 'Les lutins remontent des cristaux de glace du fond du puits, tout doucement mais sans s’arrêter.'},
+  foundry:  {name: 'Fonderie d’or polaire', kind: 'prod', res: 'gold', rate: .5, w: 3, h: 3, unique: true, cost: {coins: 9000, wood: 5000, cookies: 2000, ice: 40}, time: 300, hq: 11,
+             desc: 'Le minerai des aurores fondu en lingots d’or polaire. Rare, précieux, indispensable aux grands chantiers.'},
   mine:     {name: 'Grotte aux cristaux', kind: 'mine', w: 3, h: 3, unique: true, cost: {coins: 900, wood: 700, cookies: 250}, time: 60, hq: 5,
              desc: 'Creuse la glace étage par étage : cristaux, lingots et colis perdus t’attendent. Plus on descend, plus c’est riche.'},
   theater:  {name: 'Théâtre de marionnettes', kind: 'fun', w: 3, h: 3, unique: true, cost: {coins: 600, wood: 400, fabric: 100}, time: 60, hq: 5,
@@ -124,8 +128,8 @@ export const isUpgradable = b => !['deco', 'path'].includes(b.kind);
 
 /* ---------- chiffres par niveau (tout ce que l'amélioration change) ---------- */
 const R5 = n => n < 100 ? Math.round(n) : Math.round(n / 5) * 5;
-export const rate = (type, lv) => R5(BUILDINGS[type].rate * Math.pow(1.25, lv - 1));        // par heure
-export const buffer = (type, lv) => R5(rate(type, lv) * (lv < 3 ? .5 : lv < 6 ? 2 : lv < 9 ? 6 : 12));   // stock interne : 30 min → 2 h → 6 h → une nuit
+export const rate = (type, lv) => { const v = BUILDINGS[type].rate * Math.pow(1.25, lv - 1); return v < 10 ? Math.round(v * 10) / 10 : R5(v); };        // par heure
+export const buffer = (type, lv) => RARE.includes(BUILDINGS[type].res) ? Math.max(1, Math.floor(rate(type, lv) * 12)) : R5(rate(type, lv) * (lv < 3 ? .5 : lv < 6 ? 2 : lv < 9 ? 6 : 12));   // stock interne : 30 min → 2 h → 6 h → une nuit
 export const workers = (type, lv) => BUILDINGS[type].kind === 'prod' ? 2 * lv : 0;
 export const housing = lv => 6 + 4 * (lv - 1);                                             // lutins par chalet
 export const storageAdd = lv => R5(300 * Math.pow(1.5, lv - 1));                           // stock en plus par entrepôt
@@ -287,6 +291,8 @@ export function stored(s, o, now = Date.now()){
 }
 export function collect(s, o, now = Date.now()){
   const b = BUILDINGS[o.type], n = stored(s, o, now); if (!n) return 0;
+  // matériaux rares (cristaux, lingots) : vont dans l'inventaire, sans plafond
+  if (RARE.includes(b.res)){ s.inv[b.res] = (s.inv[b.res] || 0) + n; o.t = now; return n; }
   const room = Math.max(0, cap(s, b.res) - (s[b.res] || 0)), got = Math.min(n, room);
   if (!got) return -1;                                   // stock plein
   s[b.res] += got;

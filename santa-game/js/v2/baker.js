@@ -103,6 +103,10 @@ function modelFor(type, t = 1){
     case 'orders': { const g = mk('wrap'); g.add(prop(t >= 3 ? 'sled-long' : 'sled', {x: 1.1, z: 1.05, s: .8, ry: .6})); if (t >= 2) g.add(prop('reindeer', {x: 1.25, z: -.2, s: .55, ry: .6})); return g; }
     case 'theater': return theater(t);
     case 'mine': return cave(t);
+    case 'icewell': { const g = new THREE.Group(); g.add(scaled(plotBase(t), .78)); g.add(prop('rocks-large', {x: -.3, z: -.4, y: .27, s: .9})); g.add(prop('Food_Barrel_Empty', {x: .1, z: .1, y: .27, s: .6})); g.add(prop('poles', {x: .1, z: .1, y: .27, s: .7})); g.add(prop('Gems_Chest', {x: .8, z: .7, y: .27, s: .5, ry: -.5})); g.add(prop('lantern', {x: -1, z: .8, y: .27, s: .55}));
+      if (t >= 2) g.add(prop('cart', {x: .9, z: -.4, y: .27, s: .6})); if (t >= 3) g.add(prop('Gems_Chest', {x: -.9, z: -.9, y: .27, s: .45}), prop('lights-colored', {y: 1, s: .7})); return dress(g, 'icewell', t); }
+    case 'foundry': { const g = new THREE.Group(); g.add(scaled(plotBase(t), .78)); g.add(scaled(cabin({len: 1, front: ['cabin-window-a', 'door'], chimney: 1}), .7).translateX(-.3).translateZ(-.3).translateY(.27)); g.add(prop('Gold_Bars_Stack_Small', {x: .9, z: .8, y: .27, s: .6})); g.add(prop('Containers_Crate_Large', {x: 1.1, z: -.3, y: .27, s: .4}));
+      if (t >= 2) g.add(prop('Gold_Bars_Stack_Small', {x: .4, z: 1.2, y: .27, s: .5})); if (t >= 3) g.add(prop('lantern_decorated', {x: -1.2, z: 1.1, y: .27, s: .5})); return dress(g, 'foundry', t); }
     case 'cabin': return t === 1 ? house(1, .985) : t === 2 ? house(2, .33) : (() => { const g = house(2, .6); g.add(prop('tree-decorated-snow', {x: .75, z: .75, s: .35})); return g; })();
     case 'path': return pathTile(1);
     default: return deco(type);
