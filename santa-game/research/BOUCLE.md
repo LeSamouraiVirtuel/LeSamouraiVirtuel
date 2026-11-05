@@ -205,5 +205,13 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - 12 espèces en 4 raretés (de la Morue des glaces au Petit narval), avec une taille au hasard : pièces selon la taille, XP, cristaux et lingots pour les rares, étoiles pour chaque nouvelle espèce. Carnet de pêche avec nombre et record de taille.
 - Testé sur iPhone 13 et SE, tutoriel OK.
 
+## Tour 41 — Musée des trouvailles
+- Comme le musée de Bid Master : 20 objets rares en 4 collections (Jouets d'autrefois, Souvenirs du Grand Nord, Trésors des aurores, Reliques du Père Noël), chacun avec sa rareté.
+- On les trouve en gagnant des enchères (30 à 75 % selon la rareté du lot), en ouvrant des colis mystère (4 à 35 %), en battant un chef troll pour la première fois (toujours) et en pêchant un poisson épique ou légendaire.
+- Collection complète : 8 étoiles, 5 000 pièces, 150 XP et +2 % de production pour toujours. Les doubles se revendent.
+- Le musée s'ouvre depuis l'Album ; « Mon village » signale une collection à récupérer.
+- Corrigé pendant les tests : cartes trop serrées sur iPhone SE (3 colonnes et badge ×N).
+- Testé sur iPhone 13 et SE, tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
