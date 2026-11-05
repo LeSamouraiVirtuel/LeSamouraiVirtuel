@@ -130,5 +130,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Débloquées de la Maison niv. 3 à 18 ; bonheur de +4 à +32 ; cristaux et lingots pour les plus belles.
 - Construire passe sur 2 colonnes sur iPhone SE.
 
+## Tour 30 — L'histoire continue : chapitres 8 à 14
+- 27 nouvelles tâches en 7 chapitres : Le secret de Mère Noël, Les rennes du Grand Nord, Au fond de la grotte, Le grand spectacle, La grande commande, Les jouets de luxe, La nuit de Noël approche.
+- Chaque chapitre a son personnage (Mère Noël, Dame Rennes, Pic le mineur, Monsieur Fil, Gros Ours, Maître Rouage, le vieux Père Noël) et son texte ; les tâches font utiliser toutes les activités du village.
+- Les compteurs de ces tâches partent de zéro au début de chaque tâche.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

@@ -1320,7 +1320,7 @@ function openVisitor(){
 let pendingStory = -1;
 function story(i){
   const c = T.CHAPTERS[i], m = $('#modal'); m.className = 'glow';
-  m.querySelector('.mcard').innerHTML = `<small>Chapitre ${i + 1}</small><h2 class="stroke">${c.title}</h2><div class="storyrow"><img src="${portrait}" alt=""><p>${c.story}</p></div><button class="btn green" data-m="ok">C'est parti !</button>`;
+  m.querySelector('.mcard').innerHTML = `<small>Chapitre ${i + 1}</small><h2 class="stroke">${c.title}</h2><div class="storyrow"><img src="${c.who && c.who !== 'Le vieux Père Noël' ? elfImg() : portrait}" alt=""><p>${c.who ? `<b class="who">${c.who}</b>` : ''}${c.story}</p></div><button class="btn green" data-m="ok">C'est parti !</button>`;
   m.hidden = false; m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; };
 }
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){

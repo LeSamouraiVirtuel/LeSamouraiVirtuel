@@ -379,6 +379,33 @@ export const QUESTS = [
   {t: 'Ouvre 3 colis mystère', k: 'parcel', n: 3, r: {coins: 800, stars: 2, xp: 40}},
   {t: 'Allume les illuminations du village', k: 'lights', n: 1, r: {coins: 1000, xp: 40}},
   {t: "Descends à l'étage 5 de la grotte", k: 'floor', n: 4, r: {ice: 20, xp: 50}},
+  {t: "Améliore la Maison du Père Noël au niveau 6", k: 'level:santa', n: 6, r: {coins: 1500, stars: 4, xp: 80}},
+  {t: "Lance 3 commandes spéciales dans les ateliers", k: 'job', n: 3, r: {coins: 600, xp: 50}},
+  {t: "Emballe 5 jouets avec du papier cadeau", k: 'wrap', n: 5, r: {fabric: 200, xp: 50}},
+  {t: "Fais affaire avec 2 visiteurs", k: 'visitor', n: 2, r: {coins: 800, stars: 2, xp: 60}},
+  {t: "Améliore l'Écurie des rennes au niveau 4", k: 'level:stable', n: 4, r: {cookies: 600, xp: 70}},
+  {t: "Nourris les rennes 2 fois", k: 'deer', n: 2, r: {coins: 700, xp: 50}},
+  {t: "Envoie 5 expéditions", k: 'exp', n: 5, r: {ice: 15, xp: 70}},
+  {t: "Ouvre 8 colis mystère", k: 'parcel', n: 8, r: {coins: 1200, stars: 3, xp: 80}},
+  {t: "Améliore la Grotte aux cristaux au niveau 4", k: 'level:mine', n: 4, r: {coins: 1500, xp: 80}},
+  {t: "Creuse 60 cases dans la grotte", k: 'dig', n: 60, r: {ice: 25, xp: 90}},
+  {t: "Descends de 10 étages", k: 'floor', n: 10, r: {gold: 3, stars: 3, xp: 100}},
+  {t: "Monte 2 spectacles au Théâtre", k: 'show', n: 2, r: {coins: 1500, xp: 90}},
+  {t: "Atteins 80 de bonheur", k: 'joy', n: 80, r: {coins: 2000, stars: 3, xp: 100}},
+  {t: "Allume les illuminations au niveau 5", k: 'lights', n: 5, r: {ice: 20, xp: 100}},
+  {t: "Les lutins donnent 3 coups de main", k: 'help', n: 3, r: {cookies: 1200, xp: 80}},
+  {t: "Améliore l'Entrepôt au niveau 5", k: 'level:storage', n: 5, r: {coins: 2500, xp: 110}},
+  {t: "Livre 3 grandes commandes du Nord", k: 'bulk', n: 3, r: {gold: 3, xp: 120}},
+  {t: "Améliore la Maison du Père Noël au niveau 8", k: 'level:santa', n: 8, r: {coins: 4000, stars: 5, xp: 150}},
+  {t: "Livre 30 lettres", k: 'orders', n: 30, r: {coins: 3000, stars: 3, xp: 150}},
+  {t: "Atteins le niveau 16", k: 'lvl', n: 16, r: {coins: 3000, xp: 120}},
+  {t: "Fabrique 5 bonshommes en pain d'épices", k: 'make:ginger', n: 5, r: {cookies: 1500, xp: 140}},
+  {t: "Améliore l'Atelier des jouets au niveau 8", k: 'level:workshop', n: 8, r: {coins: 5000, stars: 4, xp: 160}},
+  {t: "Fabrique 3 wagons de cadeaux", k: 'make:wagon', n: 3, r: {fabric: 800, gold: 2, xp: 160}},
+  {t: "Améliore la Maison du Père Noël au niveau 10", k: 'level:santa', n: 10, r: {coins: 8000, stars: 8, xp: 250}},
+  {t: "Livre 60 lettres", k: 'orders', n: 60, r: {coins: 6000, stars: 4, xp: 220}},
+  {t: "Allume les illuminations au niveau 15", k: 'lights', n: 15, r: {gold: 6, xp: 220}},
+  {t: "Atteins le niveau 25", k: 'lvl', n: 25, r: {stars: 15, gold: 5, xp: 300}},
 ];
 const GEN = [['orders', 'Livre %n lettres', 5], ['dig', 'Creuse %n cases à la grotte', 15], ['make', 'Fabrique %n jouets', 6], ['exp', 'Envoie %n expéditions', 2], ['collect:wood', 'Récolte %n bois', 1500], ['parcel', 'Ouvre %n colis', 3], ['collect:cookies', 'Récolte %n biscuits', 1000]];
 export function questAt(s, i){
@@ -403,7 +430,7 @@ function questValue(s, q, i){
   if (kind === 'have') return s.objs.filter(o => o.type === what && built(o) && !o.free).length + (what === 'cabin' ? s.objs.filter(o => o.type === 'cabin' && o.free).length : 0);
   if (kind === 'expand') return s.chunks.length - START_CHUNKS.length;
   const total = s.cnt[q.k] || 0;
-  return i >= QUESTS.length ? total - (s.quest.base[q.k] || 0) : total;
+  return i >= 28 ? total - (s.quest.base[q.k] || 0) : total;   // à partir du chapitre 8 : seules les actions faites depuis le début de la tâche comptent
 }
 export function questProgress(s){
   const q = questAt(s, s.quest.i), v = questValue(s, q, s.quest.i);
@@ -467,6 +494,13 @@ export const CHAPTERS = [
   {from: 16, title: 'Les rennes du Nord', story: "Il est temps de préparer la Tournée : l'Écurie des rennes ouvre ses portes."},
   {from: 20, title: 'La fête au village', story: "Un théâtre de marionnettes, et tout le Pôle Nord vient voir ton village !"},
   {from: 22, title: 'Les trésors du Grand Nord', story: "Sous la neige dorment des cristaux et des lingots d'or polaire. Creuse la grotte, envoie les rennes au loin : les grands chantiers en auront besoin."},
+  {from: 28, title: 'Le secret de Mère Noël', who: 'Mère Noël', story: "« Un bon Père Noël soigne chaque cadeau, mon chéri. » Mère Noël t'apprend l'art du papier cadeau, et des visiteurs frappent à la porte."},
+  {from: 32, title: 'Les rennes du Grand Nord', who: 'Dame Rennes', story: "Rodolphe a le nez qui brille d'impatience ! Les rennes veulent voyager loin, et ils ont besoin d'être bien nourris."},
+  {from: 36, title: 'Au fond de la grotte', who: 'Pic le mineur', story: "Pic le mineur a entendu un écho bizarre tout au fond de la grotte. Plus on descend, plus les cristaux brillent…"},
+  {from: 39, title: 'Le grand spectacle', who: 'Monsieur Fil', story: "Monsieur Fil prépare la plus belle saison de marionnettes du Pôle. Tout le village doit briller pour l'occasion !"},
+  {from: 43, title: 'La grande commande', who: 'Gros Ours', story: "Le Grand Nord tout entier passe commande. Gros Ours a besoin d'un entrepôt immense et de lutins bien organisés."},
+  {from: 47, title: 'Les jouets de luxe', who: 'Maître Rouage', story: "Maître Rouage a dessiné des jouets jamais vus : pain d'épices, wagons de cadeaux… Les enfants vont adorer !"},
+  {from: 51, title: 'La nuit de Noël approche', who: 'Le vieux Père Noël', story: "Le vieux Père Noël revient voir son village. « Tu es prêt pour la grande nuit, mon ami ? » Montre-lui ce dont tu es capable !"},
 ];
 export const chapterOf = i => { let c = 0; for (let k = 0; k < CHAPTERS.length; k++) if (i >= CHAPTERS[k].from) c = k; return i >= QUESTS.length ? CHAPTERS.length : c; };
 
