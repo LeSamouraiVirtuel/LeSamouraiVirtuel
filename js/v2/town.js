@@ -1018,3 +1018,23 @@ export function trainSend(s, now = Date.now()){
   const full = st.tr.wag.every(w => w.done); st.tr.wag = []; st.tr.back = now + trainTrip(st.o.lv) * 1000; st.tr.start = now;
   return full ? trainBonus(s) : {};
 }
+
+/* ===================== CAMPAGNE CONTRE LES TROLLS (campagne solo de Clash, camps de DoA) ===================== */
+// Des camps à attaquer les uns après les autres, de plus en plus coriaces ; un chef tous les 10 camps.
+// Chaque attaque coûte des biscuits (le goûter des lutins). Jusqu'à 3 étoiles par camp selon les cœurs restants.
+export const CAMP_LVL = 5;
+export const CHAPTERS_CAMP = ['Bois des Trolls', 'Col du Grognon', 'Marais gelés', 'Grottes bleues', 'Pics du Krampus', 'Plaine des Glaces', 'Forteresse du Blizzard', 'Royaume des Ombres'];
+export function camp(i){
+  const ch = Math.floor(i / 10), boss = i % 10 === 9;
+  return {i, ch, boss, name: `${CHAPTERS_CAMP[ch % CHAPTERS_CAMP.length]}${ch >= CHAPTERS_CAMP.length ? ' ' + (Math.floor(ch / CHAPTERS_CAMP.length) + 1) : ''} · ${boss ? 'le chef' : 'camp ' + (i % 10 + 1)}`,
+    n: Math.min(18, 6 + Math.floor(i * .45)), hp: 1 + Math.floor(i / 10), atk: Math.max(1.5, 3.4 - i * .035), every: Math.max(.45, 1 - i * .015), time: 45 + (boss ? 15 : 0), bossHp: 8 + Math.floor(i * .8)};
+}
+export const campCost = i => ({cookies: R5(60 * (1 + i * .45))});
+export function campLoot(s, i, stars, first){
+  const c = camp(i), m = first ? 1 : .3, r = {coins: R5(250 * (1 + i * .55) * (c.boss ? 2.5 : 1) * m), xp: Math.round((12 + i * 3) * m)};
+  if (i >= 4) r.ice = Math.max(1, Math.round((2 + i * .3) * (c.boss ? 3 : 1) * m));
+  if (c.boss && first){ r.stars = 3; r.parcel = 1; if (c.ch >= 1) r.gold = 1 + c.ch; }
+  else if (first && stars === 3) r.stars = 1;
+  return r;
+}
+export const campState = s => (s.camps ||= {at: 0, st: {}});

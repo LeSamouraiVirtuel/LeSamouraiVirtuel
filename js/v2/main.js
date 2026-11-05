@@ -867,8 +867,16 @@ function renderPanel(){
   else if (panel === 'games'){
     const g = tickets();
     h = hd('', 'Mini-jeux') + `<div class="tix"><span>${'<i class="tk"></i>'.repeat(g.tickets)}${'<i class="tk off"></i>'.repeat(TMAX - g.tickets)}</span><small>${g.tickets < TMAX ? `+1 ticket dans <b data-until="${g.t + TEVERY}"></b>` : 'Tickets au maximum'}</small></div>
-      <div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
+      ${campCard()}<div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
       <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
+  }
+  else if (panel === 'camp'){
+    const C = T.campState(S), from = Math.max(0, Math.floor(C.at / 10) * 10 - 10), list = Array.from({length: Math.min(C.at + 1, from + 20) - from}, (_, j) => T.camp(from + j)).reverse();
+    const tot = Object.values(C.st).reduce((a, b) => a + b, 0);
+    h = hd(`${C.at} camp${C.at > 1 ? 's' : ''} vaincu${C.at > 1 ? 's' : ''} · ${tot} ★`, 'Campagne des Trolls') + `<p class="help">Les trolls des neiges volent les cadeaux ! Attaque leurs camps un par un. Chaque attaque coûte le goûter des lutins (biscuits). Garde tes 3 cœurs pour gagner 3 étoiles.</p>
+      <div class="camps">${list.map(c => { const st = C.st[c.i] || 0, cur = c.i === C.at, lk = c.i > C.at, cost = T.campCost(c.i);
+        return `<div class="campc ${c.boss ? 'boss' : ''} ${cur ? 'cur' : ''} ${st ? 'won' : ''}"><div class="cn"><b>${c.name}</b><small>${c.n} trolls${c.boss ? ' + le chef' : ''}${c.hp > 1 ? ` · ${c.hp} coups chacun` : ''}</small><span class="cst">${[1, 2, 3].map(k => `<i class="${k <= st ? 'on' : ''}">★</i>`).join('')}</span></div>
+          <div class="ca"><span class="costs">${rewardChips(T.campLoot(S, c.i, 3, !st))}</span><button class="btn ${cur ? 'red' : 'blue'} sm" data-a="campgo" data-i="${c.i}" ${lk ? 'disabled' : ''}><span class="costs">${costChips(cost)}</span>${cur ? 'Attaquer' : 'Rejouer'}</button></div></div>`; }).join('')}</div>`;
   }
   else if (panel === 'album'){
     const claim = T.albumClaimable(S);
@@ -1147,6 +1155,8 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'gomine') return openPanel('mine', panelArg);
   if (a === 'golab') return openPanel('lab', panelArg);
   if (a === 'gotrain') return openPanel('train', panelArg);
+  if (a === 'camp') return openPanel('camp');
+  if (a === 'campgo') return campGo(+b.dataset.i);
   if (a === 'tload'){ const i = +b.dataset.i, w = S.train?.wag[i], why = T.trainLoad(S, i); if (why){ sfx.err(); if (w && !T.has(S, w.want)) return showMissing(w.want, 'Charger le wagon', () => { if (!T.trainLoad(S, i)){ giveReward(w.rw, $('#h-coins')); T.track(S, 'train'); save(); } renderPanel(); }); return toastOnce(why); } sfx.collect(); giveReward(w.rw, b); T.track(S, 'train'); save(); return renderPanel(); }
   if (a === 'tsend'){ const bon = T.trainSend(S); if (!bon) return; sfx.level(); if (Object.keys(bon).length) bravo(bon, 'Le train est parti plein !', 'TRAIN COMPLET'); else toast('Le train est parti. Il revient bientôt avec de nouveaux wagons.'); save(); return renderPanel(); }
   if (a === 'tspeed'){ const tr = S.train; if (!tr || tr.back <= now()) return; const st = T.speedStars(tr.back - now()); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; tr.back = now(); sfx.level(); save(); return renderPanel(); }
@@ -1652,6 +1662,26 @@ function playGame(k){
     chipsHtml: rewardChips, reward: gameReward,
     grant: (rw, el) => { giveReward(rw, el); T.track(S, 'games'); },
     onScore: () => {}, onClose: () => { document.body.classList.remove('in-game'); },
+  });
+}
+
+/* ---------- campagne contre les trolls ---------- */
+function campCard(){
+  if (S.lvl < T.CAMP_LVL) return `<div class="campentry lock"><b>Campagne des Trolls</b><small>Niveau ${T.CAMP_LVL} requis</small></div>`;
+  const C = T.campState(S), c = T.camp(C.at);
+  return `<button class="campentry" data-a="camp"><span class="ti">⚔</span><div><b>Campagne des Trolls</b><small>Prochain : ${c.name}</small></div><span class="btn red sm">Attaquer</span></button>`;
+}
+function campGo(i){
+  const C = T.campState(S); if (i > C.at) return; const cost = T.campCost(i), c = T.camp(i);
+  if (!T.has(S, cost)){ sfx.err(); return showMissing(cost, `Attaquer : ${c.name}`, () => campGo(i)); }
+  T.take(S, cost); save(); closePanel(); document.body.classList.add('in-game');
+  openMinigame('troll', {
+    camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
+    chipsHtml: rewardChips, reward: () => ({}),
+    result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
+      C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
+    grant: (rw, el) => { giveReward(rw, el); if (rw.xp) gainXp(rw.xp, el); },
+    onClose: () => { document.body.classList.remove('in-game'); openPanel('camp'); },
   });
 }
 
