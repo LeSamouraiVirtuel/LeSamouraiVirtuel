@@ -599,7 +599,7 @@ export function expBlock(s, k, now = Date.now()){
 export function expStart(s, k, now = Date.now()){
   const why = expBlock(s, k, now); if (why) return why;
   const d = EXP_DEST.find(d => d.k === k); take(s, expCost(s, d));
-  (s.exps ||= []).push({k, end: now + d.time, start: now}); return null;
+  (s.exps ||= []).push({k, end: now + d.time * deerSpeed(s, now), start: now}); return null;
 }
 /** Rentre les expéditions terminées : renvoie les colis rapportés (raretés). */
 export function expCollect(s, now = Date.now()){
@@ -777,4 +777,18 @@ export function bulkDo(s, o, k, now = Date.now()){
   if (!bulkReady(o, now)) return 'Gros Ours prépare la prochaine commande';
   const of = bulkOffers(s, o).find(x => x.k === k); if (!has(s, of.want)) return 'Ressources insuffisantes';
   take(s, of.want); o.bulkAt = now + BULK_EVERY; return of.give;
+}
+
+/* ===================== SOINS DES RENNES (Écurie) ===================== */
+// Nourrir les rennes : pendant 8 h, les expéditions sont 25 % plus rapides (+2 % par cœur d'affection, 10 cœurs max).
+export const DEER_EVERY = 8 * 3600e3;
+export const deerHearts = s => Math.min(10, s.deer?.hearts || 0);
+export const deerFedNow = (s, now = Date.now()) => (s.deer?.until || 0) > now;
+export const deerSpeed = (s, now = Date.now()) => deerFedNow(s, now) ? 1 - .25 - .02 * deerHearts(s) : 1;
+export const deerCost = s => ({cookies: R5(80 * (1 + s.lvl * .25))});
+export function deerFeed(s, now = Date.now()){
+  if (deerFedNow(s, now)) return 'Les rennes n’ont plus faim';
+  if (!has(s, deerCost(s))) return 'Ressources insuffisantes';
+  take(s, deerCost(s)); s.deer ||= {hearts: 0}; s.deer.until = now + DEER_EVERY; s.deer.hearts = Math.min(10, (s.deer.hearts || 0) + 1);
+  return null;
 }

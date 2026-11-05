@@ -86,5 +86,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - iPhone SE : l'écran de récompense avec beaucoup de cartes cachait le bouton OK (bloquant) → cartes plus petites et fenêtre qui défile.
 - iPhone SE : la deuxième ligne du haut passait sur deux lignes → tailles ajustées.
 
+## Tour 19 — Soins des rennes (cour des familiers de Bid Master)
+- À l'Écurie, nourrir les rennes avec des biscuits : expéditions 25 % plus rapides pendant 8 h.
+- Chaque repas donne un cœur d'affection (10 max), +2 % de vitesse par cœur, pour toujours.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
