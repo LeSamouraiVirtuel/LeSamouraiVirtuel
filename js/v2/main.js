@@ -4,6 +4,9 @@
 // canvas 2D : chargement rapide, fluide, net, et aucune 3D à calculer sur l'appareil.
 import {createTuto} from '../tuto.js';
 import {openMinigame, GAMES} from '../minigames.js';
+import {openDefense} from '../defense.js';
+import {portrait as villainPortrait} from '../villains.js';
+import * as ACC from '../account.js';
 import * as T from './town.js';
 import * as M from './meta.js';
 
@@ -945,13 +948,50 @@ function renderPanel(){
         <button class="btn ${pat ? 'gold' : 'blue'} wide" data-a="petpat" ${pat ? '' : 'disabled'}>${pat ? 'Caresser Flocon (petit cadeau)' : `Flocon se repose · <b data-until="${p.pat + T.PET_PAT}"></b>`}</button>
         <h3>Le nourrir</h3><div class="petfood">${T.petFoods(S).map(f => `<button class="pf ${f.k === 'fav' ? 'fav' : ''}" data-a="petfeed" data-k="${f.k}">${f.k === 'fav' ? `<span class="tag">Préféré du jour</span>` : ''}<span class="costs">${costChips(f.cost)}</span><b>+${fmt(f.xp)} XP</b></button>`).join('')}</div>`; }
   }
+  else if (panel === 'lore'){
+    const ch = T.chapterOf(S.quest.i);
+    const BEST = [
+      ['krampus', 'Krampus des Glaces', "Autrefois Gardien de l'Hiver et ami du premier Père Noël. Il s'est senti oublié quand les enfants n'ont plus attendu que Noël. Il a arraché des éclats à l'Étoile du Nord pour qu'elle s'éteigne et que l'hiver ne finisse plus.", 0],
+      ['chief', 'Grognard, chef des trolls', "Chef des trolls des neiges. Il sert le Krampus contre des cristaux volés. Brutal, gourmand, et terriblement rancunier.", 4],
+      ['baron', 'Baron Glaçon', "Bonhomme de neige animé par la magie du Krampus. Devenu marchand, il revend au plus offrant les cadeaux perdus du Pôle.", 14],
+      ['troll', 'Troll des neiges', "Le soldat de base. Deux boules de neige suffisent… s'il ne t'atteint pas avant.", 0],
+      ['runner', 'Troll coureur', "Petit et très rapide. Vise-le en premier.", 2],
+      ['shield', 'Troll au bouclier', "Son bouclier de glace encaisse deux coups. L'Avalanche le brise d'un coup.", 4],
+      ['thrower', 'Troll lanceur', "S'arrête à mi-chemin et lance des boules de neige sur la palissade. Touche ses boules en vol pour les parer.", 6],
+      ['yeti', 'Yéti', "Énorme et lent. S'il atteint la palissade, elle tremble jusqu'aux fondations.", 12],
+    ];
+    const LORE = [
+      [0, "L'Étoile du Nord", "Forgée il y a mille hivers par le premier Père Noël et les lutins, elle fait voler les rennes et porte les vœux des enfants jusqu'au Pôle."],
+      [2, 'Le Gardien de l\'Hiver', "Avant d'être le Krampus, il veillait sur les neiges. Il dansait avec le premier Père Noël sous les aurores. Puis on l'a oublié."],
+      [6, 'Les éclats de glace', "Les cristaux de la Grotte sont des éclats de l'Étoile, cachés sous la glace par le Krampus. Chaque cristal remonté lui rend un peu de lumière."],
+      [13, 'La Citadelle de Glace', "Tout au nord, derrière les Pics du Krampus. Le dernier éclat de l'Étoile y bat comme un cœur."],
+      [16, 'Le renne né de la lumière', "Flocon est né la nuit où le premier cristal est remonté. Le grimoire de Mademoiselle Plume dit que lui seul peut atteindre la Citadelle."],
+    ];
+    h = hd(`Chapitre ${Math.min(ch + 1, T.CHAPTERS.length)} · ${BEST.filter(b => ch >= b[3]).length} / ${BEST.length} fiches`, 'Légendes du Grand Nord') + `<h3>Les ennemis</h3><div class="best">${BEST.map(([k, n, d, at]) => ch >= at ? `<div class="bst"><img src="${vp(k)}" alt=""><div><b>${n}</b><small>${d}</small></div></div>` : `<div class="bst lock"><span>?</span><div><b>???</b><small>Chapitre ${at + 1}</small></div></div>`).join('')}</div>
+      <h3>Les légendes</h3><div class="mlist">${LORE.map(([at, t, d]) => ch >= at ? `<div class="mis lore"><div><b>${t}</b><small>${d}</small></div></div>` : `<div class="mis lore lock"><div><b>Page déchirée</b><small>Chapitre ${at + 1}</small></div></div>`).join('')}</div>
+      <h3>Revoir les cinématiques</h3><div class="replays">${T.CHAPTERS.slice(0, ch + 1).map((c, k) => `<button class="btn blue sm" data-a="replay" data-i="${k}">${k + 1}. ${c.title}</button>`).join('')}</div>`;
+  }
   else if (panel === 'camp'){
     const C = T.campState(S), from = Math.max(0, Math.floor(C.at / 10) * 10 - 10), list = Array.from({length: Math.min(C.at + 1, from + 20) - from}, (_, j) => T.camp(from + j)).reverse();
     const tot = Object.values(C.st).reduce((a, b) => a + b, 0);
-    h = hd(`${C.at} camp${C.at > 1 ? 's' : ''} vaincu${C.at > 1 ? 's' : ''} · ${tot} ★`, 'Campagne des Trolls') + `<p class="help">Les trolls des neiges volent les cadeaux ! Attaque leurs camps un par un. Chaque attaque coûte le goûter des lutins (biscuits). Garde tes 3 cœurs pour gagner 3 étoiles.</p>
+    h = hd(`${C.at} camp${C.at > 1 ? 's' : ''} vaincu${C.at > 1 ? 's' : ''} · ${tot} ★`, 'Campagne des Trolls') + `<button class="btn gold wide" data-a="lore" style="margin:0 0 12px">Légendes du Grand Nord</button><p class="help">Les trolls des neiges volent les cadeaux ! Attaque leurs camps un par un. Chaque attaque coûte le goûter des lutins (biscuits). Protège la palissade : plus elle reste solide, plus tu gagnes d'étoiles.</p>
       <div class="camps">${list.map(c => { const st = C.st[c.i] || 0, cur = c.i === C.at, lk = c.i > C.at, cost = T.campCost(c.i);
         return `<div class="campc ${c.boss ? 'boss' : ''} ${cur ? 'cur' : ''} ${st ? 'won' : ''}"><div class="cn"><b>${c.name}</b><small>${c.n} trolls${c.boss ? ' + le chef' : ''}${c.hp > 1 ? ` · ${c.hp} coups chacun` : ''}</small><span class="cst">${[1, 2, 3].map(k => `<i class="${k <= st ? 'on' : ''}">★</i>`).join('')}</span></div>
           <div class="ca"><span class="costs">${rewardChips(T.campLoot(S, c.i, 3, !st))}</span><button class="btn ${cur ? 'red' : 'blue'} sm" data-a="campgo" data-i="${c.i}" ${lk ? 'disabled' : ''}><span class="costs">${costChips(cost)}</span>${cur ? 'Attaquer' : 'Rejouer'}</button></div></div>`; }).join('')}</div>`;
+  }
+  else if (panel === 'account'){
+    const u = ACC.current(), pv = ACC.providers();
+    if (!ACC.ready()) h = hd('', 'Mon compte') + '<p class="help">La connexion (Google ou e-mail) arrive très bientôt. En attendant, ton village est gardé sur ce téléphone : ne supprime pas l\'app.</p>';
+    else if (!u) h = hd('Garde ton village pour toujours', 'Mon compte') + `<p class="help">Connecte-toi : ton village est sauvegardé en ligne et tu le retrouves sur n'importe quel téléphone.</p>
+      <button class="btn wide gbtn" data-a="accgoogle"><span class="g">G</span>Continuer avec Google</button>
+      <h3>Ou avec ton e-mail</h3><div class="accform"><input id="accname" placeholder="Ton prénom (pour créer un compte)" autocomplete="nickname"><input id="accmail" type="email" placeholder="E-mail" autocomplete="email"><input id="accpass" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password"></div>
+      <div class="savebtns"><button class="btn green" data-a="acclogin">Se connecter</button><button class="btn blue" data-a="accsignup">Créer un compte</button></div>
+      <button class="lnk" data-a="accreset">Mot de passe oublié ?</button>`;
+    else h = hd(u.email || '', 'Mon compte') + `<div class="mis"><div><b>${u.displayName || 'Père Noël'}</b><small>Connecté · village sauvegardé en ligne ${S.cloudT ? '· dernière sauvegarde ' + new Date(S.cloudT).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : ''}</small></div></div>
+      <h3>Moyens de connexion</h3><div class="mlist"><div class="mis"><b>Google</b>${pv.includes('google.com') ? '<span class="meta">relié ✓</span>' : '<button class="btn blue sm" data-a="acclinkg">Relier</button>'}</div>
+      <div class="mis"><b>E-mail et mot de passe</b>${pv.includes('password') ? '<span class="meta">relié ✓</span>' : '<button class="btn blue sm" data-a="acclinkm">Relier</button>'}</div></div>
+      ${pv.includes('password') ? '' : '<div class="accform"><input id="accmail" type="email" placeholder="E-mail à relier"><input id="accpass" type="password" placeholder="Mot de passe"></div>'}
+      <button class="btn green wide" data-a="accsave">Sauvegarder maintenant</button><button class="btn red wide" data-a="acclogout">Se déconnecter</button>`;
   }
   else if (panel === 'save'){
     h = hd('Ton village voyage avec toi', 'Sauvegarde') + (S.lvl < 9 && !S.restored ? `<div class="restorebox"><b>Tu as perdu ta partie ?</b><small>Réinstaller l'app sur l'écran d'accueil efface sa mémoire. On peut te rendre ton village tel qu'il était (niveau 9, Maison niveau 14, tes ressources et tes étoiles).</small><button class="btn gold wide" data-a="restoreold">Récupérer mon village</button></div>` : '') + `<p class="help">Ton village est gardé sur ce téléphone. Pour le retrouver ailleurs (nouveau téléphone, autre navigateur), copie ton <b>code de sauvegarde</b> ou enregistre le <b>fichier</b>, puis charge-le sur l'autre appareil.</p>
@@ -972,7 +1012,7 @@ function renderPanel(){
   }
   else if (panel === 'album'){
     const claim = T.albumClaimable(S);
-    h = hd(`${T.albumTotal(S)} / ${T.TOY_KEYS.length * 3} étoiles · lettres +${Math.round((T.albumBonus(S) - 1) * 100)} %`, 'Album des jouets') + museumEntry() + `<p class="meta">Chaque jouet livré aux enfants remplit l'album. Chaque étoile augmente pour toujours ce que paient les lettres.</p>
+    h = hd(`${T.albumTotal(S)} / ${T.TOY_KEYS.length * 3} étoiles · lettres +${Math.round((T.albumBonus(S) - 1) * 100)} %`, 'Album des jouets') + museumEntry() + `<div class="museumentry" role="button" data-a="lore"><span>📜</span><div><b>Légendes du Grand Nord</b><small>L'histoire, les ennemis, les cinématiques</small></div><span class="btn blue sm">Lire</span></div><p class="meta">Chaque jouet livré aux enfants remplit l'album. Chaque étoile augmente pour toujours ce que paient les lettres.</p>
       ${claim.length ? `<button class="btn gold wide" data-a="albumclaim">Récupérer ${claim.length} récompense${claim.length > 1 ? 's' : ''}</button>` : ''}
       <div class="album">${T.TOY_KEYS.map(k => { const n = S.cnt['deliver:' + k] || 0, st = T.albumStars(S, k), next = T.ALBUM_STEPS[st], lock = S.lvl < TOYS[k].lvl;
         return `<div class="acard ${lock ? 'locked' : ''} s${st}"><img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b><span class="ast">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span><small>${lock ? `Niveau ${TOYS[k].lvl}` : next ? `${n} / ${next} livrés` : `${n} livrés · complet`}</small></div>`; }).join('')}</div>`;
@@ -1109,6 +1149,7 @@ function renderPanel(){
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
+      <div class="mis"><div><b>Mon compte</b><small>${ACC.current() ? 'Connecté : ' + (ACC.current().email || '') : 'Google ou e-mail : ton village en sécurité'}</small></div><button class="btn green sm" data-a="account">${ACC.current() ? 'Gérer' : 'Se connecter'}</button></div>
       <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
       ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<div class="mis"><div><b>Dernier souci d'affichage</b><small style="word-break:break-all">${e.slice(0, 160).replace(/</g, '&lt;')}</small></div></div>` : ''; })()}
       <div class="mis"><b>Version du jeu</b><span class="meta">${GAME_V}</span></div>
@@ -1252,10 +1293,14 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'golab') return openPanel('lab', panelArg);
   if (a === 'gotrain') return openPanel('train', panelArg);
   if (a === 'camp') return openPanel('camp');
+  if (a === 'lore') return openPanel('lore');
+  if (a === 'replay'){ closePanel(); return setTimeout(() => chapterCine(+b.dataset.i), 250); }
   if (a === 'pet') return openPanel('pet');
   if (a === 'fishcast') return fishCast();
   if (a === 'museum') return openPanel('museum');
   if (a === 'savepanel') return openPanel('save');
+  if (a === 'account') return openPanel('account');
+  if (a.startsWith('acc')) return accAction(a);
   if (a === 'restoreold'){ if (!confirm('Récupérer ton village (niveau 9, Maison niveau 14) ? La partie actuelle sera remplacée.')) return; saveLock = true; T.replaceTown(oldVillage()); location.reload(); return; }
   if (a === 'savecopy') return saveCopy();
   if (a === 'savefile') return saveFile();
@@ -1626,7 +1671,7 @@ $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo
 function rsCheck(){ const R = T.rsTick(S); if (!R) return; const r = T.RESEARCH.find(x => x.k === R.k); toast(`Recherche terminée : ${r.name} niveau ${R.lv} !`); sfx.level(); save(); if (panel === 'lab') renderPanel(); }
 
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 62;
+const GAME_V = 63;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1832,6 +1877,31 @@ function oldVillage(){
   s.quest = {i: 5, base: {}}; s.cnt = {upgrade: 14, collect: 40};
   T.spaceOut(s); return s;
 }
+/* ---------- comptes (Firebase) ---------- */
+const accVal = id => ($('#' + id)?.value || '').trim();
+async function accAction(a){
+  try {
+    if (a === 'accgoogle') await ACC.signInGoogle();
+    if (a === 'acclogin') await ACC.signInEmail(accVal('accmail'), $('#accpass')?.value || '');
+    if (a === 'accsignup') await ACC.signUpEmail(accVal('accmail'), $('#accpass')?.value || '', accVal('accname'));
+    if (a === 'accreset'){ await ACC.resetPassword(accVal('accmail')); return toast('E-mail envoyé pour changer ton mot de passe.'); }
+    if (a === 'acclinkg'){ await ACC.linkGoogle(); toast('Google relié !'); }
+    if (a === 'acclinkm'){ await ACC.linkEmail(accVal('accmail'), $('#accpass')?.value || ''); toast('E-mail relié !'); }
+    if (a === 'accsave'){ await cloudPush(true); }
+    if (a === 'acclogout'){ await cloudPush(); await ACC.signOut(); toast('Déconnecté.'); }
+    renderPanel();
+  } catch(e){ sfx.err(); toast(ACC.friendlyError(e)); }
+}
+async function cloudPush(say){ if (!ACC.current()) return; try { S.cloudT = Date.now(); await ACC.cloudSave(S); if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
+if (ACC.ready()){
+  ACC.init().then(() => ACC.onChange(async u => {
+    if (!u) return; const c = await ACC.cloudLoad().catch(() => null);
+    if (c?.save){ const cs = JSON.parse(c.save); if ((cs.lvl || 0) > (S.lvl || 0) || ((cs.lvl || 0) === S.lvl && c.t > (S.t || 0) + 60e3)){
+        if (confirm(`Un village plus avancé est enregistré sur ton compte (niveau ${cs.lvl}). Le charger ?`)){ saveLock = true; T.replaceTown(cs); location.reload(); return; } } }
+    cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Ton village est sauvegardé en ligne.`); if (panel) renderPanel();
+  })).catch(() => {});
+  setInterval(() => cloudPush(), 60e3); document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
+}
 /* ---------- sauvegarde transférable ---------- */
 let saveCodeTxt = '';
 async function saveCopy(){
@@ -1896,8 +1966,8 @@ function campGo(i){
   const C = T.campState(S); if (i > C.at) return; const cost = T.campCost(i), c = T.camp(i);
   if (!T.has(S, cost)){ sfx.err(); return showMissing(cost, `Attaquer : ${c.name}`, () => campGo(i)); }
   T.take(S, cost); save(); closePanel(); document.body.classList.add('in-game');
-  openMinigame('troll', {
-    camp: {...c, hearts: 3 + T.petHearts(S)}, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
+  openDefense({
+    pet: (S.pet?.lv || 0) >= 5, camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
     result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
       if (first && c.boss) relicFound(Math.min(3, 1 + c.ch)); C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
@@ -1913,20 +1983,45 @@ function campGo(i){
    le cœur magique de Noël. Chaque chapitre rallume une partie de sa lumière.
    ===================================================================== */
 const KRAMPUS = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M24 34 C10 18 12 6 20 2 C20 14 28 22 36 28Z M76 34 C90 18 88 6 80 2 C80 14 72 22 64 28Z" fill="#e8e0d0" stroke="#1d2547" stroke-width="3"/><ellipse cx="50" cy="56" rx="30" ry="34" fill="#5a3a8a" stroke="#1d2547" stroke-width="3.5"/><ellipse cx="50" cy="74" rx="18" ry="13" fill="#efe6ff"/><circle cx="38" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="62" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="39" cy="51" r="3" fill="#1d2547"/><circle cx="61" cy="51" r="3" fill="#1d2547"/><path d="M28 40 L44 44 M72 40 L56 44" stroke="#1d2547" stroke-width="4" stroke-linecap="round"/><path d="M38 70 Q50 80 62 70" stroke="#1d2547" stroke-width="3" fill="#7a1a2a"/><path d="M43 71 L45 76 L47 72 M53 72 L55 76 L57 71" fill="#fff"/></svg>`);
+const VP = {}; const vp = k => VP[k] ||= villainPortrait(k);
 const WHO = {
-  'Le vieux Père Noël': () => portrait, 'Mère Noël': elfImg, 'Krampus des Glaces': () => KRAMPUS, 'Narrateur': null,
+  'Le vieux Père Noël': () => portrait, 'Mère Noël': elfImg, 'Krampus des Glaces': () => vp('krampus'), 'Baron Glaçon': () => vp('baron'), 'Grognard, chef des trolls': () => vp('chief'), 'Narrateur': null,
 };
 const CINE_AT = ['sawmill', 'workshop', 'cabin', 'mill', 'stable', 'theater', 'mine', 'santa', 'stable', 'mine', 'theater', 'storage', 'workshop', 'santa', 'santa', 'library', 'stable', 'santa'];
 // répliques en plus de l'histoire du chapitre : la trame du Krampus et de l'Étoile du Nord
+const VILLAINS = new Set(['Krampus des Glaces', 'Baron Glaçon', 'Grognard, chef des trolls']);
+// La trame : l'Étoile du Nord, forgée par le premier Père Noël, fait voler les rennes et porte les vœux des enfants.
+// Le Krampus des Glaces, ancien gardien de l'Hiver, en a volé des éclats (les cristaux de glace) pour l'éteindre.
 const CINE_MORE = {
-  0: [{who: 'Le vieux Père Noël', say: "Chaque bâtiment que tu remets en marche rallume un peu l'Étoile du Nord, là-haut. C'est elle qui fait voler le traîneau."}],
-  3: [{who: 'Krampus des Glaces', say: "De la laine, des peluches… Ridicule ! Quand l'Étoile s'éteindra, plus aucun traîneau ne volera.", villain: 1}],
-  4: [{who: 'Le vieux Père Noël', say: "Les rennes sentent le froid du Krampus. Bien nourris, ils voleront plus haut que ses tempêtes."}],
-  6: [{who: 'Krampus des Glaces', say: "Ces cristaux sont à moi ! Je les ai cachés sous la glace pour que tu ne les trouves jamais…", villain: 1}, {who: 'Le vieux Père Noël', say: "Trop tard, Krampus. Le village creuse déjà."}],
-  9: [{who: 'Krampus des Glaces', say: "Plus vous creusez, plus mes trolls se réveillent. Hé hé hé…", villain: 1}],
-  13: [{who: 'Le vieux Père Noël', say: "L'Étoile du Nord brille plus fort que jamais. Mais le Krampus prépare quelque chose…"}],
-  14: [{who: 'Krampus des Glaces', say: "Mon cousin le Baron vend tes cadeaux perdus au plus offrant. Bonne chance pour les récupérer !", villain: 1}],
-  17: [{who: 'Krampus des Glaces', say: "Mes trolls t'attendent dans le Bois. Viens donc chercher tes cadeaux, petit Père Noël !", villain: 1}, {who: 'Le vieux Père Noël', say: "Courage. Une boule de neige bien lancée vaut mieux qu'une armée."}],
+  0: [{who: 'Le vieux Père Noël', say: "Là-haut, l'Étoile du Nord. Le premier Père Noël l'a forgée avec les lutins, il y a mille hivers. C'est elle qui fait voler le traîneau… et qui entend les vœux des enfants."},
+      {who: 'Le vieux Père Noël', say: "Elle faiblit depuis des années. Chaque atelier qui se rallume lui rend un peu de lumière. Au travail !"}],
+  1: [{who: 'Mère Noël', say: "Les premières lettres ! Regarde : quand un enfant écrit, l'Étoile scintille un tout petit peu plus fort."},
+      {who: 'Krampus des Glaces', say: "Des lettres, des jouets… Tant de bruit pour une seule nuit. L'hiver, lui, dure toute l'année. Personne n'écrit à l'Hiver.", at: [14, 12]}],
+  2: [{who: 'Le vieux Père Noël', say: "Ce Krampus… autrefois, on l'appelait le Gardien de l'Hiver. Il était mon ami. Puis les enfants n'ont plus attendu que Noël, et il s'est senti oublié."}],
+  3: [{who: 'Krampus des Glaces', say: "De la laine, des peluches… Ridicule ! J'ai déjà volé trois éclats de ton Étoile. Quand j'aurai le dernier, l'hiver ne finira plus jamais."}],
+  4: [{who: 'Dame Rennes', say: "Les rennes sentent le froid du Krampus arriver. Bien nourris, ils voleront plus haut que ses tempêtes."},
+      {who: 'Grognard, chef des trolls', say: "GRAOU ! Le maître Krampus paie en cristaux. Nous prendre cadeaux, nous prendre biscuits, nous prendre TOUT !", at: [30, 14]}],
+  5: [{who: 'Mère Noël', say: "Un village heureux brille plus fort. Le Krampus déteste les rires : ils réchauffent l'Étoile."}],
+  6: [{who: 'Pic le mineur', say: "Ces cristaux bleus sous la glace… ce ne sont pas des pierres. Ce sont des éclats de l'Étoile du Nord ! Le Krampus les a cachés ici."},
+      {who: 'Krampus des Glaces', say: "Rends-moi ces éclats, petit voleur ! Ils sont à MOI, je les ai arrachés au ciel moi-même…"},
+      {who: 'Le vieux Père Noël', say: "Chaque cristal que tu remontes rend un peu de lumière à l'Étoile. Creuse, mon ami, creuse !"}],
+  7: [{who: 'Mère Noël', say: "Un cadeau bien emballé garde la chaleur de celui qui l'offre. C'est un secret que le Krampus n'a jamais compris."}],
+  8: [{who: 'Dame Rennes', say: "Au Phare du Nord, les rennes ont vu des traces de trolls. Ils préparent quelque chose, tout au bout de la banquise."}],
+  9: [{who: 'Krampus des Glaces', say: "Plus vous creusez, plus mes trolls se réveillent. Grognard ! Va leur rendre une petite visite."},
+      {who: 'Grognard, chef des trolls', say: "Avec plaisir, maître. Hé hé… GRAOU !", at: [30, 14]}],
+  10: [{who: 'Monsieur Fil', say: "Ce soir, je joue « Le Gardien de l'Hiver » : l'histoire d'un esprit qui voulait qu'on l'aime autant que Noël. Les lutins pleurent à chaque fois."}],
+  11: [{who: 'Gros Ours', say: "Tout le Grand Nord commande chez nous maintenant. Plus on livre de cadeaux, plus l'Étoile brille. Le Krampus doit enrager !"}],
+  12: [{who: 'Maître Rouage', say: "J'ai fondu un éclat de l'Étoile dans ce train-jouet. Écoute… il ronronne comme un chat. La magie revient !"}],
+  13: [{who: 'Le vieux Père Noël', say: "L'Étoile brille plus fort que jamais. Mais il manque encore le cœur : le dernier éclat, celui que le Krampus garde dans sa Citadelle."},
+       {who: 'Krampus des Glaces', say: "Tu veux mon éclat ? Viens le chercher. Mais d'abord, il faudra passer mon armée… et mon cousin le Baron."}],
+  14: [{who: 'Baron Glaçon', say: "Mes hommages ! Tes cadeaux perdus ? Je les vends au plus offrant, très cher ami. Les affaires sont les affaires."},
+       {who: 'Krampus des Glaces', say: "Le Baron fera ruisseler tes pièces jusqu'à moi. Chaque enchère perdue me rend plus fort !"}],
+  15: [{who: 'Mademoiselle Plume', say: "J'ai trouvé un vieux grimoire : « Seul un renne né de la lumière peut atteindre la Citadelle de Glace. » Un renne né de la lumière… ?"}],
+  16: [{who: 'Dame Rennes', say: "Ce faon tout blanc… il est né la nuit où tu as remonté ton premier cristal. Flocon est né de la lumière de l'Étoile !"},
+       {who: 'Le vieux Père Noël', say: "Le grimoire disait vrai. Fais-le grandir : un jour, il t'emmènera jusqu'à la Citadelle."}],
+  17: [{who: 'Krampus des Glaces', say: "Assez joué ! Mes trolls marchent sur ton village. Défends ta palissade, si tu peux !"},
+       {who: 'Le vieux Père Noël', say: "Courage. Une boule de neige lancée avec le cœur vaut mieux qu'une armée."},
+       {who: 'Narrateur', say: "Et au loin, dans la Citadelle de Glace, le dernier éclat de l'Étoile attend… À suivre."}],
 };
 const INTRO = [
   {who: 'Narrateur', say: "Pôle Nord. La plus longue nuit de l'année approche, et le village du Père Noël dort sous la neige…", at: [22, 22], zoom: .55},
@@ -1945,9 +2040,9 @@ function cinema(lines, onEnd, title){
   const end = () => { clearInterval(typing); el.classList.remove('on'); document.body.classList.remove('cine'); setTimeout(() => { el.hidden = true; }, 450); el.onclick = null; panTo(...(cineFocus('santa') || [22, 22]), {zoom: z0}); onEnd?.(); };
   const next = () => {
     i++; if (i >= lines.length) return end();
-    const L = lines[i], f = cineFocus(L.at), img = WHO[L.who] ? WHO[L.who]() : null;
-    cap.classList.remove('show'); cap.classList.toggle('villain', !!L.villain); cap.classList.toggle('narr', !img);
-    if (L.villain) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    const L = lines[i], f = cineFocus(L.at), img = L.who === 'Narrateur' ? null : WHO[L.who] ? WHO[L.who]() : elfImg();
+    cap.classList.remove('show'); const vil = L.villain || VILLAINS.has(L.who); cap.classList.toggle('villain', vil); cap.classList.toggle('narr', !img);
+    if (vil) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
     const ms = f ? panTo(f[0], f[1], {zoom: L.zoom || Math.max(.85, Math.min(1.15, cam.z))}) : 0;
     setTimeout(() => { if (img) cap.querySelector('img').src = img; cap.querySelector('img').hidden = !img; cap.querySelector('.cwho').textContent = L.who === 'Narrateur' ? '' : L.who; cap.classList.add('show'); type(L.say); if (i === 0 && title) setTimeout(() => t.classList.remove('show'), 1800); }, Math.min(ms, 900) + 150);
   };
@@ -1957,7 +2052,7 @@ function cinema(lines, onEnd, title){
 function chapterCine(i){
   const c = T.CHAPTERS[i]; if (!c) return;
   const who = c.who || 'Le vieux Père Noël', at = CINE_AT[i] || 'santa';
-  cinema([{who, say: c.story, at}, ...(CINE_MORE[i] || []).map((l, k) => ({...l, at: l.at || (l.villain ? [14 + k * 6, 12] : 'santa')}))], null, `<small>Chapitre ${i + 1}</small>${c.title}`);
+  cinema([{who, say: c.story, at}, ...(CINE_MORE[i] || []).map((l, k) => ({...l, at: l.at || (VILLAINS.has(l.who) ? [14 + k * 6, 12] : 'santa')}))], null, `<small>Chapitre ${i + 1}</small>${c.title}`);
 }
 
 /* ---------- montée de niveau ---------- */
