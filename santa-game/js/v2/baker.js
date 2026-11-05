@@ -53,18 +53,39 @@ function cave(t){
   if (t >= 3) g.add(prop('lights-colored', {x: -.2, z: -.1, y: 1.15, s: .8}), prop('Gems_Chest', {x: -1.0, z: -.75, y: .27, s: .4, ry: -.6}), prop('Gold_Bars_Stack_Small', {x: .05, z: 1.05, y: .27, s: .4}));
   return g;
 }
+// Décor du terrain, comme les parcelles très garnies de Township : chaque métier a ses objets,
+// et le décor s'enrichit avec l'apparence (niv. 1 → 5 → 12). Coordonnées du modèle : socle de 3,6, dessus à y = .36,
+// le coin visible est (+x, +z) : on garnit le bord avant.
+const DRESS = {
+  sawmill: [['Wood_Log_Stack', 1.35, 1.2, .5, .6], ['Wood_Planks_Stack_Small', .55, 1.45, .45, 0, 2], ['Pallet_Wood_Covered_A', 1.45, .25, .42, 1.2, 2], ['Wood_Log_A', -.5, 1.5, .45, .3, 3]],
+  letters: [['present-a-cube', 1.4, 1.3, .55], ['present-b-round', 1.05, 1.5, .5, .4, 2], ['Money_Coins_Stack_Medium', 1.5, .5, .5, 0, 2], ['wreath-decorated', -.4, 1.5, .45, 0, 3]],
+  bakery: [['cookie', 1.45, 1.35, .6], ['hot_chocolate_decorated', 1.1, 1.55, .5, 0, 2], ['gingerbread-man', 1.5, .55, .5, -.6, 2], ['candycane_small', -.4, 1.5, .55, 0, 3]],
+  mill: [['Textiles_Stack_Large_Colored', 1.35, 1.25, .45], ['Food_Basket_A_Berries', 1.5, .45, .45, 0, 2], ['fence', .3, 1.55, .5, 0, 2], ['lantern_mini', -.5, 1.5, .5, 0, 3]],
+  storage: [['Containers_Crate_Medium_Wood', 1.4, 1.3, .45], ['Pallet_Wood', 1.5, .4, .45, .3, 2], ['Containers_Pile_Medium', .4, 1.5, .4, 0, 2], ['Food_Barrel_Empty', -.5, 1.5, .4, 0, 3]],
+  workshop: [['present_A_red', 1.4, 1.3, .5], ['train_locomotive', 1.35, .35, .4, -.8, 2], ['present_C_yellow', .55, 1.5, .45, .5, 2], ['nutcracker', -.4, 1.5, .5, 0, 3]],
+  stable: [['snowball_pile', 1.4, 1.3, .5], ['sled', 1.3, .3, .5, -.7, 2], ['Food_Basket_A_Berries', .5, 1.5, .45, 0, 2], ['bell_decorated', -.4, 1.5, .4, 0, 3]],
+  santa: [['snowman_A', 1.5, 1.45, .4], ['present_B_green', 1.2, 1.6, .35, 0, 2], ['candycane_large', 1.6, .5, .45, 0, 2], ['lantern_decorated', -.3, 1.6, .45, 0, 3]],
+  cabin: [['snow-pile', 1.3, 1.3, .55], ['lantern_mini', 1.45, .3, .45, 0, 2], ['present_D_blue', .4, 1.45, .4, .3, 3]],
+};
+function dress(g, type, t){
+  for (const [name, x, z, s, ry = 0, from = 1] of DRESS[type] || []) if (t >= from) g.add(prop(name, {x, z, y: .36, s, ry}));
+  // apparence 2 : lanterne au coin gauche ; apparence 3 : sucres d'orge de part et d'autre de l'entrée
+  if (t >= 2 && type !== 'cabin') g.add(prop('lantern', {x: -1.45, z: 1.45, y: .36, s: .55}));
+  if (t >= 3 && type !== 'cabin'){ g.add(prop('candy-cane-red', {x: 1.6, z: -1.2, y: .36, s: .55})); g.add(prop('candy-cane-green', {x: -1.2, z: 1.65, y: .36, s: .55})); }
+  return g;
+}
 /** Modèle d'un bâtiment pour une apparence t (1, 2, 3). */
 function modelFor(type, t = 1){
   const lv = TIER_LV[t], mk = (k, s = .78) => scaled(buildModel(k, lv).group, s);
   switch (type){
-    case 'santa': return mk('hq', 1.02);
-    case 'sawmill': return mk('sawmill');
-    case 'letters': return mk('post');
-    case 'bakery': return mk('bakery');
-    case 'mill': return mk('mill');
-    case 'storage': return mk('storage');
-    case 'workshop': return mk('workshop');
-    case 'stable': return mk('stable');
+    case 'santa': return dress(mk('hq', 1.02), 'santa', t);
+    case 'sawmill': return dress(mk('sawmill'), 'sawmill', t);
+    case 'letters': return dress(mk('post'), 'letters', t);
+    case 'bakery': return dress(mk('bakery'), 'bakery', t);
+    case 'mill': return dress(mk('mill'), 'mill', t);
+    case 'storage': return dress(mk('storage'), 'storage', t);
+    case 'workshop': return dress(mk('workshop'), 'workshop', t);
+    case 'stable': return dress(mk('stable'), 'stable', t);
     case 'orders': { const g = mk('wrap'); g.add(prop(t >= 3 ? 'sled-long' : 'sled', {x: 1.1, z: 1.05, s: .8, ry: .6})); if (t >= 2) g.add(prop('reindeer', {x: 1.25, z: -.2, s: .55, ry: .6})); return g; }
     case 'theater': return theater(t);
     case 'mine': return cave(t);
