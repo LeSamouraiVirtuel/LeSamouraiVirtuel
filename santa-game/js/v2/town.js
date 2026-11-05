@@ -243,8 +243,8 @@ export function newTown(){
   add('sawmill', 13, 15);
   add('letters', 25, 15);
   add('orders', 15, 25);
-  add('cabin', 20, 24); add('cabin', 22, 24);
-  decorate(s); clearLots(s);
+  add('cabin', 20, 24); add('cabin', 23, 24);
+  decorate(s); clearLots(s); s.spaced = 2;
   s.orders = [];
   return s;
 }
@@ -274,6 +274,7 @@ export function loadTown(){
       for (const k of [...RES, 'stars', 'xp']) s[k] = +s[k] || 0;
       clearLots(s);
       s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
+      spaceOut(s);
       return s;
     }
   } catch(e){}
@@ -510,14 +511,65 @@ export function keeperBlock(s, o){
 // Le joueur voit dès le début où iront les grands bâtiments, avec le niveau de Maison requis : envie de progresser.
 export const LOTS = [
   {type: 'workshop', x: 26, y: 23},
-  {type: 'storage', x: 12, y: 25},
-  {type: 'bakery', x: 13, y: 18},
-  {type: 'mill', x: 28, y: 13},
+  {type: 'storage', x: 11, y: 25},
+  {type: 'bakery', x: 13, y: 19},
+  {type: 'mill', x: 29, y: 12},
   {type: 'stable', x: 20, y: 12},
-  {type: 'theater', x: 26, y: 26},
-  {type: 'mine', x: 12, y: 12},
+  {type: 'theater', x: 26, y: 27},
+  {type: 'mine', x: 11, y: 11},
 ];
-export const lotsShown = s => LOTS.filter(l => !s.objs.some(o => o.type === l.type));
+// terrain réservé : s'il est pris, on le déplace sur le terrain libre le plus proche (avec l'espace autour des bâtiments)
+let lotCache = {key: '', list: []};
+export function lotsShown(s){
+  const key = s.objs.filter(isBld).map(o => o.type + o.x + ',' + o.y).join('|') + s.chunks.join();
+  if (key === lotCache.key) return lotCache.list;
+  const out = [], tmp = {objs: [...s.objs], chunks: s.chunks};
+  for (const l of LOTS){ if (s.objs.some(o => o.type === l.type)) continue; const b = BUILDINGS[l.type];
+    let at = null;
+    for (let r = 0; r < 12 && !at; r++) for (let dx = -r; dx <= r && !at; dx++) for (let dy = -r; dy <= r && !at; dy++){
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = l.x + dx, y = l.y + dy; let ok = true;
+      for (let i = 0; i < b.w && ok; i++) for (let j = 0; j < b.h && ok; j++){ const tx = x + i, ty = y + j; if (tx < 0 || ty < 0 || tx >= MAP || ty >= MAP || !s.chunks.includes(`${Math.floor(tx / CHUNK)},${Math.floor(ty / CHUNK)}`)) ok = false; }
+      if (ok && spotFree(tmp, l.type, x, y)) at = {type: l.type, x, y}; }
+    if (at){ out.push(at); tmp.objs.push({type: at.type, x: at.x, y: at.y}); } }
+  lotCache = {key, list: out}; return out;
+}
+/* ===================== ESPACE ENTRE LES BÂTIMENTS ===================== */
+// Une case libre au moins autour de chaque bâtiment (les décorations et les allées peuvent se coller).
+export const isBld = o => !o.wild && !['deco', 'path'].includes(BUILDINGS[o.type].kind);
+export const GAP = 1;
+// deux grands bâtiments gardent 2 cases entre eux (les toits dépassent vers l'arrière), un chalet 1 case
+export const gapOf = (a, b) => a.w >= 3 && b.w >= 3 ? 2 : 1;
+export function spotFree(s, type, x, y, ignore){
+  const b = BUILDINGS[type]; if (['deco', 'path'].includes(b.kind)) return true;
+  for (const o of s.objs){ if (o === ignore || !isBld(o)) continue; const ob = BUILDINGS[o.type], g = gapOf(b, ob);
+    if (x < o.x + ob.w + g && x + b.w + g > o.x && y < o.y + ob.h + g && y + b.h + g > o.y) return false; }
+  return true;
+}
+/** Ancien village trop serré : on écarte les bâtiments depuis la Maison et on garde une case libre autour de chacun. */
+export function spaceOut(s){
+  if (s.spaced >= 2) return false; s.spaced = 2;
+  const blds = s.objs.filter(isBld); if (!blds.length) return false;
+  const hq = blds.find(o => o.type === 'santa'), cx = hq ? hq.x + 2 : 22, cy = hq ? hq.y + 2 : 22;
+  const okTile = (x, y) => x >= 0 && y >= 0 && x < MAP && y < MAP && s.chunks.includes(`${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`);
+  const placed = [], fitsAt = (o, x, y) => { const b = BUILDINGS[o.type];
+    for (let i = 0; i < b.w; i++) for (let j = 0; j < b.h; j++) if (!okTile(x + i, y + j)) return false;
+    for (const p of placed){ const pb = BUILDINGS[p.type], g = gapOf(b, pb); if (x < p.x + pb.w + g && x + b.w + g > p.x && y < p.y + pb.h + g && y + b.h + g > p.y) return false; }
+    return true; };
+  const d = o => Math.hypot(o.x - cx, o.y - cy);
+  blds.sort((a, b) => (b.type === 'santa') - (a.type === 'santa') || d(a) - d(b));
+  for (const o of blds){
+    const b = BUILDINGS[o.type], tx = Math.round(cx + (o.x + b.w / 2 - cx) * 1.4 - b.w / 2), ty = Math.round(cy + (o.y + b.h / 2 - cy) * 1.4 - b.h / 2);
+    let best = fitsAt(o, o.x, o.y) && o.type === 'santa' ? [o.x, o.y] : null;
+    for (let r = 0; r < 30 && !best; r++) for (let dx = -r; dx <= r && !best; dx++) for (let dy = -r; dy <= r && !best; dy++){
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; if (fitsAt(o, tx + dx, ty + dy)) best = [tx + dx, ty + dy]; }
+    if (best){ o.x = best[0]; o.y = best[1]; }
+    placed.push(o);
+  }
+  // ce qui est sous un bâtiment (sapins sauvages, décor offert, allées) disparaît
+  const under = o => placed.some(p => { const pb = BUILDINGS[p.type], ob = BUILDINGS[o.type]; return o.x < p.x + pb.w && o.x + ob.w > p.x && o.y < p.y + pb.h && o.y + ob.h > p.y; });
+  s.objs = s.objs.filter(o => isBld(o) || !under(o));
+  return true;
+}
 
 /* ===================== CHAPITRES (les tâches racontent l'histoire du village) ===================== */
 export const CHAPTERS = [

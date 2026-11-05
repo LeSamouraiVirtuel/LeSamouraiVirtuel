@@ -312,7 +312,7 @@ function fits(type, x, y, ignore){
     if (!S.chunks.includes(`${Math.floor(tx / T.CHUNK)},${Math.floor(ty / T.CHUNK)}`)) return false;
   }
   for (const o of S.objs){ if (o === ignore) continue; const ob = B(o); if (x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y) return false; }
-  return true;
+  return T.spotFree(S, type, x, y, ignore);
 }
 // ambiance d'une zone ouverte : teinte du sol et motif propre (lac gelé, cristaux, aurore…)
 function isoBlob(tx, ty, r, fill){
@@ -383,6 +383,11 @@ function timerPill(cx, cy, text, prog){
   ctx.restore();
 }
 function draw(){
+  // repart toujours d'un état propre : une erreur dans l'image précédente ne doit jamais laisser une transparence,
+  // un mode de fusion ou une découpe (c'est ce qui brouillait et faisait « bouger » tout le fond)
+  for (let i = 0; i < 24; i++) ctx.restore();
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#e9eef7'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.imageSmoothingQuality = 'medium';
   // sol
   // sol : motif en pixels réels (transformation identité), qui suit la caméra
@@ -414,9 +419,10 @@ function draw(){
   ambiance();
   // noms des bâtiments, puis indicateurs au-dessus
   labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden]), #sideL2 > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width).map(r => ({left: r.left - 8, right: r.right + 8, top: r.top - 6, bottom: r.bottom + 16}));
-  for (const o of S.objs) plate(o);
+  const inCine = document.body.classList.contains('cine');
+  if (!inCine){ for (const o of S.objs) plate(o);
   for (const l of T.lotsShown(S)) lotLabel(l);
-  bangs = 0; for (const o of [...S.objs].sort((a, b) => (B(b).kind === 'hq') - (B(a).kind === 'hq'))) drawHint(o);
+  bangs = 0; for (const o of [...S.objs].sort((a, b) => (B(b).kind === 'hq') - (B(a).kind === 'hq'))) drawHint(o); }
   drawSleigh();
   // neige qui tombe
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -504,8 +510,8 @@ function drawLot(l){
 }
 /** Étiquette d'un terrain réservé (dessinée avec les autres étiquettes, après les bâtiments). */
 function lotLabel(l){
-  if (tuto.active()) return;
-  const b = BUILDINGS[l.type], ok = (b.hq || 1) <= T.hqLv(S);
+  if (tuto.active() || cam.z < .7) return;
+  const b = BUILDINGS[l.type], ok = (b.hq || 1) <= T.hqLv(S); if (!ok) return;        // terrain verrouillé : le panneau au cadenas suffit
   const p = toScreen(l.x + b.w, l.y + b.h), label = ok ? `${b.name} · à construire` : `${b.name} · Maison niv. ${b.hq}`;
   ctx.font = '600 11px Fredoka, sans-serif'; const lw = ctx.measureText(label).width + 30;
   const at = labelSpot(p.x, p.y - 10, lw, 18); if (!at) return;
@@ -1144,8 +1150,7 @@ function renderPanel(){
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
     h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt="">${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Au niv. ${next}</small></div>` : ''}</div><div class="say2"><b>${K.name}</b><span>${said}</span></div>
       ${extra}${b.kind === 'prod' ? keeperBox(o) : ''}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
-      ${o.lv < (b.kind === 'hq' ? b.max : 99) ? `<h3>Coût de l'amélioration</h3><div class="costs">${costChips(c)}<span class="chip time">${fmtTime(T.upTime(o.type, next))}</span></div>
-      ${why ? `<p class="note">${whyHelp(o, why)}</p>` : ''}<div class="acts sticky"><button class="btn green" data-a="upgrade" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>Améliorer</button><button class="btn blue sm" data-a="move">Déplacer</button></div>` : ''}`;
+      ${o.lv < (b.kind === 'hq' ? b.max : 99) ? `${why ? `<p class="note">${whyHelp(o, why)}</p>` : ''}<div class="acts sticky foot"><div class="fcost"><small>Coût</small><span class="costs">${costChips(c)}<span class="chip time">${fmtTime(T.upTime(o.type, next))}</span></span></div><div class="fbtns"><button class="btn green" data-a="upgrade" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>Améliorer</button><button class="btn blue sm" data-a="move">Déplacer</button></div></div>` : ''}`;
   }
   else if (panel === 'info'){
     const o = panelArg, b = B(o);
@@ -1510,7 +1515,8 @@ function openVisitor(){
 
 /* ---------- écran « Bravo ! » (récompenses en grand, puis elles volent vers les compteurs) ---------- */
 let pendingStory = -1;
-function story(i){
+function story(i){ return chapterCine(i); }
+function storyOld(i){
   const c = T.CHAPTERS[i], m = $('#modal'); m.className = 'glow';
   m.querySelector('.mcard').innerHTML = `<small>Chapitre ${i + 1}</small><h2 class="stroke">${c.title}</h2><div class="storyrow"><img src="${c.who && c.who !== 'Le vieux Père Noël' ? elfImg() : portrait}" alt=""><p>${c.who ? `<b class="who">${c.who}</b>` : ''}${c.story}</p></div><button class="btn green" data-m="ok">C'est parti !</button>`;
   m.hidden = false; m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; };
@@ -1772,7 +1778,7 @@ async function saveLoad(code){
   saveLock = true; T.replaceTown(s2); location.reload();
 }
 /* ---------- musée des trouvailles ---------- */
-function museumEntry(){ const n = T.RELICS.filter(x => (S.relics || {})[x.k]).length; return `<button class="museumentry" data-a="museum"><span>🏛️</span><div><b>Musée des trouvailles</b><small>${n} / ${T.RELICS.length} objets rares · production +${Math.round(T.museumProd(S) * 100)} %</small></div><span class="btn blue sm">Visiter</span></button>`; }
+function museumEntry(){ const n = T.RELICS.filter(x => (S.relics || {})[x.k]).length; return `<div class="museumentry" role="button" data-a="museum"><span>🏛️</span><div><b>Musée des trouvailles</b><small>${n} / ${T.RELICS.length} objets rares · production +${Math.round(T.museumProd(S) * 100)} %</small></div><span class="btn blue sm">Visiter</span></div>`; }
 function relicFound(rar){
   const it = T.relicDrop(S, rar); T.track(S, 'relic'); save();
   setTimeout(() => { toast(`Trouvaille pour le musée : ${it.ico} ${it.name} !`); sfx.level(); }, 1200);
@@ -1801,7 +1807,7 @@ function fishTap(){
 /* ---------- Flocon, le renne magique ---------- */
 function petEntry(){
   const p = T.petState(S); if (!p) return '';
-  return `<button class="petentry" data-a="pet"><img src="${ICON.mg_deer}" alt=""><div><b>Flocon · niveau ${p.lv}</b><small>${T.PET_STAGES[T.petStage(p.lv)][1]} · +${Math.round(T.petProd(S) * 100)} % de production</small></div><span class="btn gold sm">${T.petCanPat(S) ? 'Caresser' : 'Voir'}</span></button>`;
+  return `<div class="petentry" role="button" data-a="pet"><img src="${ICON.mg_deer}" alt=""><div><b>Flocon · niveau ${p.lv}</b><small>${T.PET_STAGES[T.petStage(p.lv)][1]} · +${Math.round(T.petProd(S) * 100)} % de production</small></div><span class="btn gold sm">${T.petCanPat(S) ? 'Caresser' : 'Voir'}</span></div>`;
 }
 function petUp(up, el){
   if (!up) return; const p = S.pet, st = T.PET_STAGES[T.petStage(p.lv)];
@@ -1811,7 +1817,7 @@ function petUp(up, el){
 function campCard(){
   if (S.lvl < T.CAMP_LVL) return `<div class="campentry lock"><b>Campagne des Trolls</b><small>Niveau ${T.CAMP_LVL} requis</small></div>`;
   const C = T.campState(S), c = T.camp(C.at);
-  return `<button class="campentry" data-a="camp"><span class="ti">⚔</span><div><b>Campagne des Trolls</b><small>Prochain : ${c.name}</small></div><span class="btn red sm">Attaquer</span></button>`;
+  return `<div class="campentry" role="button" data-a="camp"><span class="ti">⚔</span><div><b>Campagne des Trolls</b><small>Prochain : ${c.name}</small></div><span class="btn red sm">Attaquer</span></div>`;
 }
 function campGo(i){
   const C = T.campState(S); if (i > C.at) return; const cost = T.campCost(i), c = T.camp(i);
@@ -1825,6 +1831,60 @@ function campGo(i){
     grant: (rw, el) => { giveReward(rw, el); if (rw.xp) gainXp(rw.xp, el); },
     onClose: () => { document.body.classList.remove('in-game'); openPanel('camp'); },
   });
+}
+
+
+/* =====================================================================
+   CINÉMATIQUES (bandes noires, caméra qui survole le village, dialogues)
+   La trame : le vieux Père Noël prend sa retraite, et le Krampus des Glaces veut voler l'Étoile du Nord,
+   le cœur magique de Noël. Chaque chapitre rallume une partie de sa lumière.
+   ===================================================================== */
+const KRAMPUS = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M24 34 C10 18 12 6 20 2 C20 14 28 22 36 28Z M76 34 C90 18 88 6 80 2 C80 14 72 22 64 28Z" fill="#e8e0d0" stroke="#1d2547" stroke-width="3"/><ellipse cx="50" cy="56" rx="30" ry="34" fill="#5a3a8a" stroke="#1d2547" stroke-width="3.5"/><ellipse cx="50" cy="74" rx="18" ry="13" fill="#efe6ff"/><circle cx="38" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="62" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="39" cy="51" r="3" fill="#1d2547"/><circle cx="61" cy="51" r="3" fill="#1d2547"/><path d="M28 40 L44 44 M72 40 L56 44" stroke="#1d2547" stroke-width="4" stroke-linecap="round"/><path d="M38 70 Q50 80 62 70" stroke="#1d2547" stroke-width="3" fill="#7a1a2a"/><path d="M43 71 L45 76 L47 72 M53 72 L55 76 L57 71" fill="#fff"/></svg>`);
+const WHO = {
+  'Le vieux Père Noël': () => portrait, 'Mère Noël': elfImg, 'Krampus des Glaces': () => KRAMPUS, 'Narrateur': null,
+};
+const CINE_AT = ['sawmill', 'workshop', 'cabin', 'mill', 'stable', 'theater', 'mine', 'santa', 'stable', 'mine', 'theater', 'storage', 'workshop', 'santa', 'santa', 'library', 'stable', 'santa'];
+// répliques en plus de l'histoire du chapitre : la trame du Krampus et de l'Étoile du Nord
+const CINE_MORE = {
+  0: [{who: 'Le vieux Père Noël', say: "Chaque bâtiment que tu remets en marche rallume un peu l'Étoile du Nord, là-haut. C'est elle qui fait voler le traîneau."}],
+  3: [{who: 'Krampus des Glaces', say: "De la laine, des peluches… Ridicule ! Quand l'Étoile s'éteindra, plus aucun traîneau ne volera.", villain: 1}],
+  4: [{who: 'Le vieux Père Noël', say: "Les rennes sentent le froid du Krampus. Bien nourris, ils voleront plus haut que ses tempêtes."}],
+  6: [{who: 'Krampus des Glaces', say: "Ces cristaux sont à moi ! Je les ai cachés sous la glace pour que tu ne les trouves jamais…", villain: 1}, {who: 'Le vieux Père Noël', say: "Trop tard, Krampus. Le village creuse déjà."}],
+  9: [{who: 'Krampus des Glaces', say: "Plus vous creusez, plus mes trolls se réveillent. Hé hé hé…", villain: 1}],
+  13: [{who: 'Le vieux Père Noël', say: "L'Étoile du Nord brille plus fort que jamais. Mais le Krampus prépare quelque chose…"}],
+  14: [{who: 'Krampus des Glaces', say: "Mon cousin le Baron vend tes cadeaux perdus au plus offrant. Bonne chance pour les récupérer !", villain: 1}],
+  17: [{who: 'Krampus des Glaces', say: "Mes trolls t'attendent dans le Bois. Viens donc chercher tes cadeaux, petit Père Noël !", villain: 1}, {who: 'Le vieux Père Noël', say: "Courage. Une boule de neige bien lancée vaut mieux qu'une armée."}],
+};
+const INTRO = [
+  {who: 'Narrateur', say: "Pôle Nord. La plus longue nuit de l'année approche, et le village du Père Noël dort sous la neige…", at: [22, 22], zoom: .55},
+  {who: 'Le vieux Père Noël', say: "Ho ho ho… Après 300 Noëls, mes genoux grincent plus que mon traîneau. Il est temps de passer la main.", at: 'santa', zoom: 1},
+  {who: 'Krampus des Glaces', say: "Un nouveau Père Noël ? Hé hé… Parfait. Cette année, l'Étoile du Nord s'éteindra, et Noël sera à MOI !", villain: 1, at: [14, 12], zoom: .7},
+  {who: 'Le vieux Père Noël', say: "Ne l'écoute pas. Le village croit en toi. Rallumons l'Étoile ensemble : je te montre tout !", at: 'santa', zoom: 1},
+];
+function cineFocus(at){ if (!at) return null; if (Array.isArray(at)) return at; const o = S.objs.find(x => x.type === at && !x.wild); if (!o) return null; const b = B(o); return [o.x + b.w / 2, o.y + b.h / 2]; }
+function cinema(lines, onEnd, title){
+  closePanel(); let el = $('#cine');
+  if (!el){ el = document.createElement('div'); el.id = 'cine'; el.innerHTML = '<div class="cbar t"></div><div class="cbar b"></div><div class="ctitle"></div><div class="ccap"><img alt=""><div class="cwho"></div><p></p><span class="cnext">Toucher pour continuer ▾</span></div><button class="cskip">Passer ›</button>'; document.body.appendChild(el); }
+  const cap = el.querySelector('.ccap'), p = cap.querySelector('p'); let i = -1, typing = 0, full = '', z0 = cam.z;
+  document.body.classList.add('cine'); el.hidden = false; requestAnimationFrame(() => el.classList.add('on'));
+  const t = el.querySelector('.ctitle'); t.innerHTML = title || ''; t.classList.toggle('show', !!title);
+  const type = txt => { clearInterval(typing); full = txt; let n = 0; p.textContent = ''; typing = setInterval(() => { n += 2; p.textContent = full.slice(0, n); if (n >= full.length){ clearInterval(typing); typing = 0; } }, 22); };
+  const end = () => { clearInterval(typing); el.classList.remove('on'); document.body.classList.remove('cine'); setTimeout(() => { el.hidden = true; }, 450); el.onclick = null; panTo(...(cineFocus('santa') || [22, 22]), {zoom: z0}); onEnd?.(); };
+  const next = () => {
+    i++; if (i >= lines.length) return end();
+    const L = lines[i], f = cineFocus(L.at), img = WHO[L.who] ? WHO[L.who]() : null;
+    cap.classList.remove('show'); cap.classList.toggle('villain', !!L.villain); cap.classList.toggle('narr', !img);
+    if (L.villain) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    const ms = f ? panTo(f[0], f[1], {zoom: L.zoom || Math.max(.85, Math.min(1.15, cam.z))}) : 0;
+    setTimeout(() => { if (img) cap.querySelector('img').src = img; cap.querySelector('img').hidden = !img; cap.querySelector('.cwho').textContent = L.who === 'Narrateur' ? '' : L.who; cap.classList.add('show'); type(L.say); if (i === 0 && title) setTimeout(() => t.classList.remove('show'), 1800); }, Math.min(ms, 900) + 150);
+  };
+  el.onclick = e => { if (e.target.closest('.cskip')){ sfx.tap(); return end(); } if (typing){ clearInterval(typing); typing = 0; p.textContent = full; return; } if (cap.classList.contains('show')){ sfx.tap(); next(); } };
+  next();
+}
+function chapterCine(i){
+  const c = T.CHAPTERS[i]; if (!c) return;
+  const who = c.who || 'Le vieux Père Noël', at = CINE_AT[i] || 'santa';
+  cinema([{who, say: c.story, at}, ...(CINE_MORE[i] || []).map((l, k) => ({...l, at: l.at || (l.villain ? [14 + k * 6, 12] : 'santa')}))], null, `<small>Chapitre ${i + 1}</small>${c.title}`);
 }
 
 /* ---------- montée de niveau ---------- */
@@ -1851,7 +1911,7 @@ const rectOf = pred => () => { if (panel) return null; const o = S.objs.find(pre
   const L = toScreen(o.x, o.y + b.h), R = toScreen(o.x + b.w, o.y), Bt = toScreen(o.x + b.w, o.y + b.h), top = r.top + r.height * .12;
   return {left: L.x + 4, top, width: R.x - L.x - 8, height: Bt.y - top - 2}; };
 const STEPS = [
-  {say: "Ho ho ho ! Bienvenue au Pôle Nord ! Après 300 Noëls, je prends ma retraite… et <b>c'est toi le nouveau Père Noël</b> !", tap: true},
+  {say: "Bienvenue chez toi, <b>nouveau Père Noël</b> ! Pour rallumer l'Étoile du Nord, il faut d'abord remettre le village en marche.", tap: true},
   {say: "Les enfants comptent sur nous. Un village qui tourne bien, c'est des jouets à l'heure ! Je te montre tout, c'est promis.", tap: true},
   {say: "La scierie a travaillé toute la nuit. <b>Touche-la</b> pour récolter le bois !", target: rectOf(o => o.type === 'sawmill'), wait: 'collect:sawmill', focus: [14.5, 16.5], reward: {coins: 20}, praise: 'Premier bois récolté !'},
   {say: "Et voilà les pièces des enfants au Bureau des lettres. <b>Récolte-les !</b>", target: rectOf(o => o.type === 'letters'), wait: 'collect:letters', focus: [26.5, 16.5], reward: {wood: 20}, praise: 'Joli magot !'},
@@ -1868,7 +1928,7 @@ const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, st
   onReward: (r, praise) => { tutoPraise(r, praise); }, onEnd: () => setTimeout(() => bravo({coins: 300, stars: 10, axe: 1}, 'Tutoriel terminé : le village est à toi !', 'BRAVO !'), 500)});
 // petite carte « Bien joué ! » avec la récompense, puis les gains volent vers les compteurs
 function tutoPraise(r, praise){
-  const c = document.createElement('div'); c.className = 'tpraise';
+  const c = document.createElement('div'); c.className = 'tpraise' + ($('#tuto .tbox')?.classList.contains('up') ? ' low' : '');
   c.innerHTML = `<b>${praise || 'Bien joué !'}</b><span class="costs">${rewardChips(r)}</span>`; document.body.appendChild(c);
   sfx.level(); setTimeout(() => { giveReward(r, c); }, 500); setTimeout(() => c.remove(), 1700);
 }
@@ -1882,7 +1942,7 @@ function frame(t){
   requestAnimationFrame(frame);
   // horloge de l'image : jamais négative (le 1er horodatage peut précéder la fin du chargement)
   const dt = Math.max(0, Math.min(.05, (t - last) / 1000)); last = Math.max(last, t);
-  try { step(t, dt); } catch(e){ if (!frame.err){ frame.err = 1; console.error('frame', e && e.stack); window.showErr?.(e && e.message); } }
+  try { step(t, dt); } catch(e){ if (!frame.err){ frame.err = 1; console.error('frame', e && e.stack); window.showErr?.(e && e.message); try { localStorage.setItem('vdp-lasterr', new Date().toISOString() + ' ' + (e && e.stack || e)); } catch(_){} } }
 }
 let autoT = 0;
 /** Les gardiens récoltent tout seuls (en silence, avec un petit effet si le bâtiment est à l'écran). */
@@ -1985,7 +2045,7 @@ function welcomeBack(){
   bravo(got, `Pendant ton absence (${h ? h + ' h ' : ''}${m} min), tes gardiens ont récolté`, 'BON RETOUR !');
 }
 setTimeout(welcomeBack, 1400);
-setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
+setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier

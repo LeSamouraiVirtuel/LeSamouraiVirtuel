@@ -251,5 +251,14 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Même glissement pour « Y aller » (Mon village), la carte de tâche, le bouton Lettres, le retour à la Maison (avec retour au zoom normal) et les cadeaux tombés du traîneau.
 - Toucher la carte pendant un trajet l'arrête aussitôt. Testé sur iPhone 13 et SE, tutoriel OK.
 
+## Tour 48 — Retour du joueur (captures iPhone)
+- Fond qui « bouge » et se brouille : une image ratée pouvait laisser une transparence active, et les images suivantes se superposaient en traînées. Chaque image repart maintenant d'un état propre (fond effacé, transparence et découpe remises à zéro) ; l'erreur éventuelle est notée.
+- Espace entre les bâtiments : 2 cases entre deux grands bâtiments, 1 case pour les chalets. Les villages existants sont réorganisés une fois au chargement (écartés autour de la Maison) ; les terrains réservés se décalent sur une place libre. Étiquettes « à construire » seulement pour ce qui est constructible et en zoom proche.
+- Fiche de bâtiment : le coût est maintenant juste au-dessus de « Améliorer », dans un pied de fiche opaque ; plus rien ne passe dessous.
+- Mini-jeux : l'écran débordait sur le côté (carte de la Campagne) ; corrigé, et plus aucune fiche ne peut défiler en largeur.
+- Étoiles dans la barre du haut : le chiffre n'est plus caché par l'icône.
+- Cinématiques : bandes noires, caméra qui survole le village, dialogues avec portraits. Intro (le vieux Père Noël part à la retraite, le Krampus des Glaces veut éteindre l'Étoile du Nord), puis une cinématique à chaque chapitre, avec les répliques du Krampus qui tissent la trame.
+- Comptes et connexion (Google, e-mail) : demandent un projet Firebase créé par le joueur ; en attente.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
