@@ -98,6 +98,8 @@ export const BUILDINGS = {
              desc: 'Le minerai des aurores fondu en lingots d’or polaire. Rare, précieux, indispensable aux grands chantiers.'},
   mine:     {name: 'Grotte aux cristaux', kind: 'mine', w: 3, h: 3, unique: true, cost: {coins: 900, wood: 700, cookies: 250}, time: 60, hq: 5,
              desc: 'Creuse la glace étage par étage : cristaux, lingots et colis perdus t’attendent. Plus on descend, plus c’est riche.'},
+  station:  {name: 'Gare du Pôle', kind: 'train', w: 3, h: 3, unique: true, cost: {coins: 4500, wood: 3000, cookies: 1200, fabric: 300}, time: 240, hq: 8,
+             desc: 'Le train du Pôle repart avec des wagons à remplir. Chaque wagon chargé rapporte une récompense, le train complet un bonus.'},
   library:  {name: 'Bibliothèque des lutins', kind: 'lab', w: 3, h: 3, unique: true, cost: {coins: 3000, wood: 2000, cookies: 800, ice: 15}, time: 180, hq: 6,
              desc: 'Les lutins savants y cherchent des secrets : chaque recherche donne un bonus pour toujours.'},
   theater:  {name: 'Théâtre de marionnettes', kind: 'fun', w: 3, h: 3, unique: true, cost: {coins: 600, wood: 400, fabric: 100}, time: 60, hq: 5,
@@ -182,6 +184,7 @@ export function stats(s, o, lv = o.lv){
     case 'orders': return [L('Lettres en même temps', orderSlots), L('Récompenses', l => '+' + Math.round((orderBonus(l) - 1) * 100) + ' %')];
     case 'stable': return [L('Expéditions en même temps', expSlots), L('Destinations', l => EXP_DEST.filter(d => d.lv <= l).length), L('Tickets de jeu', ticketsMax)];
     case 'fun': return [L('Bonheur', l => '+' + theaterJoy(l))];
+    case 'train': return [L('Wagons par voyage', trainWagons), L('Durée du voyage', l => Math.round(trainTrip(l) / 360) / 10 + ' h')];
     case 'lab': return [L('Niveau max des recherches', l => Math.min(RS_MAX, l * 2)), L('Domaines de recherche', l => RESEARCH.filter(r => r.lib <= l).length)];
     case 'mine': return [L('Pioches au maximum', minePicks), L('Une pioche toutes les', l => minePickMin(l) + ' min'), L('Trouvailles', l => '+' + Math.round((mineMult(l) - 1) * 100) + ' %')];
     case 'hq': return [L('Niveau max des bâtiments', l => l + 1), L('Stock de base', l => fmtN(hqStock(l))), L('Bâtiments débloqués', l => unlockCount(l))];
@@ -925,6 +928,7 @@ export function upcoming(s, now = Date.now()){
     for (const j of o.q || []) add(j.end, `Des jouets sont prêts à l'Atelier`);
   }
   for (const e of s.exps || []) add(e.end, 'Les rennes rentrent avec des colis mystère !');
+  if (s.train && s.train.back > now) add(s.train.back, 'Le train est de retour à la Gare !');
   const st = s.objs.find(o => o.type === 'mine' && built(o));
   if (st && s.mine){ const max = minePicks(st.lv) + zoneB(s, 'picks'), every = minePickMin(st.lv) * 60e3; if (s.mine.picks < max) add(s.mine.t + (max - s.mine.picks) * every, 'Les pioches de la Grotte sont pleines'); }
   return L.sort((a, b) => a.at - b.at);
@@ -975,4 +979,42 @@ export function rsStart(s, k, now = Date.now()){
 export function rsTick(s, now = Date.now()){
   const R = s.rsRun; if (!R || R.end > now) return null;
   s.rs ||= {}; s.rs[R.k] = R.lv; s.rsRun = null; return R;
+}
+
+/* ===================== GARE DU PÔLE (le train de Township, le bateau de Hay Day) ===================== */
+// Le train arrive avec des wagons vides. Chaque wagon demande une marchandise et donne sa récompense quand on le charge.
+// On fait partir le train quand on veut ; s'il part plein, bonus. Il revient quelques heures plus tard avec de nouveaux wagons.
+export const trainWagons = lv => Math.min(6, 3 + Math.floor(lv / 3));
+export const trainTrip = lv => Math.max(5400, 4 * 3600 - (lv - 1) * 600);     // secondes : 4 h au niv. 1, au moins 1 h 30
+const pickOne = a => a[Math.floor(Math.random() * a.length)];
+export function trainWagon(s){
+  const L = s.lvl, toys = toysAvailable(s), r = Math.random(), want = {};
+  if (r < .45) want[pickOne(['wood', 'cookies', 'fabric'])] = R5(120 * (1 + L * .45) * (.7 + Math.random() * .6));
+  else if (r < .8 && toys.length) want[pickOne(toys)] = 2 + Math.floor(Math.random() * Math.min(5, 1 + L / 6));
+  else if (L >= 7) want.ice = 3 + Math.floor(L / 4 + Math.random() * 4);
+  else want.wood = R5(150 * (1 + L * .45));
+  const val = Object.entries(want).reduce((a, [k, n]) => a + (TOYS[k] ? TOYS[k].value * n * 1.2 : k === 'ice' ? n * 60 : n * 1.2), 0);
+  const rw = {coins: R5(val * 1.25), xp: Math.round(8 + L * 1.5)}, b = Math.random();
+  if (b < .2) rw.ice = 2 + Math.floor(L / 5); else if (b < .3 && L >= 11) rw.gold = 1; else if (b < .42) rw[Math.random() < .5 ? 'axe' : 'saw'] = 1; else if (b < .55) rw.parcel = 1;
+  return {want, rw, done: false};
+}
+export function trainState(s, now = Date.now()){
+  const o = s.objs.find(o => o.type === 'station' && built(o)); if (!o) return null;
+  s.train ||= {wag: [], back: 0};
+  const tr = s.train;
+  if (!tr.wag.length && tr.back <= now){ tr.wag = Array.from({length: trainWagons(o.lv)}, () => trainWagon(s)); tr.back = 0; }
+  return {o, tr, away: tr.back > now};
+}
+export const trainBonus = s => ({stars: s.lvl >= 15 ? 2 : 1, parcel: 1, coins: R5(300 * (1 + s.lvl * .3))});
+export function trainLoad(s, i){
+  const st = trainState(s); if (!st || st.away) return 'Le train est parti';
+  const w = st.tr.wag[i]; if (!w || w.done) return 'Wagon déjà chargé';
+  if (!has(s, w.want)) return 'Il manque des marchandises';
+  take(s, w.want); w.done = true; return null;
+}
+/** Fait partir le train. Renvoie le bonus si tous les wagons étaient chargés. */
+export function trainSend(s, now = Date.now()){
+  const st = trainState(s, now); if (!st || st.away) return null;
+  const full = st.tr.wag.every(w => w.done); st.tr.wag = []; st.tr.back = now + trainTrip(st.o.lv) * 1000; st.tr.start = now;
+  return full ? trainBonus(s) : {};
 }
