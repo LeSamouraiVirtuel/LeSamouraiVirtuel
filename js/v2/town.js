@@ -22,6 +22,7 @@ export const ITEMS = {
   cane:   {name: "Sucre d'orge géant", ic: 'candycane_large', toy: true},
   sock:   {name: 'Chaussette garnie', ic: 'sock-red-cane', toy: true},
   bell:   {name: 'Cloche dorée', ic: 'bell_decorated', toy: true},
+  paper:  {name: 'Papier cadeau', ic: 'present_A_red'},
   // outils pour dégager la forêt (lettres, train, mini-jeux, tâches)
   axe:    {name: 'Hache', ic: 'Wood_Log_A', mat: true},
   saw:    {name: 'Scie', ic: 'Wood_Planks_Stack_Small', mat: true},
@@ -43,6 +44,8 @@ export const TOYS = {
   cane:  {cost: {cookies: 60, wood: 30}, time: 200, xp: 14, value: 150, lvl: 7},
   sock:  {cost: {fabric: 45, cookies: 40}, time: 360, xp: 22, value: 260, lvl: 9},
   bell:  {cost: {wood: 120, fabric: 60, coins: 300}, time: 600, xp: 40, value: 520, lvl: 12},
+  // pas un jouet : sert à emballer les jouets d'une lettre (+50 % de pièces et d'XP)
+  paper: {cost: {wood: 20, cookies: 15}, time: 60, xp: 2, value: 0, lvl: 3, wrap: true},
 };
 
 /* ===================== BÂTIMENTS ===================== */
@@ -295,7 +298,8 @@ const CITIES = ['Lyon', 'Lille', 'Brest', 'Nice', 'Paris', 'Nantes', 'Annecy', '
 const HELLO = ['Cher Père Noël,', 'Coucou Père Noël !', 'Bonjour Père Noël,', 'Père Noël chéri,'];
 const WISHES = ['pour jouer avec ma petite sœur.', 'parce que j’ai été très sage cette année !', 'pour le montrer à mes copains.', 'pour jouer avec Papi.', 'pour mettre sous le sapin.', 'pour ma chambre toute neuve.', 'et un câlin pour les rennes !', 'pour jouer dans la neige.'];
 const ARTICLE = {train: 'un', box: 'une', sled: 'une', plush: 'un', nut: 'un', cane: 'un', sock: 'une', bell: 'une'};
-export const toysAvailable = s => Object.keys(TOYS).filter(k => TOYS[k].lvl <= s.lvl);
+export const TOY_KEYS = Object.keys(TOYS).filter(k => !TOYS[k].wrap);
+export const toysAvailable = s => TOY_KEYS.filter(k => TOYS[k].lvl <= s.lvl);
 export function makeOrder(s, bureauLv = 1){
   const av = toysAvailable(s), n = av.length > 1 && Math.random() < .4 ? 2 : 1, items = {};
   for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
@@ -434,13 +438,13 @@ export const chapterOf = i => { let c = 0; for (let k = 0; k < CHAPTERS.length; 
 // augmente durablement ce que paient les lettres (+1 % par étoile).
 export const ALBUM_STEPS = [3, 12, 40];
 export const albumStars = (s, k) => ALBUM_STEPS.filter(n => (s.cnt['deliver:' + k] || 0) >= n).length;
-export const albumTotal = s => Object.keys(TOYS).reduce((a, k) => a + albumStars(s, k), 0);
+export const albumTotal = s => TOY_KEYS.reduce((a, k) => a + albumStars(s, k), 0);
 export const albumBonus = s => 1 + albumTotal(s) * .01;
 export const albumReward = (k, star) => ({coins: Math.round(TOYS[k].value * [2, 5, 12][star - 1]), stars: star, xp: TOYS[k].xp * star * 2});
 export function albumClaimable(s){
   s.album ||= {};
   const out = [];
-  for (const k of Object.keys(TOYS)){ const got = albumStars(s, k), claimed = s.album[k] || 0; for (let st = claimed + 1; st <= got; st++) out.push([k, st]); }
+  for (const k of TOY_KEYS){ const got = albumStars(s, k), claimed = s.album[k] || 0; for (let st = claimed + 1; st <= got; st++) out.push([k, st]); }
   return out;
 }
 
@@ -702,3 +706,8 @@ export function visitorAnswer(s, yes){
   if (yes){ if (!has(s, v.want)) return 'missing'; take(s, v.want); }
   s.visitor = null; return yes ? v.give : {};
 }
+
+/* ===================== PAPIER CADEAU ===================== */
+// Une lettre emballée paie 50 % de plus (pièces et XP) et a 15 % de chances de donner une étoile d'or.
+export const wrapNeed = od => Object.values(od.items || {}).reduce((a, n) => a + n, 0);
+export const WRAP_BONUS = 1.5, WRAP_STAR = .15;
