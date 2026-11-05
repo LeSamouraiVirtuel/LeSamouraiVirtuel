@@ -9,6 +9,6 @@ Liste tenue à jour par la boucle. On traite du plus important au moins importan
 | 3 | Histoire | Des dizaines de chapitres avec des personnages récurrents | 14 chapitres, 55 tâches, 7 personnages, puis tâches génériques | fait (tour 30) |
 | 4 | Nouveaux bâtiments de production | Une nouvelle usine tous les quelques niveaux | 6 bâtiments de ressources : Puits de cristaux (Maison niv. 7) et Fonderie d'or polaire (niv. 11) produisent les matériaux rares | fait (tour 31) |
 | 5 | Zones à débloquer | Nouvelles régions avec leur ambiance (mine, île, zoo) | 12 zones nommées : sol et décor propres (lac gelé, collines de sucre, aurore), niveau requis, cadeau d'arrivée, bonus permanent | fait (tour 32) |
-| 6 | Rappel des activités prêtes | Notifications | Liste « Mon village » dans le jeu seulement | à faire (notifications du navigateur) |
+| 6 | Rappel des activités prêtes | Notifications | Rappels du navigateur (chantiers, rennes, stocks pleins, pioches, jouets), liste « Bientôt prêt » et accueil « Bon retour » | fait (tour 33) ; rappels jeu fermé : demandent un serveur de push |
 | 7 | Social (amis, guildes, classements) | Oui | Non : demande un serveur | hors de portée sans serveur |
 | 8 | Illustrations peintes | Oui | Modèles 3D gratuits | bloqué : jeton d'images |

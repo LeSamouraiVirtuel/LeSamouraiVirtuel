@@ -147,5 +147,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - La fiche de la zone montre le texte, le bonus et le cadeau ; le panneau « À VENDRE » devient « NIV. X » tant que le niveau manque. Une fenêtre « Nouvelle zone » puis « Bienvenue ! » accueille le joueur.
 - Testé sur iPhone 13 et iPhone SE (jour et nuit), tutoriel OK.
 
+## Tour 33 — Rappels
+- « Mon village » montre maintenant « Bientôt prêt » : les 4 prochains événements avec le temps restant (chantiers, retour des rennes, ateliers pleins, pioches, jouets).
+- Rappels du navigateur (bouton dans « Mon village » et dans Réglages) : quand le jeu passe en arrière-plan, il prévoit jusqu'à 8 notifications dans les 24 h ; toucher une notification ramène au jeu (service worker).
+- Au retour après plus de 3 min : « Bon retour ! N choses t'attendent au village » et le bouton Village s'anime.
+- Limite : jeu complètement fermé, il faut un serveur de push (Web Push) ; sur iPhone, les rappels demandent d'ajouter le jeu à l'écran d'accueil. Safari simple affiche ce conseil.
+- Testé : iPhone 13 et SE (WebKit, pas d'API de notification → conseil), Chromium avec permission accordée (rappels armés). Tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

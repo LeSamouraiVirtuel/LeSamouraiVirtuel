@@ -909,3 +909,20 @@ export function deerFeed(s, now = Date.now()){
   take(s, deerCost(s)); s.deer ||= {hearts: 0}; s.deer.until = now + DEER_EVERY; s.deer.hearts = Math.min(10, (s.deer.hearts || 0) + 1);
   return null;
 }
+
+/* ===================== RAPPELS (notifications) ===================== */
+/** Ce qui deviendra prêt plus tard : chantiers, rennes, ateliers pleins, pioches, jouets. Trié par heure. */
+export function upcoming(s, now = Date.now()){
+  const L = [], add = (at, txt) => { if (at > now) L.push({at, txt}); };
+  for (const o of s.objs){
+    const b = BUILDINGS[o.type]; if (o.wild || o.free && b.kind === 'deco') continue;
+    if (o.build) add(o.build, `${b.name} : construction terminée !`);
+    else if (o.up) add(o.up, `${b.name} : amélioration terminée !`);
+    else if (b.kind === 'prod'){ const cap = o.keeper ? keeperBuffer(o) : buffer(o.type, o.lv), r = rate(o.type, o.lv) * prodMult(s) * keeperMult(o) * zoneProd(s, b.res); if (r > 0) add(o.t + cap / r * 3.6e6, `${b.name} : stock plein, viens récolter !`); }
+    for (const j of o.q || []) add(j.end, `Des jouets sont prêts à l'Atelier`);
+  }
+  for (const e of s.exps || []) add(e.end, 'Les rennes rentrent avec des colis mystère !');
+  const st = s.objs.find(o => o.type === 'mine' && built(o));
+  if (st && s.mine){ const max = minePicks(st.lv) + zoneB(s, 'picks'), every = minePickMin(st.lv) * 60e3; if (s.mine.picks < max) add(s.mine.t + (max - s.mine.picks) * every, 'Les pioches de la Grotte sont pleines'); }
+  return L.sort((a, b) => a.at - b.at);
+}

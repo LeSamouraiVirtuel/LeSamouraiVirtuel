@@ -25,3 +25,12 @@ self.addEventListener('fetch', e => {
     return r;
   })());
 });
+// toucher un rappel ramène au jeu (ou l'ouvre)
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+    if (all.length) return all[0].focus();
+    return self.clients.openWindow('./');
+  })());
+});
