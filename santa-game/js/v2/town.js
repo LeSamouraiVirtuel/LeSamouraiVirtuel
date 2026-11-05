@@ -185,7 +185,7 @@ export function stats(s, o, lv = o.lv){
   }
   return [];
 }
-const fmtN = n => n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + 'k' : String(n);
+const fmtN = n => n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + 'k' : String(n).replace('.', ',');
 const unlockCount = l => Object.values(BUILDINGS).filter(b => (b.hq || 1) <= l && b.kind !== 'path').length;
 export const unlocksAtHq = L => Object.values(BUILDINGS).filter(b => b.hq === L && L > 1).map(b => b.name);
 

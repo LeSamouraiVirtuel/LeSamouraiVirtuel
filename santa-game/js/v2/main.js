@@ -722,6 +722,7 @@ function tap(o, at){
 // barre du haut : 4 caractères au plus (999, 9,5k, 40k, 1,2M) pour que tout tienne sur un iPhone
 const fmtS = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(n < 1e7 ? 1 : 0).replace('.', ',') + 'M' : n >= 1e4 ? Math.floor(n / 1e3) + 'k' : n >= 1e3 ? (Math.floor(n / 100) / 10).toFixed(1).replace('.', ',') + 'k' : String(n); };
 const fmt = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + 'k' : String(n); };
+const fmtR = n => n < 10 && n % 1 ? String(Math.round(n * 10) / 10).replace('.', ',') : fmt(n);
 const fmtTime = s => { s = Math.max(0, Math.ceil(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return h ? `${h}h ${String(m).padStart(2, '0')}` : m ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`; };
 const icon = k => `<img class="i" src="${ICON[k]}" alt="">`;
 let toastT;
@@ -949,7 +950,7 @@ function renderPanel(){
     const list = Object.entries(BUILDINGS).filter(([k, b]) => T.catOf(b) === cat && !b.max);
     h = hd(`Bâtisseurs ${T.builders(S) - T.busyBuilders(S)} / ${T.builders(S)} libres`, 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
       <div class="grid">${list.map(([k, b]) => { const why = T.buildBlock(S, k), hard = why && why !== 'Ressources insuffisantes', c = T.upCost(k, 1), n = T.countOf(S, k), m = T.maxOf(S, k);
-        const role = b.kind === 'prod' ? `+${fmt(T.rate(k, 1))} ${ITEMS[b.res].name.toLowerCase()}/h` : b.kind === 'house' ? `+${T.housing(1)} lutins` : b.kind === 'storage' ? `+${fmt(T.storageAdd(1))} de stock` : b.kind === 'deco' ? `+${b.joy} bonheur` : b.desc.split('.')[0];
+        const role = b.kind === 'prod' ? `+${fmtR(T.rate(k, 1))} ${ITEMS[b.res].name.toLowerCase()}/h` : b.kind === 'house' ? `+${T.housing(1)} lutins` : b.kind === 'storage' ? `+${fmt(T.storageAdd(1))} de stock` : b.kind === 'deco' ? `+${b.joy} bonheur` : b.desc.split('.')[0];
         const want = !hard && (T.questProgress(S).q.k === 'have:' + k) && !T.questProgress(S).done;
         return `<button class="card ${hard ? 'locked' : ''} ${want ? 'qwant' : ''}" data-a="place" data-k="${k}">${want ? '<span class="wanted">Tâche</span>' : ''}<img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${role}</span>${m < 99 ? `<span class="meta">${n} / ${m}</span>` : ''}${hard ? `<span class="why">${why}</span>` : S.tokens?.[k] > 0 ? `<span class="costs"><span class="chip free">Gratuit ×${S.tokens[k]}</span>` : `<span class="costs">${costChips(c)}${T.upTime(k, 1) ? `<span class="chip time">${fmtTime(T.upTime(k, 1))}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
   }
@@ -1131,7 +1132,7 @@ const KEEPER = {
 function keeperLine(o){
   const b = B(o), L = o.lv, N = L + 1, f = fmt;
   switch (b.kind){
-    case 'prod': return T.workRatio(S) < 1 ? `Il me manque des lutins ! Construis un chalet, sinon je produis moins.` : `Je fais <b>${f(T.rate(o.type, L))} ${ITEMS[b.res].name.toLowerCase()}/h</b>. Améliore-moi et j'en ferai <b>${f(T.rate(o.type, N))}</b> !`;
+    case 'prod': return T.workRatio(S) < 1 ? `Il me manque des lutins ! Construis un chalet, sinon je produis moins.` : `Je fais <b>${fmtR(T.rate(o.type, L))} ${ITEMS[b.res].name.toLowerCase()}/h</b>. Améliore-moi et j'en ferai <b>${fmtR(T.rate(o.type, N))}</b> !`;
     case 'house': return `Je loge <b>${T.housing(L)} lutins</b>. Ce sont eux qui font tourner les ateliers.`;
     case 'storage': return T.bulkReady(o, now()) ? `Une <b>grande commande du Nord</b> attend ! Livre une grosse quantité et je te paie bien.` : `Je garde <b>+${f(T.storageAdd(L))}</b> de bois, biscuits et tissu. Sans moi, ce qui dépasse est perdu !`;
     case 'craft': return `Je fabrique les jouets des lettres, <b>${T.craftSlots(L)} à la fois</b>. Plus je monte, plus je vais vite.`;

@@ -135,5 +135,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Chaque chapitre a son personnage (Mère Noël, Dame Rennes, Pic le mineur, Monsieur Fil, Gros Ours, Maître Rouage, le vieux Père Noël) et son texte ; les tâches font utiliser toutes les activités du village.
 - Les compteurs de ces tâches partent de zéro au début de chaque tâche.
 
+## Tour 31 — Puits de cristaux et Fonderie d'or polaire
+- Deux nouveaux bâtiments de production : le Puits de cristaux (Maison niv. 7, 3 cristaux/h, gardienne Lutine Givre) et la Fonderie d'or polaire (Maison niv. 11, 0,5 lingot/h, gardien Forgeron Braise).
+- Les matériaux rares vont dans l'inventaire sans plafond ; le bâtiment garde 12 h de production.
+- Les taux à virgule s'affichent avec une décimale (0,5 → 0,6) dans la fiche et la bulle du gardien.
+- Pack d'images régénéré ; testé sur iPhone 13 et iPhone SE ; tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
