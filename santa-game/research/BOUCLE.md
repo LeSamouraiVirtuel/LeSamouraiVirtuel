@@ -81,5 +81,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Quand un cadeau tombe, le traîneau du Père Noël et ses rennes traversent l'écran avec une traînée dorée, puis le cadeau tombe sur l'allée.
 - Dessiné par-dessus les étiquettes pour rester bien visible.
 
+## Tour 18 — Contrôle complet et petits écrans
+- Rejeu de tous les écrans (boutique, missions, pass, marché, profil, événement, hotte, théâtre, chalets, entrepôt, papier cadeau, visiteurs) : aucune erreur. Simulateur d'économie inchangé.
+- iPhone SE : l'écran de récompense avec beaucoup de cartes cachait le bouton OK (bloquant) → cartes plus petites et fenêtre qui défile.
+- iPhone SE : la deuxième ligne du haut passait sur deux lignes → tailles ajustées.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
