@@ -77,5 +77,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - L'onglet Village du bas ouvre la liste de tout ce qui est prêt (cadeau du jour, hotte, visiteur, cadeau tombé, tâche, commandes spéciales, jouets, lettres, grotte, rennes, colis, grande commande, théâtre, coup de main, bâtisseurs libres, missions, événement).
 - Chaque ligne a un bouton « Y aller » ; un compteur rouge sur l'onglet. Toucher encore « Village » ramène à la Maison.
 
+## Tour 17 — Le traîneau traverse le ciel
+- Quand un cadeau tombe, le traîneau du Père Noël et ses rennes traversent l'écran avec une traînée dorée, puis le cadeau tombe sur l'allée.
+- Dessiné par-dessus les étiquettes pour rester bien visible.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

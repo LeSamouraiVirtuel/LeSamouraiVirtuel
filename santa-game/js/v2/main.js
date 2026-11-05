@@ -318,6 +318,7 @@ function draw(){
   for (const o of S.objs) plate(o);
   for (const l of T.lotsShown(S)) lotLabel(l);
   for (const o of S.objs) drawHint(o);
+  drawSleigh();
   // neige qui tombe
   ctx.fillStyle = 'rgba(255,255,255,.85)';
   for (const f of flakes){ ctx.beginPath(); ctx.arc(f.x * W, f.y * H, f.s * 1.6, 0, 7); ctx.fill(); }
@@ -588,7 +589,15 @@ cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.45, Ma
 function clampCam(){ const c = iso(T.MAP / 2, T.MAP / 2), r = T.MAP * TW * .45; cam.x = Math.max(c.x - r, Math.min(c.x + r, cam.x)); cam.y = Math.max(c.y - r * .5 - 200, Math.min(c.y + r * .5 + 200, cam.y)); }
 
 /* ---------- cadeaux tombés du traîneau : à ramasser sur la carte ---------- */
-let dropRect = null;
+let dropRect = null, sleighT = -1e9, sleighTo = null;
+// le traîneau traverse le ciel (2,6 s) ; il lâche le cadeau au-dessus de l'allée choisie
+function drawSleigh(){
+  const u = (performance.now() - sleighT) / 2600; if (u < 0 || u > 1 || !sleighTo) return;
+  const c = toScreen(sleighTo.x, sleighTo.y), x = -120 + (W + 240) * u, y = Math.max(260, c.y - 240) - Math.sin(u * Math.PI) * 50;
+  const im = img(ICON.mg_sleigh); if (!im.complete) return;
+  for (let j = 1; j <= 10; j++){ const r = 16 - j; ctx.globalAlpha = .75 - j * .06; ctx.drawImage(GLOW, x - 70 - j * 20 - r, y + 18 - r, r * 2 + 10, r * 2 + 10); }
+  ctx.globalAlpha = 1; ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(im, -85, -62, 170, 124); ctx.restore();
+}
 function dropTick(){
   const t = now();
   if (S.drop && S.drop.until < t) S.drop = null;
@@ -596,10 +605,10 @@ function dropTick(){
   S.dropNext ||= t + 3 * 60e3; if (t < S.dropNext) return;
   const paths = S.objs.filter(o => o.type === 'path'); if (!paths.length) return;
   const p = paths[Math.floor(Math.random() * paths.length)];
-  S.drop = {x: p.x + .5, y: p.y + .5, until: t + 4 * 60e3, born: t}; S.dropNext = t + (6 + Math.random() * 6) * 60e3;
+  S.drop = {x: p.x + .5, y: p.y + .5, until: t + 4 * 60e3, born: t + 1600}; sleighT = performance.now(); sleighTo = {x: p.x + .5, y: p.y + .5}; S.dropNext = t + (6 + Math.random() * 6) * 60e3;
 }
 function drawDrop(){
-  dropRect = null; const d = S.drop; if (!d) return;
+  dropRect = null; const d = S.drop; if (!d || now() < d.born) return;
   const c = toScreen(d.x, d.y), age = (now() - d.born) / 1000, fall = Math.max(0, 1 - age / .8), z = Math.max(.75, cam.z);
   const y = c.y - 26 * z - fall * 260 + Math.sin(performance.now() / 300) * 3, r = 30 * z;
   const pu = 1.5 + Math.sin(performance.now() / 180) * .25; ctx.drawImage(GLOW, c.x - r * pu, y - r * pu, r * pu * 2, r * pu * 2); ctx.drawImage(GLOW, c.x - r * pu, y - r * pu, r * pu * 2, r * pu * 2);
