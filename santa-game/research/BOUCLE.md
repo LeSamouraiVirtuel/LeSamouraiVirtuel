@@ -23,8 +23,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Le décor grandit avec l'apparence : lanterne au niveau 5, sucres d'orge et objets en plus au niveau 12.
 - Tailles réglées pour ne jamais cacher les portes.
 
+## Tour 5 — Papier cadeau (choix à la livraison)
+- Nouveau produit de l'Atelier (niveau 3) : le papier cadeau (bois + biscuits, 1 min).
+- Dans les lettres, un interrupteur « Emballer » : 1 papier par jouet, +50 % de pièces et d'XP, 15 % de chances d'une étoile d'or.
+- La récompense affichée suit l'interrupteur.
+
 ## Idées pour la suite
-1. Atelier des jouets : jouets « de luxe » (emballage cadeau) qui valent plus dans les lettres.
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
 4. Fenêtres qui s'allument la nuit (ambiance selon l'heure réelle).
 5. Événement limité de Noël avec sa propre monnaie et sa boutique.

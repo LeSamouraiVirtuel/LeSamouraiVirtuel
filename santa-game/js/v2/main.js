@@ -75,6 +75,7 @@ const SVGI = {
   missions: svgU(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="14" y="10" width="36" height="46" rx="5" fill="#fff6e6" stroke="#2e202c" stroke-width="3"/><rect x="24" y="6" width="16" height="9" rx="3" fill="#b5652c" stroke="#2e202c" stroke-width="3"/><path d="M20 26l4 4 7-8M20 40l4 4 7-8" fill="none" stroke="#2f9e44" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M36 28h9M36 42h9" stroke="#2e202c" stroke-width="3" stroke-linecap="round"/></svg>`),
   pass: svgU(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M8 20h48v8a5 5 0 0 0 0 10v8H8v-8a5 5 0 0 0 0-10z" fill="#ffd34a" stroke="#2e202c" stroke-width="3" stroke-linejoin="round"/><path d="M22 18l4-8 6 6 6-6 4 8" fill="#e5383b" stroke="#2e202c" stroke-width="3" stroke-linejoin="round"/><path d="M32 25l2.6 5.4 5.9.7-4.4 4 1.2 5.8L32 38l-5.3 2.9 1.2-5.8-4.4-4 5.9-.7z" fill="#e5383b" stroke="#2e202c" stroke-width="1.6"/></svg>`),
 };
+ICON.paper = svgU(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g stroke="#2e202c" stroke-width="3" stroke-linejoin="round"><path d="M10 20l34-10 10 34-34 10z" fill="#e5383b"/><path d="M27 15l10 34" stroke="#ffd34a" stroke-width="6"/><path d="M27 15l10 34" fill="none"/><path d="M16 37l34-10" stroke="#ffd34a" stroke-width="6"/></g><path d="M18 24l4 1M40 18l3 2M44 40l2 3M22 46l3-1" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="34" cy="31" r="6" fill="#ffd34a" stroke="#2e202c" stroke-width="3"/></svg>`);
 ICON.ice = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g stroke="#1d2b4a" stroke-width="3" stroke-linejoin="round"><path d="M20 52 12 30l8-16 8 16z" fill="#7fd3ff"/><path d="M44 54 34 26l10-20 10 20z" fill="#a9e6ff"/><path d="M32 58 24 34l8-14 8 14z" fill="#4fb4f5"/></g><path d="M40 12l-4 10M18 20l-3 7" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/><ellipse cx="32" cy="58" rx="22" ry="3" fill="#1d2b4a" opacity=".25"/></svg>`);
 ICON.cookies = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="33" r="26" fill="#2e202c"/><circle cx="32" cy="31" r="23" fill="#c8793a"/><circle cx="32" cy="31" r="23" fill="none" stroke="#e9a35f" stroke-width="3" stroke-dasharray="4 5"/><circle cx="32" cy="31" r="18" fill="#b5652c"/><circle cx="25" cy="26" r="3.2" fill="#fff6e8"/><circle cx="39" cy="25" r="3.2" fill="#fff6e8"/><circle cx="33" cy="35" r="3.2" fill="#ff4d6a"/><circle cx="24" cy="38" r="2.6" fill="#7ad36b"/><circle cx="41" cy="38" r="2.6" fill="#fff6e8"/><path d="M14 22a20 20 0 0 1 14-12" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`);
 $('#h-coins img').src = ICON.coins; $('#h-avatar').src = portrait; $('#i-village').src = thumbs.santa;
@@ -184,11 +185,15 @@ function queueToy(o, k){
 }
 /* ---------- lettres des enfants ---------- */
 function bureau(){ return findType('orders'); }
+const wrapOk = od => S.wrapOn && (S.inv.paper || 0) >= T.wrapNeed(od);
 function deliver(i, el){
   const od = S.orders[i]; if (!od?.items) return;
   if (!T.has(S, od.items)){ sfx.err(); toast('Il te manque des jouets : fabrique-les à l’Atelier'); return; }
-  const pay = Math.round(od.coins * T.albumBonus(S));
-  T.take(S, od.items); S.coins += pay; fly('coins', pay, el); gainXp(od.xp, el);
+  // emballée : il faut 1 papier cadeau par jouet de la lettre
+  const need = T.wrapNeed(od), wrap = S.wrapOn && (S.inv.paper || 0) >= need, m = wrap ? T.WRAP_BONUS : 1;
+  if (wrap){ S.inv.paper -= need; T.track(S, 'wrap', need); if (Math.random() < T.WRAP_STAR){ S.stars += 1; setTimeout(() => { fly('stars', 1, el); toast('Un enfant ravi t’offre une étoile d’or !'); }, 400); } }
+  const pay = Math.round(od.coins * T.albumBonus(S) * m);
+  T.take(S, od.items); S.coins += pay; fly('coins', pay, el); gainXp(Math.round(od.xp * m), el);
   for (const [k, q] of Object.entries(od.items)) T.track(S, 'deliver:' + k, q);
   if (od.mat){ T.give(S, od.mat); setTimeout(() => fly(od.mat, 1, el), 300); }
   if (od.stars){ S.stars += od.stars; }
@@ -642,8 +647,9 @@ function renderPanel(){
       : `<div class="ot wait"><b data-until="${o.wait}"></b></div>`).join('');
     const detail = od?.items ? `<div class="od">
         <div class="letter"><p>${od.msg || 'Cher Père Noël, voici ma liste !'}</p><i>— ${od.kid}${od.age ? `, ${od.age} ans, ${od.city}` : ''}</i></div>
-        <div class="odh"><small>Récompense</small><span class="rw"><span>${icon('coins')}${od.coins}</span><span><i class="i xp">XP</i>${od.xp}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
+        <div class="odh"><small>Récompense${wrapOk(od) ? ' · emballée' : ''}</small><span class="rw"><span>${icon('coins')}${Math.round(od.coins * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span><span><i class="i xp">XP</i>${Math.round(od.xp * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
         <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : ''}<b>${h}/${n}</b></div>`; }).join('')}</div>
+        ${S.lvl >= TOYS.paper.lvl ? `<button class="wrapbtn ${S.wrapOn ? 'on' : ''}" data-a="wrap"><img src="${ICON.paper}" alt=""><span><b>Emballer · ${T.wrapNeed(od)} papier${T.wrapNeed(od) > 1 ? 's' : ''} cadeau</b><small>${S.inv.paper || 0} en stock · +50 % pièces et XP, parfois une étoile</small></span><i class="tog"></i></button>` : ''}
         <div class="oacts"><button class="trash" data-a="trash" data-i="${selOrder}" aria-label="Remplacer cette commande"></button><button class="btn green" data-a="deliver" data-i="${selOrder}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button></div>
       </div>` : '<p class="meta">De nouvelles commandes arrivent…</p>';
     h = hd('Lettres des enfants', 'Bureau du traîneau') + (workshopOf() ? `<p class="help">Fabrique les jouets à l’<b>Atelier des jouets</b>, puis reviens ici pour les livrer. <button class="lnk" data-a="gocraft">Aller à l’atelier ›</button></p>` : '<p class="help">Les jouets se fabriquent à l’<b>Atelier des jouets</b>, qui se débloque avec la <b>Maison du Père Noël niv. 2</b>.</p>') + detail + `<div class="otiles">${tiles}</div>`;
@@ -665,9 +671,9 @@ function renderPanel(){
   }
   else if (panel === 'album'){
     const claim = T.albumClaimable(S);
-    h = hd(`${T.albumTotal(S)} / ${Object.keys(TOYS).length * 3} étoiles · lettres +${Math.round((T.albumBonus(S) - 1) * 100)} %`, 'Album des jouets') + `<p class="meta">Chaque jouet livré aux enfants remplit l'album. Chaque étoile augmente pour toujours ce que paient les lettres.</p>
+    h = hd(`${T.albumTotal(S)} / ${T.TOY_KEYS.length * 3} étoiles · lettres +${Math.round((T.albumBonus(S) - 1) * 100)} %`, 'Album des jouets') + `<p class="meta">Chaque jouet livré aux enfants remplit l'album. Chaque étoile augmente pour toujours ce que paient les lettres.</p>
       ${claim.length ? `<button class="btn gold wide" data-a="albumclaim">Récupérer ${claim.length} récompense${claim.length > 1 ? 's' : ''}</button>` : ''}
-      <div class="album">${Object.keys(TOYS).map(k => { const n = S.cnt['deliver:' + k] || 0, st = T.albumStars(S, k), next = T.ALBUM_STEPS[st], lock = S.lvl < TOYS[k].lvl;
+      <div class="album">${T.TOY_KEYS.map(k => { const n = S.cnt['deliver:' + k] || 0, st = T.albumStars(S, k), next = T.ALBUM_STEPS[st], lock = S.lvl < TOYS[k].lvl;
         return `<div class="acard ${lock ? 'locked' : ''} s${st}"><img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b><span class="ast">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span><small>${lock ? `Niveau ${TOYS[k].lvl}` : next ? `${n} / ${next} livrés` : `${n} livrés · complet`}</small></div>`; }).join('')}</div>`;
   }
   else if (panel === 'advent'){
@@ -737,7 +743,7 @@ function renderPanel(){
   else if (panel === 'market'){
     if (T.hqLv(S) < M.MARKET_HQ){ h = hd('', 'Marché du village') + `<p class="help">Le marché ouvre avec la <b>Maison du Père Noël niv. ${M.MARKET_HQ}</b>. Tu pourras y revendre ton surplus et acheter au marchand ambulant.</p>`; }
     else {
-      const mer = M.merchant(S), toys = Object.keys(TOYS).filter(k => S.inv[k] > 0);
+      const mer = M.merchant(S), toys = T.TOY_KEYS.filter(k => S.inv[k] > 0);
       h = hd('Revends ton surplus, achète au marchand', 'Marché du village') + `<h3>Le marchand ambulant <small class="meta">· aujourd'hui il est <b>${mer.mood}</b></small></h3>
         <div class="deals">${mer.offers.map(o => `<div class="deal ${o.left <= 0 ? 'done' : ''}"><b>${Object.entries(o.give).map(([k, n]) => `${fmt(n)} ${(RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase()}`).join(', ')}</b><span class="costs">${rewardChips(o.give)}</span><small class="meta">encore ${Math.max(0, o.left)} aujourd'hui</small>${o.left > 0 ? `<button class="btn blue sm" data-a="mbuy" data-k="${o.k}">${icon('coins')}${fmt(o.cost.coins)}</button>` : '<span class="meta">Épuisé</span>'}</div>`).join('')}</div>
         <h3>Vendre des ressources</h3><div class="mlist">${Object.entries(M.SELL_RATE).map(([k, r]) => { const n = Math.floor((S[k] || 0) * .25);
@@ -836,6 +842,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'wrap'){ S.wrapOn = !S.wrapOn; if (S.wrapOn && !(S.inv.paper > 0)) toast('Fabrique du papier cadeau à l’Atelier des jouets'); sfx.tap(); save(); return renderPanel(); }
   if (a === 'jobgo'){ const o = panelArg, j = T.JOBS[o.type].find(x => x.k === b.dataset.k), why = T.jobStart(S, o, b.dataset.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.jobPlan(S, o, j).cost, j.name, null) : toast(why); } sfx.build(); T.track(S, 'job'); toast(`Les lutins s'y mettent : ${j.name}`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'jobget'){ const o = panelArg, r = T.jobCollect(S, o, now()); if (r){ T.track(S, 'jobdone'); gainXp(4 + o.lv, null); closePanel(); bravo(r, T.JOBS[o.type].length ? 'Commande spéciale terminée' : ''); } return; }
   if (a === 'jobspeed'){ const o = panelArg, st = T.speedStars(o.job.end - now()); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop', 'stars'); } S.stars -= st; o.job.end = now(); save(); panelHtml = ''; return renderPanel(); }
