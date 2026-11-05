@@ -89,7 +89,8 @@ const elfPortrait = portrait;
 T.setTrackHook((s, key, n) => { const add = M.eventOnTrack(s, key, n); if (add && typeof evPing === 'function') evPing(add); });
 const saved = T.loadTown();
 let S = saved || T.newTown();
-const save = () => T.saveTown(S);
+let saveLock = false;
+const save = () => { if (!saveLock) T.saveTown(S); };
 let actx = null;
 function tone(f, d = .12, type = 'sine', v = .06, when = 0){
   if (S.mute) return;
@@ -898,6 +899,14 @@ function renderPanel(){
         return `<div class="campc ${c.boss ? 'boss' : ''} ${cur ? 'cur' : ''} ${st ? 'won' : ''}"><div class="cn"><b>${c.name}</b><small>${c.n} trolls${c.boss ? ' + le chef' : ''}${c.hp > 1 ? ` · ${c.hp} coups chacun` : ''}</small><span class="cst">${[1, 2, 3].map(k => `<i class="${k <= st ? 'on' : ''}">★</i>`).join('')}</span></div>
           <div class="ca"><span class="costs">${rewardChips(T.campLoot(S, c.i, 3, !st))}</span><button class="btn ${cur ? 'red' : 'blue'} sm" data-a="campgo" data-i="${c.i}" ${lk ? 'disabled' : ''}><span class="costs">${costChips(cost)}</span>${cur ? 'Attaquer' : 'Rejouer'}</button></div></div>`; }).join('')}</div>`;
   }
+  else if (panel === 'save'){
+    h = hd('Ton village voyage avec toi', 'Sauvegarde') + `<p class="help">Ton village est gardé sur ce téléphone. Pour le retrouver ailleurs (nouveau téléphone, autre navigateur), copie ton <b>code de sauvegarde</b> ou enregistre le <b>fichier</b>, puis charge-le sur l'autre appareil.</p>
+      <h3>Emporter mon village</h3><div class="savebtns"><button class="btn green" data-a="savecopy">Copier mon code</button><button class="btn blue" data-a="savefile">Enregistrer un fichier</button></div>
+      <textarea id="savecode" readonly placeholder="Ton code apparaîtra ici">${saveCodeTxt}</textarea>
+      <h3>Charger un village</h3><textarea id="loadcode" placeholder="Colle ici un code de sauvegarde"></textarea>
+      <div class="savebtns"><button class="btn gold" data-a="saveload">Charger ce code</button><label class="btn blue">Ouvrir un fichier<input type="file" id="loadfile" accept=".json,.txt,application/json,text/plain" hidden></label></div>
+      <p class="meta">Attention : charger un village remplace celui de ce téléphone.</p>`;
+  }
   else if (panel === 'museum'){
     const R = S.relics || {}, done = T.RELIC_SETS.filter(st => T.relicSetDone(S, st)).length, got = T.RELICS.filter(x => R[x.k]).length;
     S.relicClaim ||= {};
@@ -1046,6 +1055,7 @@ function renderPanel(){
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
+      <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
       <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
       <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
   }
@@ -1177,7 +1187,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
-  if (a === 'reset'){ if (confirm('Effacer ton village et tout recommencer ?')){ T.clearTown(); location.reload(); } return; }
+  if (a === 'reset'){ if (confirm('Effacer ton village et tout recommencer ?')){ saveLock = true; T.clearTown(); location.reload(); } return; }
   if (a === 'rinfo') return resInfo(b.dataset.k);
   if (a === 'goshop') return openPanel('shop', 'res');
   if (a === 'gocraft'){ const w = workshopOf(); return w ? goTo('workshop') : null; }
@@ -1188,6 +1198,10 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'pet') return openPanel('pet');
   if (a === 'fishcast') return fishCast();
   if (a === 'museum') return openPanel('museum');
+  if (a === 'savepanel') return openPanel('save');
+  if (a === 'savecopy') return saveCopy();
+  if (a === 'savefile') return saveFile();
+  if (a === 'saveload') return saveLoad($('#loadcode')?.value);
   if (a === 'relicsell'){ const it = T.RELICS.find(x => x.k === b.dataset.k); if (!it || (S.relics[it.k] || 0) < 2) return; S.relics[it.k]--; giveReward(T.relicSell(it), b); sfx.collect(); save(); return renderPanel(); }
   if (a === 'relicclaim'){ const st = T.RELIC_SETS.find(x => x.k === b.dataset.k); if (!st || !T.relicSetDone(S, st) || S.relicClaim[st.k]) return; S.relicClaim[st.k] = 1; save(); bravo(T.relicSetReward(st), st.name, 'COLLECTION !'); return renderPanel(); }
   if (a === 'fishtap') return fishTap();
@@ -1712,6 +1726,24 @@ function playGame(k){
   });
 }
 
+/* ---------- sauvegarde transférable ---------- */
+let saveCodeTxt = '';
+async function saveCopy(){
+  save(); saveCodeTxt = await T.exportCode(S); renderPanel();
+  try { await navigator.clipboard.writeText(saveCodeTxt); toast('Code copié ! Garde-le précieusement.'); }
+  catch(e){ const ta = $('#savecode'); if (ta){ ta.focus(); ta.select(); } toast('Sélectionne le code et copie-le.'); }
+}
+async function saveFile(){
+  save(); const code = await T.exportCode(S), d = new Date(), name = `village-du-pole-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}.txt`;
+  const blob = new Blob([code], {type: 'text/plain'});
+  try { if (navigator.canShare && navigator.canShare({files: [new File([blob], name)]})) { await navigator.share({files: [new File([blob], name, {type: 'text/plain'})], title: 'Sauvegarde du Village du Pôle'}); return; } } catch(e){ if (e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); toast('Fichier enregistré.');
+}
+async function saveLoad(code){
+  let s2; try { s2 = await T.importCode(code); } catch(e){ sfx.err(); return toast(e.message || 'Code invalide.'); }
+  if (!confirm(`Charger ce village (niveau ${s2.lvl}) ? Celui de ce téléphone sera remplacé.`)) return;
+  saveLock = true; T.replaceTown(s2); location.reload();
+}
 /* ---------- musée des trouvailles ---------- */
 function museumEntry(){ const n = T.RELICS.filter(x => (S.relics || {})[x.k]).length; return `<button class="museumentry" data-a="museum"><span>🏛️</span><div><b>Musée des trouvailles</b><small>${n} / ${T.RELICS.length} objets rares · production +${Math.round(T.museumProd(S) * 100)} %</small></div><span class="btn blue sm">Visiter</span></button>`; }
 function relicFound(rar){
@@ -1920,3 +1952,5 @@ setTimeout(welcomeBack, 1400);
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
+// sauvegarde : ouvrir un fichier
+document.addEventListener('change', e => { if (e.target.id !== 'loadfile' || !e.target.files?.[0]) return; e.target.files[0].text().then(saveLoad); });

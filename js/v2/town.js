@@ -1154,3 +1154,28 @@ export const relicSetDone = (s, st) => st.items.every(([k]) => (s.relics || {})[
 export const museumProd = s => RELIC_SETS.filter(st => relicSetDone(s, st)).length * .02;
 export const relicSetReward = st => ({stars: 8, coins: 5000, xp: 150});
 export const relicSell = it => ({coins: [200, 600, 1800, 5000][it.r]});
+
+/* ===================== SAUVEGARDE TRANSFÉRABLE (comme le compte Supercell ID, sans serveur) ===================== */
+// Le village tient dans un code (compressé quand le navigateur le permet) ou un fichier : on le recopie sur un autre appareil.
+const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(s); };
+const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+export async function exportCode(s){
+  const json = JSON.stringify(s), bytes = new TextEncoder().encode(json);
+  if (typeof CompressionStream !== 'undefined'){
+    const out = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+    return 'VDP2:' + b64(out);
+  }
+  return 'VDP1:' + b64(bytes);
+}
+export async function importCode(code){
+  code = String(code || '').trim().replace(/\s+/g, '');
+  let json;
+  if (code.startsWith('VDP2:')){ json = await new Response(new Blob([unb64(code.slice(5))]).stream().pipeThrough(new DecompressionStream('gzip'))).text(); }
+  else if (code.startsWith('VDP1:')) json = new TextDecoder().decode(unb64(code.slice(5)));
+  else if (code.startsWith('{')) json = code;
+  else throw new Error('Ce code ne vient pas du Village du Pôle.');
+  const s = JSON.parse(json);
+  if (!s || s.v !== 5 || !Array.isArray(s.objs)) throw new Error('Sauvegarde illisible.');
+  return s;
+}
+export function replaceTown(s){ saveTown(s); }
