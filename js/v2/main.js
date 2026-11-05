@@ -301,6 +301,7 @@ function draw(){
   // terrains réservés : le futur bâtiment en transparence, avec ce qu'il faut pour le débloquer
   for (const l of T.lotsShown(S)){ const b = BUILDINGS[l.type]; items.push({d: l.x + l.y + (b.w + b.h) / 2, f: () => drawLot(l)}); }
   for (const e of elves) items.push({d: e.x + e.y, f: () => drawElf(e)});
+  if (S.visitor){ const h = S.objs.find(o => o.type === 'santa'); if (h){ const vx = h.x + 5.3, vy = h.y + 1.6; items.push({d: vx + vy, f: () => drawVisitor(vx, vy)}); } }
   if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : T.isUpgradable(b) ? `b:${ghost.type}:1` : 'b:' + ghost.type, c.x, c.y, .85); }}); }
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
@@ -481,6 +482,17 @@ function moveElves(dt){
     e.walk = d >= .05;
   }
 }
+// le visiteur : un lutin habillé autrement, avec une bulle de ce qu'il demande ; on le touche pour lui répondre
+let visitorRect = null;
+function drawVisitor(x, y){
+  const c = toScreen(x, y), s = elfSprites[(S.visitor.who.length) % elfSprites.length], z = cam.z * 1.15, bob = Math.sin(performance.now() / 300) * 2;
+  // halo doré au sol : on repère tout de suite le visiteur
+  ctx.save(); ctx.globalAlpha = .55 + Math.sin(performance.now() / 250) * .2; ctx.fillStyle = '#ffd34a'; ctx.beginPath(); ctx.ellipse(c.x, c.y, 22 * cam.z, 11 * cam.z, 0, 0, 7); ctx.fill(); ctx.restore();
+  ctx.drawImage(s.canvas, c.x - s.ax * z, c.y - s.ay * z + bob, s.w * z, s.h * z);
+  const k = Object.keys(S.visitor.want)[0], top = c.y - 44 * z;
+  bubble(c.x, top, k, '?');
+  visitorRect = {left: c.x - 36, right: c.x + 36, top: top - 64, bottom: c.y + 10};
+}
 function drawElf(e){ const c = toScreen(e.x, e.y), s = elfSprites[e.v]; const bob = e.walk ? Math.abs(Math.sin(performance.now() / 120)) * 3 : 0; ctx.save(); if (e.tx - e.x > 0 === e.ty - e.y < 0){ ctx.translate(c.x, 0); ctx.scale(-1, 1); ctx.translate(-c.x, 0); } ctx.drawImage(s.canvas, c.x - s.ax * cam.z, c.y - s.ay * cam.z - bob, s.w * cam.z, s.h * cam.z); ctx.restore();
   // certains lutins portent une caisse au-dessus de la tête quand ils marchent
   if (e.carry && e.walk && ICON[e.carry]){ const im = img(ICON[e.carry]); if (im.complete){ const z = 22 * Math.max(.7, cam.z); ctx.drawImage(im, c.x - z / 2, c.y - s.ay * cam.z - bob - z * .55, z, z); } } }
@@ -527,6 +539,7 @@ cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.45, Ma
 function clampCam(){ const c = iso(T.MAP / 2, T.MAP / 2), r = T.MAP * TW * .45; cam.x = Math.max(c.x - r, Math.min(c.x + r, cam.x)); cam.y = Math.max(c.y - r * .5 - 200, Math.min(c.y + r * .5 + 200, cam.y)); }
 
 function tap(o, at){
+  if (S.visitor && visitorRect && at.x > visitorRect.left && at.x < visitorRect.right && at.y > visitorRect.top && at.y < visitorRect.bottom) return openVisitor();
   sfx.tap();
   if (!o || o.wild){
     const l = lotAt(at.x, at.y);
@@ -1073,6 +1086,19 @@ $('#b-pass').addEventListener('click', () => { sfx.tap(); openPanel('pass'); });
 $('#b-market').addEventListener('click', () => { sfx.tap(); openPanel('market'); });
 document.querySelector('#hud2 .me')?.addEventListener('click', () => { sfx.tap(); openPanel('profile'); });
 
+/* ---------- visiteurs ---------- */
+function openVisitor(){
+  const v = S.visitor; if (!v) return; const ok = T.has(S, v.want), m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Un visiteur au village</small><h2 class="stroke">${v.who}</h2><div class="storyrow"><img src="${elfImg()}" alt=""><p>« ${v.say} »</p></div>
+    <div class="rrow"><small>Il demande</small><div class="costs">${costChips(v.want)}</div></div><div class="rrow"><small>Il donne en échange</small><div class="costs">${rewardChips(v.give)}</div></div>
+    <p class="meta">Il repart dans <b>${fmtTime((v.until - now()) / 1000)}</b>.</p>
+    <div class="acts"><button class="btn green" data-m="yes">${ok ? 'Échanger' : 'Il me manque…'}</button><button class="btn red" data-m="no">Refuser</button></div>`;
+  m.hidden = false; sfx.tap();
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return;
+    if (b.dataset.m === 'yes'){ const r = T.visitorAnswer(S, true); if (r === 'missing'){ m.hidden = true; return showMissing(v.want, `Pour ${v.who}`, () => openVisitor()); } T.track(S, 'visitor'); M.passAdd(S, 10); save(); return bravo(r, `${v.who} est ravi !`); }
+    m.hidden = true; T.visitorAnswer(S, false); toast(`${v.who} repart. Un autre visiteur viendra bientôt.`); save(); };
+}
+
 /* ---------- écran « Bravo ! » (récompenses en grand, puis elles volent vers les compteurs) ---------- */
 let pendingStory = -1;
 function story(i){
@@ -1246,7 +1272,7 @@ function smoke(dt){
 }
 function step(t, dt){
   smoke(dt);
-  if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); }
+  if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); if (!tuto.active()){ const had = !!S.visitor; T.visitorTick(S, now()); if (!had && S.visitor){ toast(`${S.visitor.who} arrive au village !`); sfx.pop(); } } }
   fxDt = dt;
   refreshOrders(); finishWorks(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
