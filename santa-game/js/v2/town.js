@@ -23,6 +23,16 @@ export const ITEMS = {
   sock:   {name: 'Chaussette garnie', ic: 'sock-red-cane', toy: true},
   bell:   {name: 'Cloche dorée', ic: 'bell_decorated', toy: true},
   paper:  {name: 'Papier cadeau', ic: 'present_A_red'},
+  ginger: {name: 'Bonhomme en pain d’épices', ic: 'gingerbread-man', toy: true},
+  choco:  {name: 'Chocolat chaud', ic: 'hot_chocolate_decorated', toy: true},
+  wagon:  {name: 'Wagon de cadeaux', ic: 'train_tender_presents_A', toy: true},
+  wreath: {name: 'Couronne de l’Avent', ic: 'wreath-decorated', toy: true},
+  ball:   {name: 'Boule de Noël', ic: 'present_sphere_A_red', toy: true},
+  lamp:   {name: 'Lanterne magique', ic: 'lantern_decorated', toy: true},
+  minitree: {name: 'Petit sapin', ic: 'christmas_tree_decorated', toy: true},
+  snowball: {name: 'Lance-boules de neige', ic: 'snowball_pile', toy: true},
+  gbhouse: {name: 'Maison en pain d’épices', ic: 'gingerbread_house_decorated', toy: true},
+  bigsled: {name: 'Grand traîneau', ic: 'sled-long', toy: true},
   // outils pour dégager la forêt (lettres, train, mini-jeux, tâches)
   axe:    {name: 'Hache', ic: 'Wood_Log_A', mat: true},
   saw:    {name: 'Scie', ic: 'Wood_Planks_Stack_Small', mat: true},
@@ -44,6 +54,16 @@ export const TOYS = {
   cane:  {cost: {cookies: 60, wood: 30}, time: 200, xp: 14, value: 150, lvl: 7},
   sock:  {cost: {fabric: 45, cookies: 40}, time: 360, xp: 22, value: 260, lvl: 9},
   bell:  {cost: {wood: 120, fabric: 60, coins: 300}, time: 600, xp: 40, value: 520, lvl: 12},
+  ginger:  {cost: {cookies: 90, fabric: 20}, time: 420, xp: 13, value: 320, lvl: 14},
+  choco:   {cost: {cookies: 120, coins: 200}, time: 480, xp: 15, value: 380, lvl: 16},
+  wagon:   {cost: {wood: 160, fabric: 60}, time: 720, xp: 22, value: 560, lvl: 18},
+  wreath:  {cost: {wood: 90, fabric: 90, ice: 2}, time: 900, xp: 26, value: 680, lvl: 21},
+  ball:    {cost: {fabric: 120, coins: 400, ice: 3}, time: 1080, xp: 30, value: 800, lvl: 24},
+  lamp:    {cost: {wood: 200, coins: 600, ice: 4}, time: 1500, xp: 37, value: 1000, lvl: 27},
+  minitree:{cost: {wood: 260, fabric: 120, ice: 5}, time: 1800, xp: 44, value: 1250, lvl: 31},
+  snowball:{cost: {wood: 300, cookies: 200, gold: 1}, time: 2400, xp: 55, value: 1600, lvl: 35},
+  gbhouse: {cost: {cookies: 500, wood: 250, gold: 2}, time: 3000, xp: 70, value: 2100, lvl: 40},
+  bigsled: {cost: {wood: 600, fabric: 300, gold: 3, ice: 8}, time: 3600, xp: 90, value: 2800, lvl: 45},
   // pas un jouet : sert à emballer les jouets d'une lettre (+50 % de pièces et d'XP)
   paper: {cost: {wood: 20, cookies: 15}, time: 60, xp: 2, value: 0, lvl: 3, wrap: true},
 };
@@ -297,7 +317,7 @@ const KIDS = ['Léa', 'Hugo', 'Inès', 'Noah', 'Jade', 'Lucas', 'Chloé', 'Adam'
 const CITIES = ['Lyon', 'Lille', 'Brest', 'Nice', 'Paris', 'Nantes', 'Annecy', 'Bordeaux', 'Colmar', 'Marseille', 'Rennes', 'Dijon', 'Québec', 'Bruxelles', 'Genève', 'Toulouse'];
 const HELLO = ['Cher Père Noël,', 'Coucou Père Noël !', 'Bonjour Père Noël,', 'Père Noël chéri,'];
 const WISHES = ['pour jouer avec ma petite sœur.', 'parce que j’ai été très sage cette année !', 'pour le montrer à mes copains.', 'pour jouer avec Papi.', 'pour mettre sous le sapin.', 'pour ma chambre toute neuve.', 'et un câlin pour les rennes !', 'pour jouer dans la neige.'];
-const ARTICLE = {train: 'un', box: 'une', sled: 'une', plush: 'un', nut: 'un', cane: 'un', sock: 'une', bell: 'une'};
+const ARTICLE = {train: 'un', box: 'une', sled: 'une', plush: 'un', nut: 'un', cane: 'un', sock: 'une', bell: 'une', ginger: 'un', choco: 'un', wagon: 'un', wreath: 'une', ball: 'une', lamp: 'une', minitree: 'un', snowball: 'un', gbhouse: 'une', bigsled: 'un'};
 export const TOY_KEYS = Object.keys(TOYS).filter(k => !TOYS[k].wrap);
 export const toysAvailable = s => TOY_KEYS.filter(k => TOYS[k].lvl <= s.lvl);
 export function makeOrder(s, bureauLv = 1){
