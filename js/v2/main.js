@@ -954,7 +954,7 @@ function renderPanel(){
           <div class="ca"><span class="costs">${rewardChips(T.campLoot(S, c.i, 3, !st))}</span><button class="btn ${cur ? 'red' : 'blue'} sm" data-a="campgo" data-i="${c.i}" ${lk ? 'disabled' : ''}><span class="costs">${costChips(cost)}</span>${cur ? 'Attaquer' : 'Rejouer'}</button></div></div>`; }).join('')}</div>`;
   }
   else if (panel === 'save'){
-    h = hd('Ton village voyage avec toi', 'Sauvegarde') + `<p class="help">Ton village est gardé sur ce téléphone. Pour le retrouver ailleurs (nouveau téléphone, autre navigateur), copie ton <b>code de sauvegarde</b> ou enregistre le <b>fichier</b>, puis charge-le sur l'autre appareil.</p>
+    h = hd('Ton village voyage avec toi', 'Sauvegarde') + (S.lvl < 9 && !S.restored ? `<div class="restorebox"><b>Tu as perdu ta partie ?</b><small>Réinstaller l'app sur l'écran d'accueil efface sa mémoire. On peut te rendre ton village tel qu'il était (niveau 9, Maison niveau 14, tes ressources et tes étoiles).</small><button class="btn gold wide" data-a="restoreold">Récupérer mon village</button></div>` : '') + `<p class="help">Ton village est gardé sur ce téléphone. Pour le retrouver ailleurs (nouveau téléphone, autre navigateur), copie ton <b>code de sauvegarde</b> ou enregistre le <b>fichier</b>, puis charge-le sur l'autre appareil.</p>
       <h3>Emporter mon village</h3><div class="savebtns"><button class="btn green" data-a="savecopy">Copier mon code</button><button class="btn blue" data-a="savefile">Enregistrer un fichier</button></div>
       <textarea id="savecode" readonly placeholder="Ton code apparaîtra ici">${saveCodeTxt}</textarea>
       <h3>Charger un village</h3><textarea id="loadcode" placeholder="Colle ici un code de sauvegarde"></textarea>
@@ -1256,6 +1256,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'fishcast') return fishCast();
   if (a === 'museum') return openPanel('museum');
   if (a === 'savepanel') return openPanel('save');
+  if (a === 'restoreold'){ if (!confirm('Récupérer ton village (niveau 9, Maison niveau 14) ? La partie actuelle sera remplacée.')) return; saveLock = true; T.replaceTown(oldVillage()); location.reload(); return; }
   if (a === 'savecopy') return saveCopy();
   if (a === 'savefile') return saveFile();
   if (a === 'saveload') return saveLoad($('#loadcode')?.value);
@@ -1625,7 +1626,7 @@ $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo
 function rsCheck(){ const R = T.rsTick(S); if (!R) return; const r = T.RESEARCH.find(x => x.k === R.k); toast(`Recherche terminée : ${r.name} niveau ${R.lv} !`); sfx.level(); save(); if (panel === 'lab') renderPanel(); }
 
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 61;
+const GAME_V = 62;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1821,6 +1822,16 @@ function playGame(k){
   });
 }
 
+/* ---------- village perdu : reconstruit d'après les captures du joueur (5 nov.) ---------- */
+function oldVillage(){
+  const s = T.newTown(), t = Date.now(), set = (type, lv) => { const o = s.objs.find(o => o.type === type); if (o) o.lv = lv; return o; };
+  Object.assign(s, {lvl: 9, xp: 534, coins: 215000, wood: 900, cookies: 420, fabric: 41000, stars: 4400, tuto: 99, introSeen: 1, restored: 1, spaced: 0});
+  set('santa', 14); set('sawmill', 2);
+  s.objs.push({id: 'r-bakery', type: 'bakery', x: 13, y: 19, lv: 1, t}, {id: 'r-mine', type: 'mine', x: 12, y: 12, lv: 1, t, build: t + 118 * 3600e3, btotal: 120 * 3600e3});
+  for (const [x, y] of [[17, 22], [26, 24]]) s.objs.push({id: 'r-cabin' + x, type: 'cabin', x, y, lv: 1, t});
+  s.quest = {i: 5, base: {}}; s.cnt = {upgrade: 14, collect: 40};
+  T.spaceOut(s); return s;
+}
 /* ---------- sauvegarde transférable ---------- */
 let saveCodeTxt = '';
 async function saveCopy(){
