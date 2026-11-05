@@ -691,6 +691,7 @@ function hud(){
   { const P = M.pass(S); let n = 0; for (let t = 1; t <= P.tier; t++){ if (!P.free[t]) n++; if (P.premium && !P.gold[t]) n++; } const e = $('#b-pass .badge'); e.textContent = n; e.hidden = !n; }
   { const e = $('#b-shop .badge'); e.hidden = !!S.iap?.starter && M.dailyDeals(S).every(d => d.done); }
   $('#b-market').hidden = T.hqLv(S) < M.MARKET_HQ;
+  { const n = tuto.active() ? 0 : todoList().length, e = $('#b-village .badge'); if (e){ e.textContent = n; e.hidden = !n; } }
   { const e = $('#b-event'); e.hidden = S.lvl < 3; const n = M.eventClaimable(S); e.querySelector('.badge').textContent = n; e.querySelector('.badge').hidden = !n; }
   { const n = (S.parcels || []).length, e = $('#b-parcels .badge'); e.textContent = n; e.hidden = !n; $('#b-parcels').hidden = !n && !S.exps?.length && !S.mine; }
   $('#b-daily .badge').hidden = !T.dailyReady(S);
@@ -805,6 +806,10 @@ function renderPanel(){
       <div class="deals">${M.EV_SHOP.map(it => `<div class="deal"><b>${it.name}</b>${it.deco ? `<img class="evimg" src="${thumbs[it.deco]}" alt=""><small class="meta">à poser gratuitement</small>` : `<span class="costs">${rewardChips(it.give)}</span>`}<button class="btn blue sm" data-a="evbuy" data-k="${it.k}" ${M.evSpendable(S) >= it.price ? '' : 'disabled'}>❄ ${it.price}</button></div>`).join('')}</div>
       <p class="meta">Dépenser des flocons ne fait pas reculer les paliers.</p>
       <p class="meta">Les flocons tombent à chaque action : récolter, livrer une lettre (10), envoyer une expédition (8), un visiteur (12), une amélioration (6)… Un nouvel événement commence chaque lundi.</p>`;
+  }
+  else if (panel === 'todo'){
+    const L = todoList();
+    h = hd(L.length ? `${L.length} chose${L.length > 1 ? 's' : ''} à faire` : 'Tout est en ordre', 'Mon village') + (L.length ? `<div class="mlist">${L.map((x, i) => `<div class="mis todo"><img src="${x.icon}" alt=""><div><b>${x.text}</b></div><button class="btn green sm" data-a="todo" data-i="${i}">Y aller</button></div>`).join('')}</div>` : '<p class="help">Rien n’attend pour l’instant : tes lutins travaillent. Reviens dans un moment !</p>') + '<p class="meta">Touche encore « Village » pour revenir à la Maison du Père Noël.</p>';
   }
   else if (panel === 'missions'){
     const tab = panelArg || 'day';
@@ -934,6 +939,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'todo'){ const x = todoList()[+b.dataset.i]; if (x) todoGo(x.go); return; }
   if (a === 'bulk'){ const o = panelArg, r = T.bulkDo(S, o, b.dataset.k, now()); if (typeof r === 'string'){ sfx.err(); return r === 'Ressources insuffisantes' ? showMissing(T.bulkOffers(S, o).find(x => x.k === b.dataset.k).want, 'Grande commande du Nord', null) : toast(r); } T.track(S, 'bulk'); closePanel(); return bravo(r, 'Grande commande du Nord'); }
   if (a === 'help'){ const o = panelArg, why = T.helpGive(S, o, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.helpCost(o), 'Coup de main des lutins', null) : toast(why); } T.track(S, 'help'); sfx.build(); toast('Les lutins accourent : chantiers accélérés !'); for (const x of S.objs) if ((x.build || x.up) > now()) x.bounce = performance.now(); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'sack'){ closePanel(); return openSack(); }
@@ -1282,7 +1288,38 @@ $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
 $('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); });
 $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
-$('#b-village').addEventListener('click', () => { sfx.tap(); closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } });
+$('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } return; } openPanel('todo'); });
+/** Tout ce qui est prêt maintenant, avec où aller (comme les notifications de Township). */
+function todoList(){
+  const L = [], t = now(), find = type => S.objs.find(o => o.type === type && !o.build && !o.wild && !o.free);
+  const add = (icon, text, go) => L.push({icon, text, go});
+  if (T.dailyReady(S)) add(thumbs.gifts, 'Le cadeau du jour t’attend', 'daily');
+  if (S.lvl >= 2 && T.sackReady(S)) add(ICON.parcel, 'La hotte du Père Noël est pleine', 'sack');
+  if (S.visitor) add(elfImg(), `${S.visitor.who} attend au village`, 'visitor');
+  if (S.drop) add(thumbs.gifts, 'Un cadeau est tombé du traîneau', 'drop');
+  { const Q = T.questProgress(S); if (Q.done) add(ICON.coins, `Tâche terminée : ${Q.q.t}`, 'quest'); }
+  for (const o of S.objs){ if (o.job && o.job.end <= t) add(ICON[B(o).res], `${B(o).name} : commande spéciale prête`, {o}); }
+  { const ws = find('workshop'); if (ws && craftDone(ws).length) add(ICON[craftDone(ws)[0].item], 'Des jouets sont prêts à l’Atelier', {o: ws}); }
+  { const n = S.orders.filter(od => od.items && T.has(S, od.items)).length; if (n) add(thumbs.orders, `${n} lettre${n > 1 ? 's' : ''} prête${n > 1 ? 's' : ''} à livrer`, 'orders'); }
+  { const st = T.mineState(S); if (st && st.M.picks >= st.max) add(ICON.ice, 'Pioches pleines à la Grotte', {o: st.o}); }
+  { const sb = find('stable'); if (sb && (S.exps || []).length < T.expSlots(sb.lv)) add(ICON.gold, 'Des rennes attendent une expédition', {o: sb}); }
+  if ((S.parcels || []).length) add(thumbs.gifts, `${S.parcels.length} colis mystère à ouvrir`, 'parcels');
+  { const sto = find('storage'); if (sto && T.bulkReady(sto, t)) add(thumbs.storage, 'Grande commande du Nord disponible', {o: sto}); }
+  { const th = find('theater'); if (th && !(S.show && S.show.end > t)) add(thumbs.theater, 'Le Théâtre peut monter un spectacle', {o: th}); }
+  { const busy = S.objs.some(x => (x.build || x.up) > t), ch = S.objs.find(o => o.type === 'cabin' && !o.build && T.helpReady(o, t)); if (busy && ch) add(thumbs.cabin, 'Les lutins peuvent aider les chantiers', {o: ch}); }
+  { const free = T.builders(S) - T.busyBuilders(S, t); if (free > 0) add(buildIcon, `${free} bâtisseur${free > 1 ? 's' : ''} libre${free > 1 ? 's' : ''}`, 'build'); }
+  { const Ms = M.missions(S), n = Ms.list.filter(m => !m.done && m.v >= m.n).length + M.achClaimable(S); if (n) add(SVGI.missions, `${n} mission${n > 1 ? 's' : ''} ou succès à récupérer`, 'missions'); }
+  if (S.lvl >= 3 && M.eventClaimable(S)) add(ICON.ice, 'Récompense d’événement à prendre', 'event');
+  return L;
+}
+function todoGo(g){
+  closePanel();
+  if (g === 'daily') return openDaily(); if (g === 'sack') return openSack(); if (g === 'visitor') return openVisitor();
+  if (g === 'drop'){ centerOn(S.drop.x, S.drop.y); return; } if (g === 'quest') return $('#quest2').click();
+  if (g === 'parcels') return openParcel(); if (g === 'build') return openPanel('build', 'prod');
+  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'orders' || g === 'event') return openPanel(g);
+  if (g.o) return goTo(g.o.type === 'cabin' ? 'cabin' : g.o.type);
+}
 
 /* ---------- mini-jeux (Tournée de Noël, Bataille de boules de neige) ---------- */
 let TMAX = 3; const TEVERY = 15 * 60e3;   // tickets (plus avec l'Écurie), 1 de plus toutes les 15 minutes

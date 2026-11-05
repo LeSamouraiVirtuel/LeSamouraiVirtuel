@@ -73,5 +73,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Récompense : beaucoup de pièces, de l'XP et des cristaux. Bon débouché pour le surplus ; plus l'entrepôt est haut, mieux il paie.
 - Désormais, chaque bâtiment du village a sa propre activité.
 
+## Tour 16 — « Mon village » : la liste des choses à faire
+- L'onglet Village du bas ouvre la liste de tout ce qui est prêt (cadeau du jour, hotte, visiteur, cadeau tombé, tâche, commandes spéciales, jouets, lettres, grotte, rennes, colis, grande commande, théâtre, coup de main, bâtisseurs libres, missions, événement).
+- Chaque ligne a un bouton « Y aller » ; un compteur rouge sur l'onglet. Toucher encore « Village » ramène à la Maison.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
