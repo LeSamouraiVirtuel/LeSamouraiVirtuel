@@ -2,7 +2,7 @@
 <title>Le Village du Pôle</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="theme-color" content="#7fb6f2">
+<meta name="theme-color" content="#1d2547">
 <!-- iPhone : « Ajouter à l'écran d'accueil » ouvre le jeu en plein écran, comme une app -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1397,6 +1397,10 @@ button,.btn,#sheet,#modal,.tbox,[data-a]{touch-action:manipulation;-webkit-tap-h
 @keyframes ringin{from{opacity:0;transform:scale(1.35)}to{opacity:1;transform:none}}
 @keyframes handin{from{opacity:0;translate:30px 40px}to{opacity:1;translate:0 0}}
 #tuto .tb{transition:background-color .3s}
+/* app sur l'écran d'accueil : aucune bordure, le fond derrière le jeu a la couleur de la nuit du village */
+html,body{background:#1d2547!important;height:100%;min-height:100lvh}
+html.standalone,html.standalone body{position:fixed;inset:0;width:100%;height:100lvh}
+#c{height:100lvh}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">

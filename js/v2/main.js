@@ -123,8 +123,18 @@ const sfx = {tap: () => tone(740, .06, 'sine', .04), pop: () => tone(880, .08, '
 const cv = $('#c'), ctx = cv.getContext('2d');
 let W = 0, H = 0;
 const cam = {x: 0, y: 0, z: 1};
-function resize(){ W = innerWidth; H = innerHeight; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
-addEventListener('resize', resize); resize();
+// Plein écran sur l'écran d'accueil (iPhone) : la vraie taille arrive parfois après le lancement ; on prend la plus grande
+// des mesures fiables et on remesure plusieurs fois, sinon une bande claire apparaît en bas ou en haut.
+const STANDALONE = navigator.standalone || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+if (STANDALONE) document.documentElement.classList.add('standalone');
+function resize(){
+  const de = document.documentElement;
+  W = Math.max(innerWidth, de.clientWidth); H = Math.max(innerHeight, de.clientHeight, STANDALONE ? Math.round(visualViewport?.height || 0) : 0);
+  if (STANDALONE && screen.height && Math.abs(screen.height - H) < 120 && innerWidth === screen.width) H = Math.max(H, screen.height);
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); cv.style.width = W + 'px'; cv.style.height = H + 'px';
+}
+addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 250)); visualViewport?.addEventListener('resize', resize);
+resize(); for (const ms of [100, 400, 1200]) setTimeout(resize, ms);
 const iso = (tx, ty) => ({x: (tx - ty) * TW / 2, y: (tx + ty) * TH / 2});
 const toScreen = (tx, ty) => { const p = iso(tx, ty); return {x: (p.x - cam.x) * cam.z + W / 2, y: (p.y - cam.y) * cam.z + H / 2}; };
 function toTile(sx, sy){ const wx = (sx - W / 2) / cam.z + cam.x, wy = (sy - H / 2) / cam.z + cam.y; return {x: wy / TH + wx / TW, y: wy / TH - wx / TW}; }
