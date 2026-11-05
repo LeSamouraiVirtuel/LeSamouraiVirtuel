@@ -32,6 +32,19 @@ function deco(type){
     case 'gifts': return giftPile();
     case 'candy': return prop('candycane_large', {s: .4});
     case 'reindeer': return prop('reindeer', {s: .7, ry: .8});
+    case 'lampdd': return prop('lantern_decorated', {s: .55});
+    case 'snowman2d': return prop('snowman_B', {s: .32});
+    case 'wreathdd': return prop('wreath-decorated', {s: .7, y: .25});
+    case 'chocod': { const g = new THREE.Group(); g.add(prop('stall-bench', {s: .38})); g.add(prop('hot_chocolate_decorated', {s: .35, y: .32})); return g; }
+    case 'gingerd': { const g = new THREE.Group(); g.add(prop('gingerbread-man', {x: -.18, s: .7})); g.add(prop('gingerbread-woman', {x: .18, s: .7})); return g; }
+    case 'xtreed': return prop('christmas_tree_decorated', {s: .42});
+    case 'present3d': { const g = new THREE.Group(); g.add(prop('present_A_red', {x: -.15, s: .38})); g.add(prop('present_C_yellow', {x: .2, z: .1, s: .3})); g.add(prop('present_D_blue', {z: -.2, s: .26, y: 0})); return g; }
+    case 'nutdd': return prop('nutcracker', {s: .75});
+    case 'bellgd': return prop('bell_decorated', {s: .42});
+    case 'trainsetd': { const g = new THREE.Group(); g.add(prop('train_locomotive', {x: -.2, s: .32, ry: Math.PI / 4})); g.add(prop('train_wagon', {x: .22, z: .2, s: .32, ry: Math.PI / 4})); return g; }
+    case 'gbhoused': return prop('gingerbread_house_decorated', {s: .4});
+    case 'mistled': return prop('mistletoe_A', {s: .55});
+    case 'sleddd': { const g = new THREE.Group(); g.add(prop('sled-long', {s: .45, ry: Math.PI / 4})); g.add(prop('present_B_green', {s: .22, y: .2})); return g; }
     default: return prop('snowman_A', {s: .32});
   }
 }
