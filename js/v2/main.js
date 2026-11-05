@@ -504,7 +504,7 @@ function upBanner(o){
   const rows = T.stats(S, o, o.lv - 1).slice(0, 2), b = $('#upban') || Object.assign(document.createElement('div'), {id: 'upban'});
   if (!b.parentNode) document.body.appendChild(b);
   b.innerHTML = `<img src="${thumbs[o.type + ':' + tierOf(o.lv)] || thumbs[o.type]}" alt=""><div><b>${B(o).name} · niveau ${o.lv}</b>${rows.map(r => `<span>${r.label} : <s>${r.now}</s> → <em>${r.next}</em></span>`).join('')}</div>`;
-  b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); clearTimeout(upBanner.t); upBanner.t = setTimeout(() => b.classList.remove('on'), 3600);
+  const show = () => { if (!$('#modal').hidden) return setTimeout(show, 400); b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); clearTimeout(upBanner.t); upBanner.t = setTimeout(() => b.classList.remove('on'), 3600); }; show();
   const c = toScreen(o.x + B(o).w / 2, o.y + B(o).h / 2);
   for (let i = 0; i < 18; i++){ const a = Math.random() * Math.PI * 2, v = 160 + Math.random() * 200; FX.push({k: 'spark', x: c.x, y: c.y - 40, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 160, t: 0, d: 1.1}); }
 }
@@ -1307,8 +1307,24 @@ function giveReward(r, el){
 $('#quest2').addEventListener('click', e => {
   const el = $('#quest2'), r = T.questClaim(S);
   if (r){ const before = T.chapterOf(S.quest.i - 1), after = T.chapterOf(S.quest.i); bravo(r, 'Tâche terminée'); if (after !== before && T.CHAPTERS[after]) pendingStory = after; questHtml = ''; renderQuest(); }
-  else { sfx.tap(); const {q} = T.questProgress(S); toast(q.t); }
+  else { sfx.tap(); const {q} = T.questProgress(S); questGo(q); }
 });
+/** Emmène vers ce que demande la tâche (comme les boutons « Aller » de Township). */
+function questGo(q){
+  const [kind, what] = q.k.split(':'), has = t => S.objs.some(o => o.type === t && !o.wild);
+  toast(q.t);
+  if (kind === 'have'){ if (has(what) && what !== 'cabin') return goTo(what); return openPanel('build', T.catOf(BUILDINGS[what])); }
+  if (kind === 'level') return has(what) ? goTo(what) : openPanel('build', T.catOf(BUILDINGS[what]));
+  if (kind === 'collect') return goTo({wood: 'sawmill', cookies: 'bakery', fabric: 'mill', coins: 'letters'}[what] || 'sawmill');
+  if (kind === 'make') return has('workshop') ? goTo('workshop') : openPanel('build', 'town');
+  if (kind === 'orders') return openPanel('orders');
+  if (kind === 'joy') return openPanel('build', 'deco');
+  if (kind === 'games') return openPanel('games');
+  if (kind === 'dig' || kind === 'floor') return has('mine') ? goTo('mine') : openPanel('build', 'town');
+  if (kind === 'exp') return has('stable') ? goTo('stable') : openPanel('build', 'town');
+  if (kind === 'parcel') return openParcel();
+  if (kind === 'lights') return openPanel('lights');
+}
 /* ---------- cadeau du jour (série de 7 jours) ---------- */
 function openDaily(){
   const ready = T.dailyReady(S), next = ready ? (S.daily.last === T.yesterday() ? S.daily.streak : 0) % 7 : (S.daily.streak - 1) % 7;
