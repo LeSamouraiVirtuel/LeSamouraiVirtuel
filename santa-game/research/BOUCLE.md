@@ -141,5 +141,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Les taux à virgule s'affichent avec une décimale (0,5 → 0,6) dans la fiche et la bulle du gardien.
 - Pack d'images régénéré ; testé sur iPhone 13 et iPhone SE ; tutoriel OK.
 
+## Tour 32 — Les zones du Pôle prennent vie
+- Les 12 zones autour du village (Lac Gelé, Collines Sucrées, Vallée des Rennes, Aurores Boréales…) ont chacune une ambiance : teinte du sol, motif (lac gelé, cristaux qui scintillent, aurore qui ondule, sucre) et un décor offert à l'ouverture.
+- Chaque zone demande un niveau (1 à 30) et donne un cadeau d'arrivée et un bonus permanent : +% d'une ressource, +% de toute la production, expéditions plus rapides, +2 pioches, lettres mieux payées, Marché plus généreux.
+- La fiche de la zone montre le texte, le bonus et le cadeau ; le panneau « À VENDRE » devient « NIV. X » tant que le niveau manque. Une fenêtre « Nouvelle zone » puis « Bienvenue ! » accueille le joueur.
+- Testé sur iPhone 13 et iPhone SE (jour et nuit), tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

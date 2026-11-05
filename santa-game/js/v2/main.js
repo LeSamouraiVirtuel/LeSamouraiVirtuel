@@ -287,6 +287,36 @@ function fits(type, x, y, ignore){
   for (const o of S.objs){ if (o === ignore) continue; const ob = B(o); if (x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y) return false; }
   return true;
 }
+// ambiance d'une zone ouverte : teinte du sol et motif propre (lac gelé, cristaux, aurore…)
+function isoBlob(tx, ty, r, fill){
+  const c = toScreen(tx, ty), z = cam.z; ctx.beginPath(); ctx.ellipse(c.x, c.y, r * TW / Math.SQRT2 * z, r * TH / Math.SQRT2 * z, 0, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
+}
+function zoneGround(cx, cy, z){
+  const X = cx * T.CHUNK, Y = cy * T.CHUNK, C = T.CHUNK, tm = performance.now() / 1000;
+  let r = (cx * 31 + cy * 17) * 9301 % 233280; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  ctx.save(); diamond(X, Y, C, C, null, null); ctx.clip();
+  ctx.globalAlpha = .16; diamond(X, Y, C, C, z.tint, null);
+  ctx.globalAlpha = .22; for (let i = 0; i < 7; i++) isoBlob(X + 1.5 + rnd() * (C - 3), Y + 1.5 + rnd() * (C - 3), .8 + rnd() * .9, z.tint);
+  ctx.globalAlpha = 1;
+  if (z.feat === 'lake'){
+    const lx = X + 5.5, ly = Y + 5.5;
+    isoBlob(lx, ly, 3.1, 'rgba(255,255,255,.9)'); isoBlob(lx, ly, 2.8, '#9fd6f5'); isoBlob(lx - .4, ly - .4, 2.1, '#c4e8fb');
+    ctx.globalAlpha = .7; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * cam.z; for (let i = 0; i < 3; i++){ const a = toScreen(lx - 1.6 + i * .9, ly - .3 - i * .5), b = toScreen(lx - .9 + i * .9, ly - 1 - i * .5); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); } ctx.globalAlpha = 1;
+  } else if (z.feat === 'gems' || z.feat === 'aurora' || z.feat === 'candy'){
+    for (let i = 0; i < 12; i++){
+      const p = toScreen(X + .5 + rnd() * (C - 1), Y + .5 + rnd() * (C - 1)), tw = .5 + .5 * Math.sin(tm * 2 + i * 1.7), sz = (2.5 + 2.5 * tw) * cam.z;
+      ctx.globalAlpha = z.feat === 'candy' ? .55 : .35 + .55 * tw; ctx.fillStyle = z.feat === 'candy' ? (i % 2 ? '#ff5d8f' : '#fff') : '#fff';
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - sz * 1.6); ctx.lineTo(p.x + sz * .6, p.y); ctx.lineTo(p.x, p.y + sz * 1.6); ctx.lineTo(p.x - sz * .6, p.y); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (z.feat === 'aurora'){
+    const c = toScreen(X + C / 2, Y + C / 2), w = C * TW * cam.z * .55, g = ctx.createLinearGradient(c.x - w, 0, c.x + w, 0);
+    g.addColorStop(0, 'rgba(63,224,160,0)'); g.addColorStop(.35 + .1 * Math.sin(tm * .7), 'rgba(63,224,160,.28)'); g.addColorStop(.7, 'rgba(160,110,255,.22)'); g.addColorStop(1, 'rgba(160,110,255,0)');
+    ctx.fillStyle = g; diamond(X, Y, C, C, null, null); ctx.fill();
+  }
+  ctx.restore();
+}
 function diamond(x, y, w, h, fill, stroke){
   const a = toScreen(x, y), b = toScreen(x + w, y), c = toScreen(x + w, y + h), d = toScreen(x, y + h);
   ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath();
@@ -329,7 +359,7 @@ function draw(){
   // sol : motif en pixels réels (transformation identité), qui suit la caméra
   { const o0 = toScreen(0, 0), ox = Math.round(o0.x * DPR) % PAT, oy = Math.round(o0.y * DPR) % PAT; ctx.save(); ctx.setTransform(1, 0, 0, 1, ox, oy); ctx.fillStyle = snowPat; ctx.fillRect(-ox - PAT, -oy - PAT, cv.width + PAT * 2, cv.height + PAT * 2); ctx.restore(); }
   // terrain ouvert : léger liseré pour marquer la limite
-  for (const k of S.chunks){ const [cx, cy] = k.split(',').map(Number); diamond(cx * T.CHUNK, cy * T.CHUNK, T.CHUNK, T.CHUNK, 'rgba(255,255,255,.35)', null); }
+  for (const k of S.chunks){ const [cx, cy] = k.split(',').map(Number); const z = T.zoneOf(cx, cy); if (z) zoneGround(cx, cy, z); diamond(cx * T.CHUNK, cy * T.CHUNK, T.CHUNK, T.CHUNK, 'rgba(255,255,255,.35)', null); }
   // forêts : zones verrouillées + bordure de carte
   const items = [];
   const n = T.MAP / T.CHUNK;
@@ -465,9 +495,9 @@ const isNextToOpen = (cx, cy) => isOpen(cx - 1, cy) || isOpen(cx + 1, cy) || isO
 function sign(x, y, cx, cy){
   ctx.save(); ctx.translate(x, y - 10);
   ctx.fillStyle = '#c98a4b'; ctx.strokeStyle = '#2a1a0e'; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.roundRect(-30, -22, 60, 30, 8); ctx.fill(); ctx.stroke();
+  { const sw = T.zoneLock(S, cx, cy) ? 76 : 60; ctx.beginPath(); ctx.roundRect(-sw / 2, -22, sw, 30, 8); ctx.fill(); ctx.stroke(); }
   { const zn = T.zoneName(cx, cy); ctx.font = '600 11px Fredoka, sans-serif'; const zw = ctx.measureText(zn).width + 14; ctx.fillStyle = 'rgba(18,22,44,.8)'; ctx.beginPath(); ctx.roundRect(-zw / 2, 12, zw, 17, 5); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(zn, 0, 21); ctx.textBaseline = 'alphabetic'; }
-  ctx.font = '400 15px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeText('À VENDRE', 0, -2); ctx.fillStyle = '#fff'; ctx.fillText('À VENDRE', 0, -2);
+  ctx.font = '400 15px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; { const lk = T.zoneLock(S, cx, cy), tx = lk ? `NIV. ${lk}` : 'À VENDRE'; ctx.strokeText(tx, 0, -2); ctx.fillStyle = lk ? '#ffd34a' : '#fff'; ctx.fillText(tx, 0, -2); }
   ctx.restore();
 }
 // échafaudage en bois devant un bâtiment en cours d'amélioration (comme Township)
@@ -916,7 +946,7 @@ function renderPanel(){
       const mer = M.merchant(S), toys = T.TOY_KEYS.filter(k => S.inv[k] > 0);
       h = hd('Revends ton surplus, achète au marchand', 'Marché du village') + `<h3>Le marchand ambulant <small class="meta">· aujourd'hui il est <b>${mer.mood}</b></small></h3>
         <div class="deals">${mer.offers.map(o => `<div class="deal ${o.left <= 0 ? 'done' : ''}"><b>${Object.entries(o.give).map(([k, n]) => `${fmt(n)} ${(RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase()}`).join(', ')}</b><span class="costs">${rewardChips(o.give)}</span><small class="meta">encore ${Math.max(0, o.left)} aujourd'hui</small>${o.left > 0 ? `<button class="btn blue sm" data-a="mbuy" data-k="${o.k}">${icon('coins')}${fmt(o.cost.coins)}</button>` : '<span class="meta">Épuisé</span>'}</div>`).join('')}</div>
-        <h3>Vendre des ressources</h3><div class="mlist">${Object.entries(M.SELL_RATE).map(([k, r]) => { const n = Math.floor((S[k] || 0) * .25);
+        <h3>Vendre des ressources</h3><div class="mlist">${Object.entries(M.SELL_RATE).map(([k, r0]) => { const r = Math.round(r0 * (1 + T.zoneB(S, 'sell')) * 100) / 100, n = Math.floor((S[k] || 0) * .25);
           return `<div class="mis"><div><b>${RINFO[k].name}</b><small>${fmt(S[k] || 0)} en stock · 1 ${RINFO[k].name.toLowerCase().replace(/s$/, '')} = ${String(r).replace('.', ',')} pièce${r > 1 ? 's' : ''}</small></div><button class="btn green sm" data-a="sell" data-k="${k}" ${n >= 10 ? '' : 'disabled'}>Vendre ${fmt(n)} → ${icon('coins')}${fmt(Math.floor(n * r))}</button></div>`; }).join('')}</div>
         <h3>Vendre des jouets</h3><div class="mlist">${toys.length ? toys.map(k => `<div class="mis"><div><b>${ITEMS[k].name}</b><small>${S.inv[k]} en stock · gardés pour les lettres ?</small></div><button class="btn green sm" data-a="selltoy" data-k="${k}">Vendre 1 → ${icon('coins')}${M.sellToy(k)}</button></div>`).join('') : '<p class="meta">Aucun jouet en stock.</p>'}</div>`;
     }
@@ -956,8 +986,9 @@ function renderPanel(){
   }
   else if (panel === 'expand'){
     const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n);
-    h = hd('Agrandir le village', T.zoneName(cx, cy)) + `<p>Dégage cette forêt pour agrandir ton village de 121 cases.</p><div class="lines">${need(c)}</div>
-      <button class="btn green wide" data-a="expand" ${T.has(S, c) ? '' : 'disabled'}>Agrandir</button><p class="meta">Les haches et les scies s'obtiennent avec les lettres, le cadeau du jour et les mini-jeux.</p>`;
+    const z = T.zoneOf(cx, cy), lock = T.zoneLock(S, cx, cy);
+    h = hd('Nouvelle zone à explorer', T.zoneName(cx, cy)) + (z ? `<div class="zonecard" style="--zt:${z.tint}"><p>${z.txt}</p><div class="zb"><span>Bonus de la zone</span><b>${T.zoneBonusText(z.b)}</b></div><div class="zb"><span>Cadeau d'arrivée</span><span class="costs">${rewardChips(z.gift)}</span></div></div>` : '') + `<p class="meta">Dégage la forêt pour agrandir ton village de 121 cases.</p><div class="lines">${need(c)}</div>
+      ${lock ? `<button class="btn wide" disabled>Niveau ${lock} requis</button>` : `<button class="btn green wide" data-a="expand" ${T.has(S, c) ? '' : 'disabled'}>Agrandir</button>`}<p class="meta">Les haches et les scies s'obtiennent avec les lettres, le cadeau du jour et les mini-jeux.</p>`;
   }
   else if (panel === 'site'){
     const o = panelArg, end = workEnd(o), total = o.build ? o.btotal : o.utotal, left = Math.max(0, end - now()), st = speedCost(o);
@@ -1044,7 +1075,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'aclaim'){ const r = M.achClaim(S, M.ACH.find(x => x.k === b.dataset.k)); if (r){ closePanel(); return bravo(r, 'Succès débloqué'); } return; }
   if (a === 'pclaim'){ const t = +b.dataset.k, g = b.dataset.g === '1', P = M.pass(S); if (g && !P.premium){ sfx.err(); return buyIap('pass'); } const r = M.passClaim(S, t, g); if (!r){ sfx.err(); return toast(t > P.tier ? `Palier ${t} pas encore atteint` : 'Déjà récupéré'); } closePanel(); return bravo(r, `Pass de Noël · palier ${t}`); }
   if (a === 'mbuy'){ const o = M.merchant(S).offers.find(x => x.k === b.dataset.k); if (!o || o.left <= 0) return; if (!T.has(S, o.cost)){ sfx.err(); return showMissing(o.cost, 'Marchand ambulant', null); } T.take(S, o.cost); S.merchant.bought[o.k] = (S.merchant.bought[o.k] || 0) + 1; giveReward(o.give, b); return renderPanel(); }
-  if (a === 'sell'){ const k = b.dataset.k, n = Math.floor((S[k] || 0) * .25), c = Math.floor(n * M.SELL_RATE[k]); if (n < 10) return; S[k] -= n; S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
+  if (a === 'sell'){ const k = b.dataset.k, n = Math.floor((S[k] || 0) * .25), c = Math.floor(n * M.SELL_RATE[k] * (1 + T.zoneB(S, 'sell'))); if (n < 10) return; S[k] -= n; S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'selltoy'){ const k = b.dataset.k; if (!(S.inv[k] > 0)) return; S.inv[k]--; const c = M.sellToy(k); S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'rename'){ const n = prompt('Nom de ton village :', S.name || ''); if (n != null){ S.name = n.trim().slice(0, 24); save(); } return renderPanel(); }
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
@@ -1066,7 +1097,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'lights'){ const why = T.lightsUp(S); if (why){ sfx.err(); return toast(why); } sfx.level(); gainXp(2, b); T.track(S, 'lights'); toast(`Illuminations niv. ${S.lights} : production +${S.lights} %`); save(); return renderPanel(); }
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
-  if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); if (!T.has(S, c)) return; T.take(S, c); S.chunks.push(`${cx},${cy}`); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); toast('Nouveau terrain !'); closePanel(); save(); return; }
+  if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); if (!T.has(S, c) || T.zoneLock(S, cx, cy)) return; T.take(S, c); const z = T.openZone(S, cx, cy); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); closePanel(); save(); if (z) zoneWelcome(z, T.zoneName(cx, cy)); else toast('Nouveau terrain !'); return; }
   if (a === 'speed'){ const o = panelArg; if (!workEnd(o)) return closePanel(); const st = speedCost(o); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; if (o.build) o.build = now(); else o.up = now(); closePanel(); tutoEv('speed'); return; }
   if (a === 'move'){ const o = panelArg; closePanel(); ghost = {type: o.type, x: o.x, y: o.y, move: o}; showGhostUI(); return; }
   if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (o.wild) gainXp(1, null); else if (!o.free) S.coins += Math.round((BUILDINGS[o.type].cost.coins || 0) / 2); closePanel(); save(); return; }
@@ -1325,6 +1356,11 @@ function story(i){
   const c = T.CHAPTERS[i], m = $('#modal'); m.className = 'glow';
   m.querySelector('.mcard').innerHTML = `<small>Chapitre ${i + 1}</small><h2 class="stroke">${c.title}</h2><div class="storyrow"><img src="${c.who && c.who !== 'Le vieux Père Noël' ? elfImg() : portrait}" alt=""><p>${c.who ? `<b class="who">${c.who}</b>` : ''}${c.story}</p></div><button class="btn green" data-m="ok">C'est parti !</button>`;
   m.hidden = false; m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; };
+}
+function zoneWelcome(z, name){
+  const m = $('#modal'); m.className = 'glow';
+  m.querySelector('.mcard').innerHTML = `<small>Nouvelle zone</small><h2 class="stroke">${name}</h2><div class="storyrow"><img src="${elfImg()}" alt=""><p>${z.txt}</p></div><div class="zonecard" style="--zt:${z.tint}"><div class="zb"><span>Bonus de la zone, pour toujours</span><b>${T.zoneBonusText(z.b)}</b></div></div><button class="btn green" data-m="ok">Ouvrir le cadeau</button>`;
+  m.hidden = false; m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; setTimeout(() => bravo(z.gift, "Cadeau d'arrivée", 'BIENVENUE !'), 250); };
 }
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
   const m = $('#modal'); m.className = 'cere bravo';

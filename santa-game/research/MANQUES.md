@@ -8,7 +8,7 @@ Liste tenue à jour par la boucle. On traite du plus important au moins importan
 | 2 | Décorations | Des centaines, par thème, certaines d'événement | 20 décorations (Maison niv. 1 à 18) + 3 de la boutique d'événement | fait (tour 29) |
 | 3 | Histoire | Des dizaines de chapitres avec des personnages récurrents | 14 chapitres, 55 tâches, 7 personnages, puis tâches génériques | fait (tour 30) |
 | 4 | Nouveaux bâtiments de production | Une nouvelle usine tous les quelques niveaux | 6 bâtiments de ressources : Puits de cristaux (Maison niv. 7) et Fonderie d'or polaire (niv. 11) produisent les matériaux rares | fait (tour 31) |
-| 5 | Zones à débloquer | Nouvelles régions avec leur ambiance (mine, île, zoo) | Terrains de forêt à dégager | à faire |
+| 5 | Zones à débloquer | Nouvelles régions avec leur ambiance (mine, île, zoo) | 12 zones nommées : sol et décor propres (lac gelé, collines de sucre, aurore), niveau requis, cadeau d'arrivée, bonus permanent | fait (tour 32) |
 | 6 | Rappel des activités prêtes | Notifications | Liste « Mon village » dans le jeu seulement | à faire (notifications du navigateur) |
 | 7 | Social (amis, guildes, classements) | Oui | Non : demande un serveur | hors de portée sans serveur |
 | 8 | Illustrations peintes | Oui | Modèles 3D gratuits | bloqué : jeton d'images |

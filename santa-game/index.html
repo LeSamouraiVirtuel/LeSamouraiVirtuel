@@ -1222,6 +1222,13 @@ body.sheet-open #upban,body.tutoring #upban{display:none!important}
 .storyrow .who{display:block;font:400 15px var(--display);color:var(--blue-d);margin-bottom:3px}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
+.zonecard{background:linear-gradient(180deg,color-mix(in srgb,var(--zt) 22%,#fff),#fff);border:2px solid color-mix(in srgb,var(--zt) 60%,#5a3a1e);border-radius:14px;padding:10px 12px;margin:6px 0 10px;text-align:left}
+.zonecard p{margin:0 0 8px;color:#5a3a1e;font-size:14px;line-height:1.35}
+.zonecard .zb{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px dashed rgba(90,58,30,.25)}
+.zonecard .zb>span:first-child{font-size:12px;color:#8a6a4a;font-weight:600}
+.zonecard .zb:first-child{border-top:0;padding-top:0}
+.zonecard .zb b{color:#1f7a3a;font-size:14px}
+#modal .zonecard{margin:8px 0 12px}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">
