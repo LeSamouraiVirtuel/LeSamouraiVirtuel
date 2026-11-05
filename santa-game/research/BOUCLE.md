@@ -238,5 +238,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Entrepôt : +500 au niveau 1 (au lieu de 300) et +55 % par niveau (au lieu de 50 %).
 - Simulateur : rythme inchangé (Maison 10 vers J8, 20 vers J71). Tutoriel OK.
 
+## Tour 46 — Retour du joueur : lisibilité, tutoriel, fluidité
+- Revue image par image (pas seulement les chiffres) sur iPhone SE, iPhone 13, iPhone 15 Pro Max et Android 360 px : tutoriel complet et 22 écrans.
+- Fluidité : la carte était dessinée en ×3 sur iPhone ; ×2 suffit et divise le travail par 2,25 (dessin moyen 6,7 → 2,7 ms, 2,5× plus d'images par seconde mesurées). Plus de délai de double-tap, boutons qui réagissent au toucher, fiches qui s'ouvrent plus vite.
+- Tutoriel : bulle proportionnelle à l'écran (portrait dans sa colonne, texte large, 2 lignes au lieu de 7 sur SE) ; cadre jaune ajusté au bâtiment au lieu d'un grand carré qui débordait sur les voisins ; étiquettes « Maison niv. X » masquées pendant le tutoriel ; bulle placée plus bas pour ne pas cacher la cible.
+- Fiches aérées : marges, interlignes et espacements plus grands, titres de sections espacés.
+- Corrigé : bouton de l'Atelier coupé, onglets de la Boutique coupés, cartes Flocon / Salle des ventes / Musée / Campagne écrasées (bouton qui passe dessous), recherches illisibles, lettres « 4/1 » (devient « 1/1 · 4 en stock »).
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

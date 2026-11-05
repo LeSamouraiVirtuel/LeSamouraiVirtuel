@@ -13,7 +13,7 @@ const $ = s => document.querySelector(s);
 const ROOT = new URL('../../', import.meta.url).href;
 const Q = new URLSearchParams(location.search);
 const EXPORT = Q.has('export');                       // mode « fabrication du pack » (outil hors ligne)
-const DPR = EXPORT ? 3 : Math.min(devicePixelRatio || 1, 3);
+const DPR = EXPORT ? 3 : Math.min(devicePixelRatio || 1, 2);     // ×2 suffit à l'œil et divise par 2,25 le travail du dessin sur iPhone (×3)
 const ZOOM0 = 1.1;                                   // densité des images (le zoom par défaut est plus bas : village plus vaste)
 const CAM0 = .78;                                   // zoom par défaut : les images y sont affichées pixel pour pixel
 const BD = Math.min(DPR * ZOOM0, 3);                // densité des images des bâtiments
@@ -357,7 +357,7 @@ function timerPill(cx, cy, text, prog){
   ctx.restore();
 }
 function draw(){
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.imageSmoothingQuality = 'high';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.imageSmoothingQuality = 'medium';
   // sol
   // sol : motif en pixels réels (transformation identité), qui suit la caméra
   { const o0 = toScreen(0, 0), ox = Math.round(o0.x * DPR) % PAT, oy = Math.round(o0.y * DPR) % PAT; ctx.save(); ctx.setTransform(1, 0, 0, 1, ox, oy); ctx.fillStyle = snowPat; ctx.fillRect(-ox - PAT, -oy - PAT, cv.width + PAT * 2, cv.height + PAT * 2); ctx.restore(); }
@@ -478,6 +478,7 @@ function drawLot(l){
 }
 /** Étiquette d'un terrain réservé (dessinée avec les autres étiquettes, après les bâtiments). */
 function lotLabel(l){
+  if (tuto.active()) return;
   const b = BUILDINGS[l.type], ok = (b.hq || 1) <= T.hqLv(S);
   const p = toScreen(l.x + b.w, l.y + b.h), label = ok ? `${b.name} · à construire` : `${b.name} · Maison niv. ${b.hq}`;
   ctx.font = '600 11px Fredoka, sans-serif'; const lw = ctx.measureText(label).width + 30;
@@ -853,7 +854,7 @@ function renderPanel(){
     const detail = od?.items ? `<div class="od">
         <div class="letter"><p>${od.msg || 'Cher Père Noël, voici ma liste !'}</p><i>— ${od.kid}${od.age ? `, ${od.age} ans, ${od.city}` : ''}</i></div>
         <div class="odh"><small>Récompense${wrapOk(od) ? ' · emballée' : ''}</small><span class="rw"><span>${icon('coins')}${Math.round(od.coins * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span><span><i class="i xp">XP</i>${Math.round(od.xp * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
-        <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : ''}<b>${h}/${n}</b></div>`; }).join('')}</div>
+        <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : ''}<b>${Math.min(h, n)}/${n}</b>${h > n ? `<small class="inst">${h} en stock</small>` : ''}</div>`; }).join('')}</div>
         ${S.lvl >= TOYS.paper.lvl ? `<button class="wrapbtn ${S.wrapOn ? 'on' : ''}" data-a="wrap"><img src="${ICON.paper}" alt=""><span><b>Emballer · ${T.wrapNeed(od)} papier${T.wrapNeed(od) > 1 ? 's' : ''} cadeau</b><small>${S.inv.paper || 0} en stock · +50 % pièces et XP, parfois une étoile</small></span><i class="tog"></i></button>` : ''}
         <div class="oacts"><button class="trash" data-a="trash" data-i="${selOrder}" aria-label="Remplacer cette commande"></button><button class="btn green" data-a="deliver" data-i="${selOrder}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button></div>
       </div>` : '<p class="meta">De nouvelles commandes arrivent…</p>';
@@ -863,7 +864,7 @@ function renderPanel(){
     const o = panelArg, q = o.q || [], n = T.craftSlots(o.lv);
     const slots = Array.from({length: n}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
     h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + `<p class="help">Touche un jouet pour le mettre dans la file. Les jouets marqués <b>Demandé</b> sont attendus dans les lettres.</p><h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
-      ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}${lettersNeed(o).length ? `<button class="btn green wide" data-a="autoq">Fabriquer ce que demandent les lettres (${lettersNeed(o).length})</button>` : ''}
+      ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}${lettersNeed(o).length ? `<button class="btn green wide" data-a="autoq">Fabriquer pour les lettres (${lettersNeed(o).length})</button>` : ''}
       <h3>Jouets</h3><div class="recipes">${Object.entries(TOYS).map(([k, t]) => { const lock = S.lvl < t.lvl, wanted = S.orders.some(od => od.items?.[k]);
         return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, t.cost) ? 'ok' : ''}" data-a="queue" data-k="${k}">${wanted && !lock ? '<span class="wanted">Demandé</span>' : ''}<img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
         ${lock ? `<span class="why">Niveau ${t.lvl}</span>` : `<span class="costs">${costChips(t.cost)}</span><span class="meta">${fmtTime(t.time / T.craftSpeed(o.lv))} · en stock : ${S.inv[k] || 0}</span>`}</button>`; }).join('')}</div>`;
@@ -1619,7 +1620,7 @@ function aucEnd(){
 /* ---------- rappels : notifications du navigateur quand le jeu passe en arrière-plan ---------- */
 function upcomingBox(){
   const t = now(), seen = new Set(), U = T.upcoming(S, t).filter(e => !seen.has(e.txt) && seen.add(e.txt)).slice(0, 4);
-  return U.length ? `<h3>Bientôt prêt</h3><div class="mlist soon">${U.map(e => `<div class="mis"><div><b>${e.txt}</b></div><span class="chip time">dans ${fmtTime((e.at - t) / 1000)}</span></div>`).join('')}</div>` : '';
+  return U.length ? `<h3>Bientôt prêt</h3><div class="mlist soon">${U.map(e => `<div class="mis"><div><b>${e.txt}</b></div><span class="chip time">dans <b data-until="${e.at}"></b></span></div>`).join('')}</div>` : '';
 }
 const canNotify = () => 'Notification' in window && Notification.permission === 'granted';
 function notify(body){
@@ -1819,7 +1820,10 @@ function levelUp(L){
 /* =====================================================================
    DIDACTICIEL (Pépin)
    ===================================================================== */
-const rectOf = pred => () => { if (panel) return null; const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o); return {left: r.left + r.width * .15, top: r.top + r.height * .15, width: r.width * .7, height: r.height * .7}; };
+const rectOf = pred => () => { if (panel) return null; const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o), b = B(o);
+  // cadre ajusté au bâtiment : largeur de son terrain (losange), du haut du toit jusqu'à la pointe basse du terrain
+  const L = toScreen(o.x, o.y + b.h), R = toScreen(o.x + b.w, o.y), Bt = toScreen(o.x + b.w, o.y + b.h), top = r.top + r.height * .12;
+  return {left: L.x + 4, top, width: R.x - L.x - 8, height: Bt.y - top - 2}; };
 const STEPS = [
   {say: "Ho ho ho ! Bienvenue au Pôle Nord ! Après 300 Noëls, je prends ma retraite… et <b>c'est toi le nouveau Père Noël</b> !", tap: true},
   {say: "Les enfants comptent sur nous. Un village qui tourne bien, c'est des jouets à l'heure ! Je te montre tout, c'est promis.", tap: true},
@@ -1926,15 +1930,21 @@ function smoke(dt){
     FX.push({k: 'smoke', x: x + (Math.random() - .5) * 6, y, vx: 6 + Math.random() * 8, vy: -16 - Math.random() * 10, r: (9 + Math.random() * 5) * cam.z, t: 0, d: 2.4 + Math.random()});
   }
 }
+const PROF = /[?&]prof/.test(location.search) ? (window.__prof = {}) : null;
+const pt = (k, f) => { if (!PROF) return f(); const a = performance.now(); const r = f(); const e = PROF[k] ||= {n: 0, t: 0, max: 0}, d = performance.now() - a; e.n++; e.t += d; e.max = Math.max(e.max, d); return r; };
 function step(t, dt){
+  if (PROF) return pt('step', () => step0(t, dt));
+  step0(t, dt);
+}
+function step0(t, dt){
   smoke(dt); bldFx(dt);
   if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); dropTick(); rsCheck(); if (!tuto.active()){ const had = !!S.visitor; T.visitorTick(S, now()); if (!had && S.visitor){ toast(`${S.visitor.who} arrive au village !`); sfx.pop(); } } }
   fxDt = dt;
-  refreshOrders(); finishWorks(); moveElves(dt);
+  pt('logic', () => { refreshOrders(); finishWorks(); moveElves(dt); });
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
-  draw();
-  hudT -= dt; if (hudT <= 0){ hudT = .2; hud(); }
-  panelT -= dt; if (panel && panelT <= 0 && !sheetHeld()){ panelT = .3; renderPanel(); }
+  pt('draw', draw);
+  hudT -= dt; if (hudT <= 0){ hudT = .2; pt('hud', hud); }
+  panelT -= dt; if (panel && panelT <= 0 && !sheetHeld()){ panelT = .3; pt('panel', renderPanel); }
   saveT -= dt; if (saveT <= 0){ saveT = 4; save(); }
 }
 requestAnimationFrame(frame);
