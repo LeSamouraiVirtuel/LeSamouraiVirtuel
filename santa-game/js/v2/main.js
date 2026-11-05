@@ -400,6 +400,8 @@ function drawHint(o){
 }
 /** « ! » rouge : ce bâtiment peut être amélioré maintenant (comme les « ! » de Bid Master). */
 function bang(x, y){
+  // jamais sur une étiquette : on remonte le « ! » au-dessus
+  for (let n = 0; n < 4 && labels.some(r => x + 14 > r.L && x - 14 < r.R && y + 14 > r.T && y - 14 < r.B); n++) y -= 24;
   const s = Math.min(1.15, Math.max(.8, cam.z)), k = 1 + Math.sin(performance.now() / 220) * .06;
   ctx.save(); ctx.translate(x, y); ctx.scale(s * k, s * k);
   ctx.fillStyle = '#e8262e'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 7); ctx.fill(); ctx.stroke();
