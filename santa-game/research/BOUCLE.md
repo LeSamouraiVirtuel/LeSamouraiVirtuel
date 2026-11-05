@@ -33,6 +33,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - La nuit, les lampadaires éclairent les allées et les fenêtres des maisons s'allument (halo chaud qui palpite).
 - Pour tester une heure : ajouter ?heure=21 à l'adresse.
 
+## Tour 7 — Événement de la semaine (Township, Hay Day)
+- Un thème par semaine, à tour de rôle : La Course aux flocons, La Grande Fournée (biscuits ×2), Le Rallye des rennes (expéditions et mini-jeux ×2), La Fête des lettres (lettres ×2).
+- Chaque action rapporte des flocons d'or (« +N ❄ » près du bouton) ; 10 paliers de récompenses, dont des étoiles d'or, des cristaux, des lingots et des colis.
+- Bouton « Événement » à gauche (à partir du niveau 3), avec le nombre de récompenses à prendre.
+
 ## Idées pour la suite
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
-5. Événement limité de Noël avec sa propre monnaie et sa boutique.
+5. Boutique de l'événement : échanger les flocons restants contre des décorations exclusives.

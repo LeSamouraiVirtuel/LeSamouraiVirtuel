@@ -86,6 +86,7 @@ const elfPortrait = portrait;
 /* =====================================================================
    ÉTAT, SON
    ===================================================================== */
+T.setTrackHook((s, key, n) => { const add = M.eventOnTrack(s, key, n); if (add && typeof evPing === 'function') evPing(add); });
 const saved = T.loadTown();
 let S = saved || T.newTown();
 const save = () => T.saveTown(S);
@@ -651,6 +652,7 @@ function hud(){
   { const P = M.pass(S); let n = 0; for (let t = 1; t <= P.tier; t++){ if (!P.free[t]) n++; if (P.premium && !P.gold[t]) n++; } const e = $('#b-pass .badge'); e.textContent = n; e.hidden = !n; }
   { const e = $('#b-shop .badge'); e.hidden = !!S.iap?.starter && M.dailyDeals(S).every(d => d.done); }
   $('#b-market').hidden = T.hqLv(S) < M.MARKET_HQ;
+  { const e = $('#b-event'); e.hidden = S.lvl < 3; const n = M.eventClaimable(S); e.querySelector('.badge').textContent = n; e.querySelector('.badge').hidden = !n; }
   { const n = (S.parcels || []).length, e = $('#b-parcels .badge'); e.textContent = n; e.hidden = !n; $('#b-parcels').hidden = !n && !S.exps?.length && !S.mine; }
   $('#b-daily .badge').hidden = !T.dailyReady(S);
   { const n = T.albumClaimable(S).length, e = $('#b-album .badge'); e.textContent = n; e.hidden = !n; }
@@ -752,6 +754,15 @@ function renderPanel(){
     if (tab === 'res') h += `<p class="help">Il te manque quelque chose ? Achète-le en étoiles d'or. Plus le paquet est gros, moins c'est cher à l'unité.</p>${['wood', 'cookies', 'fabric', 'coins', 'ice', 'gold'].map(k => `<div class="rshop"><div class="rsh">${resImg(k)}<b>${RINFO[k].name}</b><small>${qty(k)}</small></div><div class="rpacks">${M.resPacks(S, k).map((p, i) => `<button class="rpack" data-a="rbuy" data-k="${k}" data-i="${i}" ${p.n ? '' : 'disabled'}><small>${p.name}</small><b>${p.n ? '+' + fmt(p.n) : 'Stock plein'}</b>${p.n ? `<span><i class="i star"></i>${p.stars}</span>` : ''}</button>`).join('')}</div></div>`).join('')}`;
     if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture.</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
     h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p>`;
+  }
+  else if (panel === 'event'){
+    const E = M.eventState(S), top = M.EV_STEPS[M.EV_STEPS.length - 1], next = M.EV_STEPS.find(p => p > E.pts);
+    const left = E.end - now(), dd = Math.floor(left / 864e5), hh = Math.floor(left % 864e5 / 36e5);
+    h = hd(`Événement de la semaine · fin dans ${dd ? `${dd} j ${hh} h` : fmtTime(left / 1000)}`, `${E.icon} ${E.name}`) + `<p class="help">${E.story}</p>
+      <div class="evtop"><span class="evpts">❄ ${fmt(E.pts)}</span><div><div class="bar"><i style="width:${Math.min(100, E.pts / top * 100)}%"></i></div><small>${next ? `${fmt(next - E.pts)} flocons avant la prochaine récompense` : 'Toutes les récompenses sont débloquées !'}</small></div></div>
+      <div class="mlist">${M.EV_STEPS.map((p, i) => { const ok = E.pts >= p, got = E.got[i];
+        return `<div class="mis ${got ? 'done' : ''}"><div><b>Palier ${i + 1} · ❄ ${fmt(p)}</b><span class="costs">${rewardChips(M.eventReward(S, i))}</span></div>${got ? '<span class="ok">✓</span>' : ok ? `<button class="btn green sm" data-a="evclaim" data-i="${i}">Prendre</button>` : `<span class="pts">${Math.round(E.pts / p * 100)} %</span>`}</div>`; }).join('')}</div>
+      <p class="meta">Les flocons tombent à chaque action : récolter, livrer une lettre (10), envoyer une expédition (8), un visiteur (12), une amélioration (6)… Un nouvel événement commence chaque lundi.</p>`;
   }
   else if (panel === 'missions'){
     const tab = panelArg || 'day';
@@ -875,6 +886,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'evclaim'){ const i = +b.dataset.i, E = M.eventState(S); if (E.pts < M.EV_STEPS[i] || E.got[i]) return; S.ev.got[i] = 1; closePanel(); return bravo(M.eventReward(S, i), `${E.name} · palier ${i + 1}`); }
   if (a === 'wrap'){ S.wrapOn = !S.wrapOn; if (S.wrapOn && !(S.inv.paper > 0)) toast('Fabrique du papier cadeau à l’Atelier des jouets'); sfx.tap(); save(); return renderPanel(); }
   if (a === 'jobgo'){ const o = panelArg, j = T.JOBS[o.type].find(x => x.k === b.dataset.k), why = T.jobStart(S, o, b.dataset.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.jobPlan(S, o, j).cost, j.name, null) : toast(why); } sfx.build(); T.track(S, 'job'); toast(`Les lutins s'y mettent : ${j.name}`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'jobget'){ const o = panelArg, r = T.jobCollect(S, o, now()); if (r){ T.track(S, 'jobdone'); gainXp(4 + o.lv, null); closePanel(); bravo(r, T.JOBS[o.type].length ? 'Commande spéciale terminée' : ''); } return; }
@@ -1123,6 +1135,10 @@ function buyIap(k){
 $('#b-shop').addEventListener('click', () => { sfx.tap(); openPanel('shop'); });
 $('#b-missions').addEventListener('click', () => { sfx.tap(); openPanel('missions', 'day'); });
 $('#b-pass').addEventListener('click', () => { sfx.tap(); openPanel('pass'); });
+$('#b-event').addEventListener('click', () => { sfx.tap(); openPanel('event'); });
+// petit « +❄ » discret près du bouton de l'événement quand on gagne des flocons
+let evAcc = 0, evT = 0;
+function evPing(n){ evAcc += n; clearTimeout(evT); evT = setTimeout(() => { const b = $('#b-event'); if (!b || b.hidden || !evAcc) return; const r = b.getBoundingClientRect(), t = document.createElement('div'); t.className = 'evping'; t.textContent = '+' + evAcc + ' ❄'; t.style.left = (r.right + 4) + 'px'; t.style.top = (r.top + r.height * .55) + 'px'; document.body.appendChild(t); setTimeout(() => t.remove(), 1300); evAcc = 0; }, 250); }
 $('#b-market').addEventListener('click', () => { sfx.tap(); openPanel('market'); });
 document.querySelector('#hud2 .me')?.addEventListener('click', () => { sfx.tap(); openPanel('profile'); });
 
