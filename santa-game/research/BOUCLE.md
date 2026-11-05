@@ -114,5 +114,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Pendant une amélioration : échafaudage en bois au coin du bâtiment et petite grue dont le crochet se balance.
 - Taille ajustée pour ne pas cacher le bâtiment.
 
+## Tour 26 — Musique d'ambiance
+- « Jingle Bells » (domaine public) en boîte à musique douce, en boucle, générée dans le navigateur (aucun fichier).
+- Démarre au premier toucher (règle des navigateurs) ; réglage « Musique » séparé des sons dans le profil.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

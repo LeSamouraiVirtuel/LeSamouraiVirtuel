@@ -95,6 +95,25 @@ function tone(f, d = .12, type = 'sine', v = .06, when = 0){
   if (S.mute) return;
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + when; o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + .02); } catch(e){}
 }
+// Musique d'ambiance : « Jingle Bells » (domaine public), boîte à musique douce, en boucle. Réglage « Musique » dans le profil.
+const SONG = 'E4 E4 E2 E4 E4 E2 E4 G4 C4 D4 E1 F4 F4 F4 F4 F4 E4 E4 E4 E4 D4 D4 E4 D2 G2 E4 E4 E2 E4 E4 E2 E4 G4 C4 D4 E1 F4 F4 F4 F4 F4 E4 E4 E4 G4 G4 F4 D4 C1 R2'.split(' ');
+const NOTE = {C: 523.25, D: 587.33, E: 659.25, F: 698.46, G: 783.99, A: 880, B: 987.77};
+let musicOn = false, musicT = 0;
+function music(){
+  if (musicOn || S.mute || S.noMusic) return; musicOn = true;
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ return; }
+  const beat = .26; let t = actx.currentTime + .3;
+  const play = () => {
+    if (!musicOn) return;
+    for (const n of SONG){ const d = beat * 4 / +n.slice(1); if (n[0] !== 'R'){ const f = NOTE[n[0]] / 2;
+      for (const [m, v] of [[1, .035], [2, .012]]){ const o = actx.createOscillator(), g = actx.createGain(); o.type = 'sine'; o.frequency.value = f * m; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + d * 1.6); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d * 1.7); } }
+      t += d; }
+    musicT = setTimeout(play, (t - actx.currentTime - 1) * 1000);
+  };
+  play();
+}
+function musicStop(){ musicOn = false; clearTimeout(musicT); }
+addEventListener('pointerdown', () => { if (actx?.state === 'suspended') actx.resume(); music(); });
 const sfx = {tap: () => tone(740, .06, 'sine', .04), pop: () => tone(880, .08, 'triangle', .05), collect: () => { tone(988, .1, 'triangle', .05); tone(1319, .14, 'triangle', .05, .06); }, err: () => tone(160, .16, 'sawtooth', .02), level: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .28, 'triangle', .06, i * .08)), build: () => { tone(330, .1, 'square', .03); tone(523, .2, 'triangle', .05, .1); }};
 
 /* =====================================================================
@@ -906,6 +925,7 @@ function renderPanel(){
     h = hd(M.titleOf(S.lvl), S.name || 'Mon village') + `<div class="prof"><img src="${portrait}" alt=""><div><b>Niveau ${S.lvl}</b><small>Maison du Père Noël niv. ${T.hqLv(S)}</small><button class="btn blue sm" data-a="rename">Renommer le village</button></div></div>
       <div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div>
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
+      <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
       <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
       <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
   }
@@ -1026,7 +1046,8 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'sell'){ const k = b.dataset.k, n = Math.floor((S[k] || 0) * .25), c = Math.floor(n * M.SELL_RATE[k]); if (n < 10) return; S[k] -= n; S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'selltoy'){ const k = b.dataset.k; if (!(S.inv[k] > 0)) return; S.inv[k]--; const c = M.sellToy(k); S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
   if (a === 'rename'){ const n = prompt('Nom de ton village :', S.name || ''); if (n != null){ S.name = n.trim().slice(0, 24); save(); } return renderPanel(); }
-  if (a === 'mute'){ S.mute = !S.mute; save(); return renderPanel(); }
+  if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
+  if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
   if (a === 'reset'){ if (confirm('Effacer ton village et tout recommencer ?')){ T.clearTown(); location.reload(); } return; }
   if (a === 'rinfo') return resInfo(b.dataset.k);
