@@ -870,6 +870,16 @@ function renderPanel(){
       ${campCard()}<div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
       <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
   }
+  else if (panel === 'pet'){
+    const p = T.petState(S);
+    if (!p) h = hd('', 'Flocon, le renne magique') + '<p class="help">Construis l’Écurie des rennes : Flocon viendra y vivre.</p>';
+    else { const st = T.PET_STAGES[T.petStage(p.lv)], nx = T.PET_STAGES[T.petStage(p.lv) + 1], need = T.petNeed(p.lv), pat = T.petCanPat(S), hh = T.petHearts(S);
+      h = hd(`${st[1]} · niveau ${p.lv}`, 'Flocon, le renne magique') + `<div class="petbox stage${T.petStage(p.lv)}"><div class="petimg"><img src="${ICON.mg_deer}" alt="" style="--sz:${Math.min(1, .55 + p.lv * .03)}"></div>
+        <div class="xpbar2"><i style="width:${p.xp / need * 100}%"></i><em>${fmt(p.xp)} / ${fmt(need)}</em></div>${nx ? `<small class="meta">Au niveau ${nx[0]}, Flocon devient « ${nx[1]} »</small>` : ''}</div>
+        <div class="petbon"><div><b>+${Math.round(T.petProd(S) * 100)} %</b><small>sur toute la production</small></div><div><b>+${hh} cœur${hh > 1 ? 's' : ''}</b><small>dans la Campagne${hh < 2 ? ` (niv. ${p.lv < 5 ? 5 : 12})` : ''}</small></div></div>
+        <button class="btn ${pat ? 'gold' : 'blue'} wide" data-a="petpat" ${pat ? '' : 'disabled'}>${pat ? 'Caresser Flocon (petit cadeau)' : `Flocon se repose · <b data-until="${p.pat + T.PET_PAT}"></b>`}</button>
+        <h3>Le nourrir</h3><div class="petfood">${T.petFoods(S).map(f => `<button class="pf ${f.k === 'fav' ? 'fav' : ''}" data-a="petfeed" data-k="${f.k}">${f.k === 'fav' ? `<span class="tag">Préféré du jour</span>` : ''}<span class="costs">${costChips(f.cost)}</span><b>+${fmt(f.xp)} XP</b></button>`).join('')}</div>`; }
+  }
   else if (panel === 'camp'){
     const C = T.campState(S), from = Math.max(0, Math.floor(C.at / 10) * 10 - 10), list = Array.from({length: Math.min(C.at + 1, from + 20) - from}, (_, j) => T.camp(from + j)).reverse();
     const tot = Object.values(C.st).reduce((a, b) => a + b, 0);
@@ -907,7 +917,7 @@ function renderPanel(){
     const runs = run.map((e, i) => { const d = T.EXP_DEST.find(d => d.k === e.k), st = T.speedStars(e.end - now());
       return `<div class="erun"><b>${d.name}</b><div class="work"><div class="bar"><i data-end="${e.end}" data-total="${e.end - e.start}"></i></div><span>Retour dans <b data-until="${e.end}"></b></span></div><button class="btn gold sm" data-a="expspeed" data-i="${i}">${st ? `<i class="i star"></i>${st}` : 'Rentrer'}</button></div>`; }).join('');
     const fed = T.deerFedNow(S, now()), hearts = T.deerHearts(S);
-    h = hd(`Écurie niv. ${o.lv} · ${run.length} équipe${run.length > 1 ? 's' : ''} en route sur ${slots}`, 'Expéditions des rennes') + `<div class="deer"><img src="${ICON.mg_deer}" alt=""><div><b>Les rennes ${fed ? 'sont rassasiés' : 'ont faim'}</b><span class="hearts">${'❤'.repeat(hearts)}<em>${'❤'.repeat(10 - hearts)}</em></span><small>${fed ? `Expéditions ${Math.round((1 - T.deerSpeed(S, now())) * 100)} % plus rapides encore <b data-until="${S.deer.until}"></b>` : 'Nourris-les : expéditions plus rapides pendant 8 h, et un cœur d’affection en plus.'}</small></div>${fed ? '' : `<button class="btn green sm" data-a="deerfeed"><span class="costs">${costChips(T.deerCost(S))}</span>Nourrir</button>`}</div>` + (runs ? `<h3>En route</h3>${runs}` : '') + `<h3>Destinations</h3><div class="dests">${T.EXP_DEST.map(d => { const why = T.expBlock(S, d.k), lock = d.lv > o.lv;
+    h = hd(`Écurie niv. ${o.lv} · ${run.length} équipe${run.length > 1 ? 's' : ''} en route sur ${slots}`, 'Expéditions des rennes') + petEntry() + `<div class="deer"><img src="${ICON.mg_deer}" alt=""><div><b>Les rennes ${fed ? 'sont rassasiés' : 'ont faim'}</b><span class="hearts">${'❤'.repeat(hearts)}<em>${'❤'.repeat(10 - hearts)}</em></span><small>${fed ? `Expéditions ${Math.round((1 - T.deerSpeed(S, now())) * 100)} % plus rapides encore <b data-until="${S.deer.until}"></b>` : 'Nourris-les : expéditions plus rapides pendant 8 h, et un cœur d’affection en plus.'}</small></div>${fed ? '' : `<button class="btn green sm" data-a="deerfeed"><span class="costs">${costChips(T.deerCost(S))}</span>Nourrir</button>`}</div>` + (runs ? `<h3>En route</h3>${runs}` : '') + `<h3>Destinations</h3><div class="dests">${T.EXP_DEST.map(d => { const why = T.expBlock(S, d.k), lock = d.lv > o.lv;
       return `<div class="dest ${lock ? 'locked' : ''}"><div class="dt"><b>${d.name}</b><small>${fmtTime(d.time * T.deerSpeed(S, now()) / 1000)} · ${d.n} colis</small></div><div class="odds">${d.odds.map((p, r) => p ? `<i style="flex:${p};background:${T.RARITY[r].c}" title="${T.RARITY[r].name} ${p} %"></i>` : '').join('')}</div><div class="oddl">${d.odds.map((p, r) => p ? `<span style="color:${T.RARITY[r].c}">${T.RARITY[r].name} ${p} %</span>` : '').join('')}</div>
         ${lock ? `<span class="why">Écurie niv. ${d.lv}</span>` : `<div class="acts"><span class="costs">${costChips(T.expCost(S, d))}</span><button class="btn green sm" data-a="expgo" data-k="${d.k}" ${why && why !== 'Pas assez de biscuits pour les rennes' ? 'disabled' : ''}>Partir</button></div>`}</div>`; }).join('')}</div>
       <p class="meta">Les rennes rapportent des <b>colis mystère</b> : plus la destination est lointaine, plus les colis rares sont fréquents.</p>
@@ -1156,6 +1166,9 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'golab') return openPanel('lab', panelArg);
   if (a === 'gotrain') return openPanel('train', panelArg);
   if (a === 'camp') return openPanel('camp');
+  if (a === 'pet') return openPanel('pet');
+  if (a === 'petfeed'){ const r = T.petFeed(S, b.dataset.k); if (r.why){ sfx.err(); return r.cost ? showMissing(r.cost, 'Nourrir Flocon', null) : toastOnce(r.why); } sfx.collect(); petUp(r.up, b); save(); return renderPanel(); }
+  if (a === 'petpat'){ const r = T.petPat(S); if (!r) return; sfx.pop(); giveReward(r.gift, b); petUp(r.up, b); toast('Flocon est tout content !'); save(); return renderPanel(); }
   if (a === 'campgo') return campGo(+b.dataset.i);
   if (a === 'tload'){ const i = +b.dataset.i, w = S.train?.wag[i], why = T.trainLoad(S, i); if (why){ sfx.err(); if (w && !T.has(S, w.want)) return showMissing(w.want, 'Charger le wagon', () => { if (!T.trainLoad(S, i)){ giveReward(w.rw, $('#h-coins')); T.track(S, 'train'); save(); } renderPanel(); }); return toastOnce(why); } sfx.collect(); giveReward(w.rw, b); T.track(S, 'train'); save(); return renderPanel(); }
   if (a === 'tsend'){ const bon = T.trainSend(S); if (!bon) return; sfx.level(); if (Object.keys(bon).length) bravo(bon, 'Le train est parti plein !', 'TRAIN COMPLET'); else toast('Le train est parti. Il revient bientôt avec de nouveaux wagons.'); save(); return renderPanel(); }
@@ -1619,6 +1632,7 @@ function todoList(){
   { const ts = T.trainState(S); if (ts && !ts.away && ts.tr.wag.some(w => !w.done && T.has(S, w.want))) add(thumbs.station || buildIcon, 'Le train attend : des wagons à charger', {o: ts.o}); else if (ts && !ts.away && ts.tr.wag.every(w => w.done)) add(thumbs.station || buildIcon, 'Le train est plein : fais-le partir !', {o: ts.o}); }
   { const lb = S.objs.find(o => o.type === 'library' && !o.build); if (lb && !S.rsRun && T.RESEARCH.some(r => !T.rsBlock(S, r.k))) add(thumbs.library || buildIcon, 'La Bibliothèque peut lancer une recherche', {o: lb}); }
   if (T.hqLv(S) >= M.MARKET_HQ && M.auction(S).lots.length >= M.AUC_LOTS) add(thumbs.gifts, 'Salle des ventes : de nouveaux lots à saisir', 'auction');
+  if (S.pet && T.petCanPat(S)) add(ICON.mg_deer, 'Flocon veut un câlin', 'pet');
   if (S.lvl >= 3 && M.eventClaimable(S)) add(ICON.ice, 'Récompense d’événement à prendre', 'event');
   return L;
 }
@@ -1627,7 +1641,7 @@ function todoGo(g){
   if (g === 'daily') return openDaily(); if (g === 'sack') return openSack(); if (g === 'visitor') return openVisitor();
   if (g === 'drop'){ centerOn(S.drop.x, S.drop.y); return; } if (g === 'quest') return $('#quest2').click();
   if (g === 'parcels') return openParcel(); if (g === 'build') return openPanel('build', 'prod');
-  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'orders' || g === 'event') return openPanel(g);
+  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'pet') return openPanel('pet'); if (g === 'orders' || g === 'event') return openPanel(g);
   if (g.o && g.o.type === 'library') return openPanel('lab', g.o);
   if (g.o && g.o.type === 'station') return openPanel('train', g.o);
   if (g.o) return goTo(g.o.type === 'cabin' ? 'cabin' : g.o.type);
@@ -1665,6 +1679,15 @@ function playGame(k){
   });
 }
 
+/* ---------- Flocon, le renne magique ---------- */
+function petEntry(){
+  const p = T.petState(S); if (!p) return '';
+  return `<button class="petentry" data-a="pet"><img src="${ICON.mg_deer}" alt=""><div><b>Flocon · niveau ${p.lv}</b><small>${T.PET_STAGES[T.petStage(p.lv)][1]} · +${Math.round(T.petProd(S) * 100)} % de production</small></div><span class="btn gold sm">${T.petCanPat(S) ? 'Caresser' : 'Voir'}</span></button>`;
+}
+function petUp(up, el){
+  if (!up) return; const p = S.pet, st = T.PET_STAGES[T.petStage(p.lv)];
+  sfx.level(); toast(T.PET_STAGES.some(([l]) => l === p.lv) ? `Flocon grandit : ${st[1]} !` : `Flocon passe niveau ${p.lv} !`);
+}
 /* ---------- campagne contre les trolls ---------- */
 function campCard(){
   if (S.lvl < T.CAMP_LVL) return `<div class="campentry lock"><b>Campagne des Trolls</b><small>Niveau ${T.CAMP_LVL} requis</small></div>`;
@@ -1676,7 +1699,7 @@ function campGo(i){
   if (!T.has(S, cost)){ sfx.err(); return showMissing(cost, `Attaquer : ${c.name}`, () => campGo(i)); }
   T.take(S, cost); save(); closePanel(); document.body.classList.add('in-game');
   openMinigame('troll', {
-    camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
+    camp: {...c, hearts: 3 + T.petHearts(S)}, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
     result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
       C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },

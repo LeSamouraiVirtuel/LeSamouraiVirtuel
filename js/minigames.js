@@ -18,7 +18,7 @@ export async function openMinigame(kind, ctx){
   const root = document.createElement('div'); root.id = 'mg'; root.className = 'mg-' + kind;
   const C = ctx.camp, gname = C ? C.name : G.name, grules = C ? `${G.rules}${C.boss ? ' <b>Le chef du camp est là !</b>' : ''}` : G.rules;
   root.innerHTML = `<canvas></canvas>
-    <div class="mg-hud"><div class="mg-pill"><small>${C ? 'Trolls' : 'Score'}</small><b class="mg-score">0</b></div>${C ? '<div class="mg-pill"><small>Cœurs</small><b class="mg-hearts">❤❤❤</b></div>' : ''}<div class="mg-pill"><small>Temps</small><b class="mg-time">${G.time}</b></div><button class="mg-quit" aria-label="Quitter"></button></div>
+    <div class="mg-hud"><div class="mg-pill"><small>${C ? 'Trolls' : 'Score'}</small><b class="mg-score">0</b></div>${C ? `<div class="mg-pill"><small>Cœurs</small><b class="mg-hearts">${'❤'.repeat(C.hearts || 3)}</b></div>` : ''}<div class="mg-pill"><small>Temps</small><b class="mg-time">${G.time}</b></div><button class="mg-quit" aria-label="Quitter"></button></div>
     <div class="mg-card"><small>${C ? 'Campagne' : 'Mini-jeu'}</small><h2>${gname}</h2><p>${grules}</p>${C ? `<span class="mg-best">${C.n} trolls à vaincre${C.boss ? ' + le chef' : ''}</span>` : `<span class="mg-best">Record : ${ctx.best(kind)}</span>`}<button class="btn green mg-go">C'est parti !</button></div>`;
   document.body.appendChild(root);
   const cv = root.querySelector('canvas'), x = cv.getContext('2d');
@@ -29,7 +29,7 @@ export async function openMinigame(kind, ctx){
   const img = {};
   await Promise.all(Object.entries(ctx.icons).map(async ([k, v]) => { img[k] = await load(v); }));
 
-  let state = 'intro', time = C ? C.time : G.time, hearts = 3, score = 0, raf = 0, last = performance.now(), T = 0;
+  let state = 'intro', time = C ? C.time : G.time, hearts = C ? C.hearts || 3 : 3, score = 0, raf = 0, last = performance.now(), T = 0;
   const floats = [];
   const float = (txt, fx, fy, color = '#fff') => floats.push({txt, x: fx, y: fy, t: 0, color});
   const game = kind === 'sleigh' ? sleighGame() : kind === 'troll' ? trollGame() : snowGame();
@@ -77,7 +77,7 @@ export async function openMinigame(kind, ctx){
     }
     x.globalAlpha = 1;
     root.querySelector('.mg-score').textContent = C ? `${score}/${C.n + (C.boss ? 1 : 0)}` : score;
-    if (C) root.querySelector('.mg-hearts').textContent = '❤'.repeat(Math.max(0, hearts)) + '♡'.repeat(3 - Math.max(0, hearts));
+    if (C) root.querySelector('.mg-hearts').textContent = '❤'.repeat(Math.max(0, hearts)) + '♡'.repeat((C.hearts || 3) - Math.max(0, hearts));
     root.querySelector('.mg-time').textContent = Math.ceil(time);
   }
   raf = requestAnimationFrame(loop);
