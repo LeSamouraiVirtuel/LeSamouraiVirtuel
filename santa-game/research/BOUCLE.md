@@ -125,5 +125,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - 10 nouveaux jouets du niveau 14 au 45 (pain d'épices, chocolat chaud, wagon, couronne, boule, lanterne, petit sapin, lance-boules, maison en pain d'épices, grand traîneau) ; cristaux et lingots dans les recettes du haut.
 - XP réglée pour garder la courbe (niv. 30 ≈ J20, niv. 40 ≈ J48).
 
+## Tour 29 — 13 nouvelles décorations
+- Lanterne de fête, bonhomme au chapeau, couronne sur portail, stand de chocolat chaud, couple en pain d'épices, grand sapin illuminé, cadeaux géants, garde casse-noisette, cloche dorée, petit train sur rails, maison en pain d'épices, gui sur lanterne, traîneau d'honneur.
+- Débloquées de la Maison niv. 3 à 18 ; bonheur de +4 à +32 ; cristaux et lingots pour les plus belles.
+- Construire passe sur 2 colonnes sur iPhone SE.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
