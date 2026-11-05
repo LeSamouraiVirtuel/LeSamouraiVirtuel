@@ -455,6 +455,8 @@ function drawFx(dt){
       ctx.font = '400 22px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = '#2a1a0e';
       if (f.k === 'xp'){ ctx.fillStyle = '#3aa8ff'; ctx.beginPath(); ctx.arc(f.x - 20, y, 11, 0, 7); ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke(); ctx.lineWidth = 5; ctx.font = '400 10px "Lilita One", sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('XP', f.x - 20, y + 1); ctx.font = '400 20px "Lilita One", sans-serif'; ctx.strokeText(f.txt, f.x + 6, y); ctx.fillStyle = '#9be3ff'; ctx.fillText(f.txt, f.x + 6, y); }
       else { ctx.strokeText(f.txt, f.x, y); ctx.fillStyle = f.col; ctx.fillText(f.txt, f.x, y); if (f.icon){ const im = img(f.icon); if (im.complete){ const tw = ctx.measureText(f.txt).width; ctx.drawImage(im, f.x + tw / 2 + 2, y - 13, 26, 26); } } }
+    } else if (f.k === 'smoke'){
+      f.x += f.vx * dt; f.y += f.vy * dt; f.vx += 4 * dt; const R = f.r * (1 + u * 1.6); ctx.globalAlpha = Math.min(1, u * 6) * (1 - u * u); const g = ctx.createRadialGradient(f.x - R * .3, f.y - R * .3, R * .1, f.x, f.y, R); g.addColorStop(0, '#ffffff'); g.addColorStop(.55, '#cfd4de'); g.addColorStop(1, 'rgba(120,130,150,.0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, R, 0, 7); ctx.fill();
     } else if (f.k === 'puff'){
       f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = (1 - u) * .85; ctx.fillStyle = '#fbf6ee'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + u * 1.3), 0, 7); ctx.fill();
     } else if (f.k === 'spark'){
@@ -467,7 +469,7 @@ function drawFx(dt){
 
 /* ---------- lutins qui se promènent ---------- */
 const elfSprites = [0, 1, 2].map(v => SPR['elf:' + v]);
-const elves = Array.from({length: 9}, (_, i) => ({x: 13 + i * 2, y: 22, tx: 13 + i * 2, ty: 22, v: i % 3, wait: Math.random() * 3}));
+const elves = Array.from({length: 9}, (_, i) => ({x: 13 + i * 2, y: 22, tx: 13 + i * 2, ty: 22, v: i % 3, wait: Math.random() * 3, carry: ['wood', null, 'cookies', 'coins', null, 'fabric', 'wood', null, 'train'][i]}));
 function moveElves(dt){
   for (const e of elves){
     const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy);
@@ -479,7 +481,9 @@ function moveElves(dt){
     e.walk = d >= .05;
   }
 }
-function drawElf(e){ const c = toScreen(e.x, e.y), s = elfSprites[e.v]; const bob = e.walk ? Math.abs(Math.sin(performance.now() / 120)) * 3 : 0; ctx.save(); if (e.tx - e.x > 0 === e.ty - e.y < 0){ ctx.translate(c.x, 0); ctx.scale(-1, 1); ctx.translate(-c.x, 0); } ctx.drawImage(s.canvas, c.x - s.ax * cam.z, c.y - s.ay * cam.z - bob, s.w * cam.z, s.h * cam.z); ctx.restore(); }
+function drawElf(e){ const c = toScreen(e.x, e.y), s = elfSprites[e.v]; const bob = e.walk ? Math.abs(Math.sin(performance.now() / 120)) * 3 : 0; ctx.save(); if (e.tx - e.x > 0 === e.ty - e.y < 0){ ctx.translate(c.x, 0); ctx.scale(-1, 1); ctx.translate(-c.x, 0); } ctx.drawImage(s.canvas, c.x - s.ax * cam.z, c.y - s.ay * cam.z - bob, s.w * cam.z, s.h * cam.z); ctx.restore();
+  // certains lutins portent une caisse au-dessus de la tête quand ils marchent
+  if (e.carry && e.walk && ICON[e.carry]){ const im = img(ICON[e.carry]); if (im.complete){ const z = 22 * Math.max(.7, cam.z); ctx.drawImage(im, c.x - z / 2, c.y - s.ay * cam.z - bob - z * .55, z, z); } } }
 
 /* =====================================================================
    TOUCHER : déplacer la vue, glisser pour récolter/planter, placer
@@ -935,7 +939,7 @@ function jobsBox(o){
   if (o.job){ const j = T.JOBS[o.type].find(x => x.k === o.job.k), done = o.job.end <= now(), st = T.speedStars(o.job.end - now());
     return `<h3>Commande spéciale</h3><div class="jobrun"><b>${j.name}</b>${done ? '<button class="btn gold wide" data-a="jobget">Récupérer</button>' : `<div class="work"><div class="bar"><i data-end="${o.job.end}" data-total="${o.job.end - o.job.start}"></i></div><span>Prêt dans <b data-until="${o.job.end}"></b></span></div><button class="btn gold sm" data-a="jobspeed">${st ? `Finir <i class="i star"></i>${st}` : 'Finir'}</button>`}</div>`; }
   return `<h3>Commandes spéciales <small class="meta">· choisis selon ton temps</small></h3><div class="jobs">${T.JOBS[o.type].map(j => { const p = T.jobPlan(S, o, j), ok = T.has(S, p.cost);
-    return `<div class="job"><div class="jt"><b>${j.name}</b><span class="chip time">${fmtTime(p.time / 1000)}</span></div><div class="jr"><span class="costs">${rewardChips(p.give)}</span><small class="meta">${Math.round(j.bonus[0] * 100)} % de chance : ${resImg(j.bonus[1])}</small></div><button class="btn ${ok ? 'green' : 'blue'} sm" data-a="jobgo" data-k="${j.k}"><span class="costs">${costChips(p.cost)}</span>Lancer</button></div>`; }).join('')}</div>`;
+    return `<div class="job"><div class="jt"><b>${j.name}</b><span class="chip time">${fmtTime(p.time / 1000)}</span></div><div class="jr"><span class="costs">${rewardChips(p.give)}</span><small class="meta">${Math.round(j.bonus[0] * 100)} % de chance : ${resImg(j.bonus[1])}</small>${Object.entries(p.give).some(([k, n]) => T.RES.includes(k) && k !== 'coins' && n > T.cap(S, k) - S[k]) ? '<small class="bad">Dépasse ton stock : construis un Entrepôt</small>' : ''}</div><button class="btn ${ok ? 'green' : 'blue'} sm" data-a="jobgo" data-k="${j.k}"><span class="costs">${costChips(p.cost)}</span>Lancer</button></div>`; }).join('')}</div>`;
 }
 function keeperBox(o){
   const k = o.keeper || 0, why = T.keeperBlock(S, o), stars = '★'.repeat(k) + '☆'.repeat(T.KEEPER_MAX - k);
@@ -1222,7 +1226,26 @@ function autoCollect(quiet){
   return got;
 }
 const built = o => !o.build;
+/* ---------- village vivant : fumée des bâtiments qui travaillent (Township / Hay Day) ---------- */
+const working = o => { const b = B(o); if (o.build || o.up || o.wild || o.free) return false;
+  if (b.kind === 'prod') return !!o.job || T.stored(S, o) < (o.keeper ? T.keeperBuffer(o) : T.buffer(o.type, o.lv));
+  if (b.kind === 'craft') return (o.q || []).some(j => j.end > now());
+  return b.kind === 'hq' || b.kind === 'house' || b.kind === 'mine'; };
+let smokeT = 0;
+// position de la cheminée sur l'image du bâtiment (mesurée sur les rendus)
+const CHIMNEY = {santa: [.59, .22]};
+function smoke(dt){
+  smokeT -= dt; if (smokeT > 0 || cam.z < .45) return; smokeT = .22;
+  if (FX.filter(f => f.k === 'smoke').length > 40) return;
+  for (const o of S.objs){
+    if (!CHIMNEY[o.type] || Math.random() > .8 || !working(o)) continue;
+    const r = objScreenRect(o); if (r.cx < -50 || r.cx > W + 50 || r.top < -80 || r.top > H) continue;
+    const at = CHIMNEY[o.type]; if (!at) continue; const x = r.left + r.width * at[0], y = r.top + r.height * at[1];
+    FX.push({k: 'smoke', x: x + (Math.random() - .5) * 6, y, vx: 6 + Math.random() * 8, vy: -16 - Math.random() * 10, r: (9 + Math.random() * 5) * cam.z, t: 0, d: 2.4 + Math.random()});
+  }
+}
 function step(t, dt){
+  smoke(dt);
   if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); }
   fxDt = dt;
   refreshOrders(); finishWorks(); moveElves(dt);
