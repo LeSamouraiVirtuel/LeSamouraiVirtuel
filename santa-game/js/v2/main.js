@@ -905,7 +905,8 @@ function renderPanel(){
     h = hd(`Bâtisseurs ${T.builders(S) - T.busyBuilders(S)} / ${T.builders(S)} libres`, 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
       <div class="grid">${list.map(([k, b]) => { const why = T.buildBlock(S, k), hard = why && why !== 'Ressources insuffisantes', c = T.upCost(k, 1), n = T.countOf(S, k), m = T.maxOf(S, k);
         const role = b.kind === 'prod' ? `+${fmt(T.rate(k, 1))} ${ITEMS[b.res].name.toLowerCase()}/h` : b.kind === 'house' ? `+${T.housing(1)} lutins` : b.kind === 'storage' ? `+${fmt(T.storageAdd(1))} de stock` : b.kind === 'deco' ? `+${b.joy} bonheur` : b.desc.split('.')[0];
-        return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${role}</span>${m < 99 ? `<span class="meta">${n} / ${m}</span>` : ''}${hard ? `<span class="why">${why}</span>` : S.tokens?.[k] > 0 ? `<span class="costs"><span class="chip free">Gratuit ×${S.tokens[k]}</span>` : `<span class="costs">${costChips(c)}${T.upTime(k, 1) ? `<span class="chip time">${fmtTime(T.upTime(k, 1))}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
+        const want = !hard && (T.questProgress(S).q.k === 'have:' + k) && !T.questProgress(S).done;
+        return `<button class="card ${hard ? 'locked' : ''} ${want ? 'qwant' : ''}" data-a="place" data-k="${k}">${want ? '<span class="wanted">Tâche</span>' : ''}<img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${role}</span>${m < 99 ? `<span class="meta">${n} / ${m}</span>` : ''}${hard ? `<span class="why">${why}</span>` : S.tokens?.[k] > 0 ? `<span class="costs"><span class="chip free">Gratuit ×${S.tokens[k]}</span>` : `<span class="costs">${costChips(c)}${T.upTime(k, 1) ? `<span class="chip time">${fmtTime(T.upTime(k, 1))}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
   }
   else if (panel === 'expand'){
     const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n);
@@ -1312,7 +1313,6 @@ $('#quest2').addEventListener('click', e => {
 /** Emmène vers ce que demande la tâche (comme les boutons « Aller » de Township). */
 function questGo(q){
   const [kind, what] = q.k.split(':'), has = t => S.objs.some(o => o.type === t && !o.wild);
-  toast(q.t);
   if (kind === 'have'){ if (has(what) && what !== 'cabin') return goTo(what); return openPanel('build', T.catOf(BUILDINGS[what])); }
   if (kind === 'level') return has(what) ? goTo(what) : openPanel('build', T.catOf(BUILDINGS[what]));
   if (kind === 'collect') return goTo({wood: 'sawmill', cookies: 'bakery', fabric: 'mill', coins: 'letters'}[what] || 'sawmill');

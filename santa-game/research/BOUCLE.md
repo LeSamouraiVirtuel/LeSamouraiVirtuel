@@ -102,5 +102,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Toucher la carte de tâche emmène au bon endroit : page Construire, bâtiment concerné, lettres, grotte, écurie, colis, illuminations…
 - La bannière d'amélioration attend que la grande fenêtre soit fermée avant de s'afficher.
 
+## Tour 23 — Carte « Tâche » dans Construire
+- Quand la tâche demande un bâtiment, sa carte dans Construire porte l'étiquette rouge « Tâche » et un halo doré (seulement si on peut le construire).
+- Corrigé au passage : le nom de classe entrait en conflit avec l'étiquette « Demandé » de l'atelier.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
