@@ -245,5 +245,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Fiches aérées : marges, interlignes et espacements plus grands, titres de sections espacés.
 - Corrigé : bouton de l'Atelier coupé, onglets de la Boutique coupés, cartes Flocon / Salle des ventes / Musée / Campagne écrasées (bouton qui passe dessous), recherches illisibles, lettres « 4/1 » (devient « 1/1 · 4 en stock »).
 
+## Tour 47 — Caméra qui glisse
+- Plus de téléportation : la caméra glisse d'un bâtiment à l'autre (accélère, voyage, ralentit en douceur ; 0,65 à 1,7 s selon la distance), avec un léger recul pendant les longs trajets.
+- Tutoriel : petite pause (0,55 s) pour voir la récompense, puis la caméra emmène le joueur ; le cadre jaune et la main apparaissent seulement à l'arrivée, avec une petite animation. Les félicitations s'affichent en haut et s'effacent en glissant.
+- Même glissement pour « Y aller » (Mon village), la carte de tâche, le bouton Lettres, le retour à la Maison (avec retour au zoom normal) et les cadeaux tombés du traîneau.
+- Toucher la carte pendant un trajet l'arrête aussitôt. Testé sur iPhone 13 et SE, tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

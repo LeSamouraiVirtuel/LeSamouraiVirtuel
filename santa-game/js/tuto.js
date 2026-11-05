@@ -19,7 +19,7 @@ const q = s => document.querySelector(s);
 const bubble = id => q(`.bubble[data-id="${id}"]`);
 const plus = id => q(`.plus[data-id="${id}"]`);
 
-export function createTuto({getState, save, focusPlot, portrait, sfx, steps = STEPS, name = 'Pépin', onReward = null, onEnd = null}){
+export function createTuto({getState, save, focusPlot, portrait, sfx, steps = STEPS, name = 'Pépin', onReward = null, onEnd = null, moving = () => false}){
   const STEPS_ = steps;
   const S = getState;
   const root = document.createElement('div'); root.id = 'tuto'; root.hidden = true;
@@ -60,17 +60,18 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
     let r = el && (el.getBoundingClientRect ? el.getBoundingClientRect() : el);
     // une cible HTML à moitié hors de l'écran (bas d'une fiche) : on la fait défiler dans la vue
     if (el?.scrollIntoView && r && (r.bottom > innerHeight - 8 || r.top < 0) && step.scrolled !== el){ step.scrolled = el; el.scrollIntoView({block: 'center', behavior: 'smooth'}); }
-    if (!r || !r.width){
+    if (!r || !r.width || moving()){
       // pas de cible (dialogue) ou cible pas encore à l'écran : tout est bloqué, pas de main
       for (const b of [bt, br, bb, bl]) Object.assign(b.style, {left: '0px', top: '0px', width: '0px', height: '0px'});
       Object.assign(bt.style, {width: '100%', height: '100%'});
-      ring.hidden = hand.hidden = true; return;
+      ring.hidden = hand.hidden = true; ring.classList.remove('in'); return;
     }
     const pad = 8, x = r.left - pad, y = r.top - pad, w = r.width + pad * 2, h = r.height + pad * 2;
     Object.assign(bt.style, {left: '0px', top: '0px', width: '100%', height: Math.max(0, y) + 'px'});
     Object.assign(bb.style, {left: '0px', top: (y + h) + 'px', width: '100%', height: `calc(100% - ${y + h}px)`});
     Object.assign(bl.style, {left: '0px', top: y + 'px', width: Math.max(0, x) + 'px', height: h + 'px'});
     Object.assign(br.style, {left: (x + w) + 'px', top: y + 'px', width: `calc(100% - ${x + w}px)`, height: h + 'px'});
+    if (ring.hidden){ ring.classList.remove('in'); void ring.offsetWidth; ring.classList.add('in'); hand.classList.remove('in'); void hand.offsetWidth; hand.classList.add('in'); }
     ring.hidden = hand.hidden = false;
     Object.assign(ring.style, {left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px'});
     Object.assign(hand.style, {left: (r.left + r.width * .62) + 'px', top: (r.top + r.height * .62) + 'px'});
