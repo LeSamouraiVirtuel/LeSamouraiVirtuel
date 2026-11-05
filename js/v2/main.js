@@ -5,6 +5,7 @@
 import {createTuto} from '../tuto.js';
 import {openMinigame, GAMES} from '../minigames.js';
 import * as T from './town.js';
+import * as M from './meta.js';
 
 const {ITEMS, TOYS, BUILDINGS} = T;
 const tierOf = lv => lv >= 12 ? 3 : lv >= 5 ? 2 : 1;   // apparence du bâtiment selon son niveau
@@ -68,11 +69,17 @@ if (!packed){
 }
 clearInterval(tipTimer);
 bar(1);
+const svgU = x => 'data:image/svg+xml,' + encodeURIComponent(x);
+const SVGI = {
+  shop: svgU(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M12 24h40l-4 30H16z" fill="#e5383b" stroke="#2e202c" stroke-width="3" stroke-linejoin="round"/><path d="M22 24c0-12 20-12 20 0" fill="none" stroke="#2e202c" stroke-width="4"/><path d="M32 30l3 6.5 7 .8-5.2 4.8 1.5 7L32 45.5l-6.3 3.6 1.5-7-5.2-4.8 7-.8z" fill="#ffd34a" stroke="#7a4a05" stroke-width="2" stroke-linejoin="round"/></svg>`),
+  missions: svgU(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="14" y="10" width="36" height="46" rx="5" fill="#fff6e6" stroke="#2e202c" stroke-width="3"/><rect x="24" y="6" width="16" height="9" rx="3" fill="#b5652c" stroke="#2e202c" stroke-width="3"/><path d="M20 26l4 4 7-8M20 40l4 4 7-8" fill="none" stroke="#2f9e44" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M36 28h9M36 42h9" stroke="#2e202c" stroke-width="3" stroke-linecap="round"/></svg>`),
+  pass: svgU(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path d="M8 20h48v8a5 5 0 0 0 0 10v8H8v-8a5 5 0 0 0 0-10z" fill="#ffd34a" stroke="#2e202c" stroke-width="3" stroke-linejoin="round"/><path d="M22 18l4-8 6 6 6-6 4 8" fill="#e5383b" stroke="#2e202c" stroke-width="3" stroke-linejoin="round"/><path d="M32 25l2.6 5.4 5.9.7-4.4 4 1.2 5.8L32 38l-5.3 2.9 1.2-5.8-4.4-4 5.9-.7z" fill="#e5383b" stroke="#2e202c" stroke-width="1.6"/></svg>`),
+};
 ICON.ice = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g stroke="#1d2b4a" stroke-width="3" stroke-linejoin="round"><path d="M20 52 12 30l8-16 8 16z" fill="#7fd3ff"/><path d="M44 54 34 26l10-20 10 20z" fill="#a9e6ff"/><path d="M32 58 24 34l8-14 8 14z" fill="#4fb4f5"/></g><path d="M40 12l-4 10M18 20l-3 7" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/><ellipse cx="32" cy="58" rx="22" ry="3" fill="#1d2b4a" opacity=".25"/></svg>`);
 ICON.cookies = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="33" r="26" fill="#2e202c"/><circle cx="32" cy="31" r="23" fill="#c8793a"/><circle cx="32" cy="31" r="23" fill="none" stroke="#e9a35f" stroke-width="3" stroke-dasharray="4 5"/><circle cx="32" cy="31" r="18" fill="#b5652c"/><circle cx="25" cy="26" r="3.2" fill="#fff6e8"/><circle cx="39" cy="25" r="3.2" fill="#fff6e8"/><circle cx="33" cy="35" r="3.2" fill="#ff4d6a"/><circle cx="24" cy="38" r="2.6" fill="#7ad36b"/><circle cx="41" cy="38" r="2.6" fill="#fff6e8"/><path d="M14 22a20 20 0 0 1 14-12" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`);
-$('#h-coins img').src = ICON.coins; $('#h-avatar').src = portrait; $('#i-village').src = thumbs.santa; $('#i-tgames').src = ICON.mg_sleigh;
+$('#h-coins img').src = ICON.coins; $('#h-avatar').src = portrait; $('#i-village').src = thumbs.santa;
 for (const im of document.querySelectorAll('.resimg')) im.src = ICON[im.dataset.r];
-$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-album').src = ICON.train; $('#i-advent').src = ICON.bell; $('#i-games').src = ICON.mg_sleigh; $('#i-parcels').src = thumbs.gifts; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
+$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-album').src = ICON.train; $('#i-advent').src = ICON.bell; $('#i-games').src = ICON.mg_sleigh; $('#i-parcels').src = thumbs.gifts; ICON.parcel = thumbs.gifts; $('#i-shop').src = SVGI.shop; $('#i-missions').src = SVGI.missions; $('#i-pass').src = SVGI.pass; $('#i-market').src = thumbs.letters; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
 const elfPortrait = portrait;
 
 /* =====================================================================
@@ -83,6 +90,7 @@ let S = saved || T.newTown();
 const save = () => T.saveTown(S);
 let actx = null;
 function tone(f, d = .12, type = 'sine', v = .06, when = 0){
+  if (S.mute) return;
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + when; o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + .02); } catch(e){}
 }
 const sfx = {tap: () => tone(740, .06, 'sine', .04), pop: () => tone(880, .08, 'triangle', .05), collect: () => { tone(988, .1, 'triangle', .05); tone(1319, .14, 'triangle', .05, .06); }, err: () => tone(160, .16, 'sawtooth', .02), level: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .28, 'triangle', .06, i * .08)), build: () => { tone(330, .1, 'square', .03); tone(523, .2, 'triangle', .05, .1); }};
@@ -184,7 +192,7 @@ function deliver(i, el){
   for (const [k, q] of Object.entries(od.items)) T.track(S, 'deliver:' + k, q);
   if (od.mat){ T.give(S, od.mat); setTimeout(() => fly(od.mat, 1, el), 300); }
   if (od.stars){ S.stars += od.stars; }
-  T.track(S, 'orders'); S.orders[i] = {wait: now() + 15000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
+  T.track(S, 'orders'); M.passAdd(S, 5); S.orders[i] = {wait: now() + 15000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
   if (tuto.active()) setTimeout(closePanel, 900);
 }
 function refreshOrders(){
@@ -202,7 +210,7 @@ function startUpgrade(o, el){
   T.take(S, T.upCost(o.type, lv));
   // pendant le tutoriel, le chantier dure 2 min : le temps de lire et de découvrir « Terminer gratuitement »
   const ms = Math.max(T.upTime(o.type, lv) * 1000, tuto.active() && S.tuto <= 6 ? 120e3 : 0); o.up = now() + ms; o.utotal = ms; o.upTo = lv;
-  sfx.build(); tutoEv('upgrade'); save(); closePanel();
+  T.track(S, 'upgrade'); sfx.build(); tutoEv('upgrade'); save(); closePanel();
 }
 function finishWorks(){
   for (const o of S.objs){
@@ -577,11 +585,15 @@ function hud(){
   const L = T.lutins(S), E = T.employed(S);
   $('#h-pop').textContent = `${Math.min(E, L)} / ${L}`; $('#h-pop').classList.toggle('bad', E > L);
   $('#h-joy').textContent = `+${Math.round(T.joyBonus(S) * 100)} %`;
-  $('#h-title').textContent = TITLES[Math.min(TITLES.length - 1, Math.floor((S.lvl - 1) / 2))];
+  $('#h-title').textContent = M.titleOf(S.lvl);
   const toys = Object.entries(S.inv).filter(([k, n]) => ITEMS[k]?.toy && n > 0).reduce((a, [, n]) => a + n, 0);
   $('#b-barn small').textContent = toys;
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
   const bd = $('#b-orders .badge'); bd.textContent = ready; bd.hidden = !ready;
+  { const Ms = M.missions(S), n = Ms.list.filter(m => !m.done && m.v >= m.n).length + M.MISSION_CHESTS.filter((p, i) => Ms.pts >= p && !Ms.chests.includes(i)).length + M.achClaimable(S), e = $('#b-missions .badge'); e.textContent = n; e.hidden = !n; }
+  { const P = M.pass(S); let n = 0; for (let t = 1; t <= P.tier; t++){ if (!P.free[t]) n++; if (P.premium && !P.gold[t]) n++; } const e = $('#b-pass .badge'); e.textContent = n; e.hidden = !n; }
+  { const e = $('#b-shop .badge'); e.hidden = !!S.iap?.starter && M.dailyDeals(S).every(d => d.done); }
+  $('#b-market').hidden = T.hqLv(S) < M.MARKET_HQ;
   { const n = (S.parcels || []).length, e = $('#b-parcels .badge'); e.textContent = n; e.hidden = !n; $('#b-parcels').hidden = !n && !S.exps?.length && !S.mine; }
   $('#b-daily .badge').hidden = !T.dailyReady(S);
   { const n = T.albumClaimable(S).length, e = $('#b-album .badge'); e.textContent = n; e.hidden = !n; }
@@ -667,11 +679,60 @@ function renderPanel(){
       <div class="acts"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Améliorer l'écurie (niv. ${o.lv})</button></div>`;
   }
   else if (panel === 'shop'){
-    h = hd("Étoiles d'or : la monnaie rare", 'Boutique') + `<p class="meta">Les étoiles d'or terminent un chantier tout de suite, remplissent les pioches, ramènent les rennes et engagent des bâtisseurs. On en gagne au compte-gouttes : niveaux, tâches, album, colis légendaires.</p>
-      <h3>Bâtisseurs</h3><div class="builders">${T.BUILDER_PRICE.map((p, i) => { const own = (S.extraBuilders || 0) > i, can = (S.extraBuilders || 0) === i;
-        return `<div class="bcard ${own ? 'own' : ''}"><img src="${elfImg()}" alt=""><b>Bâtisseur ${i + 3}</b>${own ? '<span class="meta">Engagé</span>' : `<button class="btn ${can ? 'gold' : 'blue'} sm" data-a="builder" ${can ? '' : 'disabled'}><i class="i star"></i>${p}</button>`}</div>`; }).join('')}</div>
-      <h3>Paquets d'étoiles</h3><div class="packs">${T.SHOP.map(p => `<button class="pack" data-a="buy" data-k="${p.k}">${p.tag ? `<span class="ptag">${p.tag}</span>` : ''}<i class="i star"></i><b>${fmt(p.stars)}</b><span class="btn green sm">${p.price}</span></button>`).join('')}</div>
-      <p class="meta">Le paiement sera activé avec la version App Store.</p>`;
+    const tab = panelArg || 'offers', tabs = [['offers', 'Offres'], ['stars', 'Étoiles'], ['res', 'Ressources'], ['chests', 'Coffres']];
+    h = hd(`Tu as ${fmt(S.stars)} étoiles d'or`, 'Boutique') + `<div class="tabs">${tabs.map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" data-a="stab" data-k="${k}">${l}</button>`).join('')}</div>`;
+    if (tab === 'offers'){
+      const st = M.IAP.starter, deals = M.dailyDeals(S), P = M.pass(S);
+      h += `${S.iap?.starter ? '' : `<div class="offer big"><span class="ptag">${st.tag}</span><div><b>${st.name}</b><small>Une seule fois</small><span class="costs">${rewardChips(st.give)}</span></div><button class="btn green" data-a="iap" data-k="starter">${st.price}</button></div>`}
+        ${P.premium ? '' : `<div class="offer gold"><div><b>Pass de Noël Or</b><small>Saison ${P.n} · ${M.SEASONS[(P.n - 1) % M.SEASONS.length]}</small><span class="meta">Double récompense à chaque palier : étoiles, lingots, colis légendaires.</span></div><button class="btn green" data-a="iap" data-k="pass">${M.IAP.pass.price}</button></div>`}
+        <h3>Offres du jour <small class="meta">· nouvelles offres dans <b data-until="${new Date(new Date().setHours(24, 0, 0, 0)).getTime()}"></b></small></h3>
+        <div class="deals">${deals.map(d => `<div class="deal ${d.done ? 'done' : ''}"><b>${d.name}</b><span class="costs">${rewardChips(d.give)}</span>${d.done ? '<span class="meta">Acheté ✓</span>' : `<button class="btn ${d.cost.stars ? 'gold' : 'blue'} sm" data-a="deal" data-k="${d.k}">${d.cost.stars ? `<i class="i star"></i>${d.cost.stars}` : `${icon('coins')}${fmt(d.cost.coins)}`}</button>`}</div>`).join('')}</div>
+        <h3>Bâtisseurs</h3><div class="builders">${T.BUILDER_PRICE.map((p, i) => { const own = (S.extraBuilders || 0) > i, can = (S.extraBuilders || 0) === i;
+          return `<div class="bcard ${own ? 'own' : ''}"><img src="${elfImg()}" alt=""><b>Bâtisseur ${i + 3}</b>${own ? '<span class="meta">Engagé</span>' : `<button class="btn ${can ? 'gold' : 'blue'} sm" data-a="builder" ${can ? '' : 'disabled'}><i class="i star"></i>${p}</button>`}</div>`; }).join('')}</div>`;
+    }
+    if (tab === 'stars') h += `<p class="help">Les étoiles d'or terminent un chantier tout de suite, engagent des bâtisseurs, achètent des ressources et des coffres.</p><div class="packs">${['p1', 'p2', 'p3', 'p4', 'p5'].map(k => { const p = M.IAP[k]; return `<button class="pack" data-a="iap" data-k="${k}">${p.tag ? `<span class="ptag">${p.tag}</span>` : ''}<i class="i star"></i><b>${fmt(p.give.stars)}</b><small>${p.name}</small><span class="btn green sm">${p.price}</span></button>`; }).join('')}</div>`;
+    if (tab === 'res') h += `<p class="help">Il te manque quelque chose ? Achète-le en étoiles d'or. Plus le paquet est gros, moins c'est cher à l'unité.</p>${['wood', 'cookies', 'fabric', 'coins', 'ice', 'gold'].map(k => `<div class="rshop"><div class="rsh">${resImg(k)}<b>${RINFO[k].name}</b><small>${qty(k)}</small></div><div class="rpacks">${M.resPacks(S, k).map((p, i) => `<button class="rpack" data-a="rbuy" data-k="${k}" data-i="${i}" ${p.n ? '' : 'disabled'}><small>${p.name}</small><b>${p.n ? '+' + fmt(p.n) : 'Stock plein'}</b>${p.n ? `<span><i class="i star"></i>${p.stars}</span>` : ''}</button>`).join('')}</div></div>`).join('')}`;
+    if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture.</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
+    h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p>`;
+  }
+  else if (panel === 'missions'){
+    const tab = panelArg || 'day';
+    h = hd(tab === 'day' ? 'Nouvelles missions chaque jour' : `${M.achClaimable(S)} récompense${M.achClaimable(S) > 1 ? 's' : ''} à prendre`, tab === 'day' ? 'Missions du jour' : 'Succès') + `<div class="tabs"><button class="${tab === 'day' ? 'on' : ''}" data-a="mtab" data-k="day">Missions du jour</button><button class="${tab === 'ach' ? 'on' : ''}" data-a="mtab" data-k="ach">Succès</button></div>`;
+    if (tab === 'day'){
+      const Ms = M.missions(S), top = M.MISSION_CHESTS[2];
+      h += `<div class="mprog"><i style="width:${Math.min(100, Ms.pts / top * 100)}%"></i></div><div class="mchests">${M.MISSION_CHESTS.map((n, i) => `<button class="mch ${Ms.chests.includes(i) ? 'got' : Ms.pts >= n ? 'can' : ''}" data-a="mchest" data-i="${i}"><i class="pbox" style="--rc:${['#3b8cff', '#a347ff', '#ff8a1c'][i]}"></i><small>${Ms.chests.includes(i) ? 'Ouvert ✓' : `${n} points`}</small></button>`).join('')}</div>
+        <p class="meta">${Ms.pts} points · chaque point fait aussi avancer le Pass de Noël.</p>
+        <div class="mlist">${Ms.list.map((m, i) => `<div class="mis ${m.done ? 'done' : ''}"><div><b>${m.t}</b><div class="bar"><i style="width:${m.v / m.n * 100}%"></i></div><small>${fmt(m.v)} / ${fmt(m.n)}</small></div>${m.done ? '<span class="ok">✓</span>' : m.v >= m.n ? `<button class="btn green sm" data-a="mclaim" data-i="${i}">+${m.pts} pts</button>` : `<span class="pts">${m.pts} pts</span>`}</div>`).join('')}</div>`;
+    } else {
+      h += `<p class="help">Les succès sont la grande source d'étoiles d'or gratuites : chaque palier en donne.</p><div class="mlist">${M.ACH.map(a => { const st = M.achState(S, a), v = M.achValue(S, a);
+        return `<div class="mis ${st.claimed >= 3 ? 'done' : ''}"><div><b>${a.name} <i class="kst">${'★'.repeat(st.claimed)}${'☆'.repeat(3 - st.claimed)}</i></b><small>${a.d} : ${fmt(v)} / ${fmt(st.next)}</small><div class="bar"><i style="width:${Math.min(100, v / st.next * 100)}%"></i></div></div>${st.claimed >= 3 ? '<span class="ok">✓</span>' : st.can ? `<button class="btn gold sm" data-a="aclaim" data-k="${a.k}"><i class="i star"></i>${M.achStars[st.claimed]}</button>` : `<span class="pts"><i class="i star"></i>${M.achStars[st.claimed]}</span>`}</div>`; }).join('')}</div>`;
+    }
+  }
+  else if (panel === 'pass'){
+    const P = M.pass(S), into = P.xp % M.PASS_STEP;
+    h = hd(`Saison ${P.n} · encore ${Math.max(1, Math.ceil((P.end - now()) / 864e5))} jours`, `Pass de Noël · ${M.SEASONS[(P.n - 1) % M.SEASONS.length]}`) + `<div class="ptop"><span class="ptier">${P.tier}</span><div><div class="bar"><i style="width:${P.tier >= M.PASS_TIERS ? 100 : into}%"></i></div><small>${P.tier >= M.PASS_TIERS ? 'Pass terminé !' : `${into} / ${M.PASS_STEP} points vers le palier ${P.tier + 1}`}</small></div>${P.premium ? '<span class="gtag">Or ✓</span>' : `<button class="btn gold sm" data-a="iap" data-k="pass">Or · ${M.IAP.pass.price}</button>`}</div>
+      <p class="meta">Les points viennent des missions du jour et des lettres livrées (5 par lettre).</p>
+      <div class="ptrack"><div class="phead"><span>Palier</span><span>Gratuit</span><span>Or</span></div>${Array.from({length: M.PASS_TIERS}, (_, i) => i + 1).map(t => { const ok = t <= P.tier, f = P.free[t], g = P.gold[t];
+        return `<div class="prow ${ok ? 'ok' : ''}"><span class="pn">${t}</span><button class="pr ${f ? 'got' : ok ? 'can' : ''}" data-a="pclaim" data-k="${t}" data-g="0">${rewardChips(M.passReward(S, t, false))}${f ? '<i class="ck"></i>' : ''}</button><button class="pr gold ${g ? 'got' : ok && P.premium ? 'can' : ''} ${P.premium ? '' : 'lock'}" data-a="pclaim" data-k="${t}" data-g="1">${rewardChips(M.passReward(S, t, true))}${g ? '<i class="ck"></i>' : ''}</button></div>`; }).join('')}</div>`;
+  }
+  else if (panel === 'market'){
+    if (T.hqLv(S) < M.MARKET_HQ){ h = hd('', 'Marché du village') + `<p class="help">Le marché ouvre avec la <b>Maison du Père Noël niv. ${M.MARKET_HQ}</b>. Tu pourras y revendre ton surplus et acheter au marchand ambulant.</p>`; }
+    else {
+      const mer = M.merchant(S), toys = Object.keys(TOYS).filter(k => S.inv[k] > 0);
+      h = hd('Revends ton surplus, achète au marchand', 'Marché du village') + `<h3>Le marchand ambulant <small class="meta">· aujourd'hui il est <b>${mer.mood}</b></small></h3>
+        <div class="deals">${mer.offers.map(o => `<div class="deal ${o.left <= 0 ? 'done' : ''}"><b>${Object.entries(o.give).map(([k, n]) => `${fmt(n)} ${(RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase()}`).join(', ')}</b><span class="costs">${rewardChips(o.give)}</span><small class="meta">encore ${Math.max(0, o.left)} aujourd'hui</small>${o.left > 0 ? `<button class="btn blue sm" data-a="mbuy" data-k="${o.k}">${icon('coins')}${fmt(o.cost.coins)}</button>` : '<span class="meta">Épuisé</span>'}</div>`).join('')}</div>
+        <h3>Vendre des ressources</h3><div class="mlist">${Object.entries(M.SELL_RATE).map(([k, r]) => { const n = Math.floor((S[k] || 0) * .25);
+          return `<div class="mis"><div><b>${RINFO[k].name}</b><small>${fmt(S[k] || 0)} en stock · 1 ${RINFO[k].name.toLowerCase().replace(/s$/, '')} = ${String(r).replace('.', ',')} pièce${r > 1 ? 's' : ''}</small></div><button class="btn green sm" data-a="sell" data-k="${k}" ${n >= 10 ? '' : 'disabled'}>Vendre ${fmt(n)} → ${icon('coins')}${fmt(Math.floor(n * r))}</button></div>`; }).join('')}</div>
+        <h3>Vendre des jouets</h3><div class="mlist">${toys.length ? toys.map(k => `<div class="mis"><div><b>${ITEMS[k].name}</b><small>${S.inv[k]} en stock · gardés pour les lettres ?</small></div><button class="btn green sm" data-a="selltoy" data-k="${k}">Vendre 1 → ${icon('coins')}${M.sellToy(k)}</button></div>`).join('') : '<p class="meta">Aucun jouet en stock.</p>'}</div>`;
+    }
+  }
+  else if (panel === 'profile'){
+    const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Améliorations', S.cnt.upgrade || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Record de la grotte', 'étage ' + (S.mine?.best || 0)], ['Illuminations', 'niv. ' + T.lightsLv(S)], ['Succès', M.ACH.reduce((a, x) => a + (S.ach?.[x.k] || 0), 0) + ' / ' + M.ACH.length * 3 + ' ★']];
+    h = hd(M.titleOf(S.lvl), S.name || 'Mon village') + `<div class="prof"><img src="${portrait}" alt=""><div><b>Niveau ${S.lvl}</b><small>Maison du Père Noël niv. ${T.hqLv(S)}</small><button class="btn blue sm" data-a="rename">Renommer le village</button></div></div>
+      <div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div>
+      <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
+      <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
+      <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
   }
   else if (panel === 'lights'){
     const n = T.lightsLv(S), c = T.lightsCost(n), why = T.lightsBlock(S);
@@ -681,7 +742,8 @@ function renderPanel(){
       <div class="acts"><button class="btn green" data-a="lights" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>Allumer</button></div>${why ? `<p class="note">${why}</p>` : ''}`;
   }
   else if (panel === 'stock'){
-    h = hd('Ressources, jouets et outils', 'Stock') + `<p class="help">Touche une ressource pour savoir à quoi elle sert et où en trouver.</p><h3>Ressources</h3><div class="stock">${T.RES.map(r => `<div class="st" data-a="rinfo" data-k="${r}"><img src="${ICON[r]}" alt=""><b>${fmt(S[r])}</b><small>${r === 'coins' ? ITEMS[r].name : `${ITEMS[r].name} · max ${fmt(T.cap(S, r))}`}</small></div>`).join('')}</div>
+    h = hd('Ressources, jouets et outils', 'Stock') + `<p class="help">Touche une ligne pour tout savoir sur une ressource. Il te manque quelque chose ? <button class="lnk" data-a="goshop">Boutique ›</button></p>
+      <h3>D'où viennent tes ressources ?</h3><div class="rguide">${GUIDE.map(([k, src, use]) => `<div class="rg" data-a="rinfo" data-k="${k}">${resImg(k)}<div><b>${RINFO[k].name} <em>${qty(k)}</em></b><small><span class="from">${src.map(t => thumbs[t] ? `<img src="${thumbs[t]}" alt="">${BUILDINGS[t].name}` : t).join(' · ')}</span></small><small class="use">→ ${use}</small></div></div>`).join('')}</div><h3>Ressources</h3><div class="stock">${T.RES.map(r => `<div class="st" data-a="rinfo" data-k="${r}"><img src="${ICON[r]}" alt=""><b>${fmt(S[r])}</b><small>${r === 'coins' ? ITEMS[r].name : `${ITEMS[r].name} · max ${fmt(T.cap(S, r))}`}</small></div>`).join('')}</div>
       <h3>Jouets</h3><div class="stock">${Object.keys(TOYS).filter(k => S.inv[k] > 0).map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k]}</b><small>${ITEMS[k].name}</small></div>`).join('') || '<p class="meta">Aucun jouet : fabrique-les à l’Atelier des jouets.</p>'}</div>
       <h3>Matériaux rares</h3><div class="stock">${T.RARE.map(k => `<div class="st" data-a="rinfo" data-k="${k}"><img src="${ICON[k]}" alt=""><b>${fmt(S.inv[k] || 0)}</b><small>${ITEMS[k].name}</small></div>`).join('')}</div>
       <h3>Outils</h3><div class="stock">${['axe', 'saw'].map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k] || 0}</b><small>${ITEMS[k].name}</small></div>`).join('')}</div>
@@ -754,7 +816,25 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'stab'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
+  if (a === 'mtab'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
+  if (a === 'iap') return buyIap(b.dataset.k);
+  if (a === 'deal'){ const d = M.dailyDeals(S).find(x => x.k === b.dataset.k); if (!d || d.done) return; if (!T.has(S, d.cost)){ sfx.err(); return d.cost.stars ? (toast("Pas assez d'étoiles d'or"), openPanel('shop', 'stars')) : toast('Pas assez de pièces'); } T.take(S, d.cost); S.deals.bought[d.k] = 1; save(); return bravo(d.give, d.name); }
+  if (a === 'rbuy'){ const k = b.dataset.k, p = M.resPacks(S, k)[+b.dataset.i]; if (!p?.n) return; if (S.stars < p.stars){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop', 'stars'); } S.stars -= p.stars; giveReward({[k]: p.n}, b); return renderPanel(); }
+  if (a === 'chest'){ const c = M.CHESTS.find(x => x.r === +b.dataset.k); if (S.stars < c.stars){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop', 'stars'); } S.stars -= c.stars; (S.parcels ||= []).unshift(c.r); save(); closePanel(); return openParcel(); }
+  if (a === 'mclaim'){ const n = M.missionClaim(S, +b.dataset.i); if (n){ sfx.level(); toast(`+${n} points de mission et de Pass !`); save(); } return renderPanel(); }
+  if (a === 'mchest'){ const i = +b.dataset.i, Ms = M.missions(S); if (Ms.chests.includes(i) || Ms.pts < M.MISSION_CHESTS[i]){ sfx.err(); return toast(Ms.chests.includes(i) ? 'Déjà ouvert' : `Il faut ${M.MISSION_CHESTS[i]} points`); } Ms.chests.push(i); closePanel(); return bravo(M.missionChest(S, i), 'Coffre des missions'); }
+  if (a === 'aclaim'){ const r = M.achClaim(S, M.ACH.find(x => x.k === b.dataset.k)); if (r){ closePanel(); return bravo(r, 'Succès débloqué'); } return; }
+  if (a === 'pclaim'){ const t = +b.dataset.k, g = b.dataset.g === '1', P = M.pass(S); if (g && !P.premium){ sfx.err(); return buyIap('pass'); } const r = M.passClaim(S, t, g); if (!r){ sfx.err(); return toast(t > P.tier ? `Palier ${t} pas encore atteint` : 'Déjà récupéré'); } closePanel(); return bravo(r, `Pass de Noël · palier ${t}`); }
+  if (a === 'mbuy'){ const o = M.merchant(S).offers.find(x => x.k === b.dataset.k); if (!o || o.left <= 0) return; if (!T.has(S, o.cost)){ sfx.err(); return showMissing(o.cost, 'Marchand ambulant', null); } T.take(S, o.cost); S.merchant.bought[o.k] = (S.merchant.bought[o.k] || 0) + 1; giveReward(o.give, b); return renderPanel(); }
+  if (a === 'sell'){ const k = b.dataset.k, n = Math.floor((S[k] || 0) * .25), c = Math.floor(n * M.SELL_RATE[k]); if (n < 10) return; S[k] -= n; S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
+  if (a === 'selltoy'){ const k = b.dataset.k; if (!(S.inv[k] > 0)) return; S.inv[k]--; const c = M.sellToy(k); S.coins += c; fly('coins', c, b); T.track(S, 'sell'); sfx.collect(); save(); return renderPanel(); }
+  if (a === 'rename'){ const n = prompt('Nom de ton village :', S.name || ''); if (n != null){ S.name = n.trim().slice(0, 24); save(); } return renderPanel(); }
+  if (a === 'mute'){ S.mute = !S.mute; save(); return renderPanel(); }
+  if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
+  if (a === 'reset'){ if (confirm('Effacer ton village et tout recommencer ?')){ T.clearTown(); location.reload(); } return; }
   if (a === 'rinfo') return resInfo(b.dataset.k);
+  if (a === 'goshop') return openPanel('shop', 'res');
   if (a === 'gocraft'){ const w = workshopOf(); return w ? goTo('workshop') : null; }
   if (a === 'gomine') return openPanel('mine', panelArg);
   if (a === 'golights') return openPanel('lights');
@@ -765,7 +845,6 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'expgo'){ const why = T.expStart(S, b.dataset.k, now()); if (why){ sfx.err(); return toast(why); } sfx.level(); T.track(S, 'exp'); toast('Les rennes sont partis !'); save(); return renderPanel(); }
   if (a === 'expspeed'){ const e = (S.exps || [])[+b.dataset.i]; if (!e) return; const st = T.speedStars(e.end - now()); if (S.stars < st){ sfx.err(); return openPanel('shop'); } S.stars -= st; e.end = now(); checkExps(); return renderPanel(); }
   if (a === 'builder'){ const n = S.extraBuilders || 0, p = T.BUILDER_PRICE[n]; if (p == null) return; if (S.stars < p){ sfx.err(); return toast(`Il faut ${p} étoiles d'or`); } S.stars -= p; S.extraBuilders = n + 1; sfx.level(); toast(`Bâtisseur ${n + 3} engagé !`); save(); return renderPanel(); }
-  if (a === 'buy'){ sfx.tap(); return toast('Les achats arriveront avec la version App Store'); }
   if (a === 'lights'){ const why = T.lightsUp(S); if (why){ sfx.err(); return toast(why); } sfx.level(); gainXp(2, b); T.track(S, 'lights'); toast(`Illuminations niv. ${S.lights} : production +${S.lights} %`); save(); return renderPanel(); }
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
@@ -887,7 +966,7 @@ function openParcel(){
     setTimeout(() => { list.shift(); const rw = T.parcelReward(S, r); T.track(S, 'parcel'); save(); bravo(rw, `Colis ${R.name.toLowerCase()}`, r === 3 ? 'LÉGENDAIRE !' : r === 2 ? 'ÉPIQUE !' : 'BRAVO !'); }, 650); };
 }
 $('#b-parcels').addEventListener('click', () => openParcel());
-for (const id of ['#h-stars', '#h-coins']) $(id).querySelector('.plus')?.addEventListener('click', e => { e.stopPropagation(); sfx.tap(); openPanel('shop'); });
+for (const id of ['#h-stars', '#h-coins']) $(id).querySelector('.plus')?.addEventListener('click', e => { e.stopPropagation(); sfx.tap(); openPanel('shop', 'stars'); });
 for (const [id, k] of [['#h-wood', 'wood'], ['#h-cookies', 'cookies'], ['#h-fabric', 'fabric'], ['#h-coins', 'coins'], ['#h-stars', 'stars'], ['#xpbar', 'xp'], ['#h-pop', 'pop'], ['#h-joy', 'joy']])
   $(id)?.addEventListener('click', () => { sfx.tap(); resInfo(k); });
 
@@ -906,6 +985,16 @@ const RINFO = {
   pop:     {name: 'Lutins', use: 'Les bâtiments de production emploient des lutins (au travail / logés). S’il en manque, la production baisse.', from: 'Construis ou améliore des Chalets des lutins.', go: 'cabin'},
   joy:     {name: 'Bonheur', use: 'Chaque point de bonheur donne +1 % de production à tout le village.', from: 'Les décorations et le Théâtre de marionnettes.', go: 'build:deco'},
 };
+// Guide du Stock : chaque ressource, qui la produit, à quoi elle sert (une ligne chacune)
+const GUIDE = [
+  ['wood', ['sawmill'], 'construire, améliorer, jouets en bois'],
+  ['cookies', ['bakery'], 'gros chantiers, rennes, boîtes de biscuits'],
+  ['fabric', ['mill'], 'peluches, chaussettes, théâtre'],
+  ['coins', ['letters', 'orders'], 'tout acheter et améliorer'],
+  ['ice', ['mine', 'stable'], 'bâtiments à partir du niveau 6'],
+  ['gold', ['mine', 'stable'], 'bâtiments à partir du niveau 11'],
+  ['stars', ['Succès, Pass, niveaux, boutique'], 'accélérer, bâtisseurs, achats'],
+];
 const qty = k => k === 'xp' ? `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}` : k === 'pop' ? `${T.employed(S)} au travail / ${T.lutins(S)} logés` : k === 'joy' ? `${T.joy(S)} points · +${T.joy(S)} %` : T.RES.includes(k) && k !== 'coins' ? `${fmt(S[k])} / ${fmt(T.cap(S, k))} (stock max)` : fmt(haveOf(k));
 const resImg = k => k === 'stars' ? '<i class="i star"></i>' : k === 'xp' ? '<i class="i xp">XP</i>' : k === 'pop' ? '<i class="i pop"></i>' : k === 'joy' ? '<i class="i joy"></i>' : `<img src="${ICON[k]}" alt="">`;
 function resInfo(k){
@@ -948,6 +1037,26 @@ function whyHelp(o, why){
   return `Il manque ${lack.join(', ')}. Touche <b>Améliorer</b> pour savoir où en trouver.`;
 }
 
+/* ---------- achats intégrés (simulés dans la version web) ---------- */
+function buyIap(k){
+  const p = M.IAP[k]; if (!p) return; S.iap ||= {};
+  if (p.once && S.iap[k]){ sfx.err(); return toast('Déjà acheté'); }
+  const m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Achat intégré</small><h2 class="stroke">${p.name}</h2>${Object.keys(p.give).length ? `<div class="costs" style="justify-content:center">${rewardChips(p.give)}</div>` : '<p>Débloque la colonne Or du Pass de Noël pour toute la saison, y compris les paliers déjà atteints.</p>'}
+    <div class="rrow"><small>Version de test</small><p>Ici l'achat est <b>simulé et gratuit</b>, pour tester le parcours. Dans la version App Store, le paiement de <b>${p.price}</b> passera par Apple.</p></div>
+    <div class="acts"><button class="btn green" data-m="buy">Acheter · ${p.price}</button><button class="btn blue" data-m="ok">Annuler</button></div>`;
+  m.hidden = false;
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'buy') return;
+    S.iap[k] = (S.iap[k] || 0) + 1; closePanel();
+    if (k === 'pass'){ M.pass(S).premium = true; save(); sfx.level(); toast('Pass de Noël Or activé !'); return openPanel('pass'); }
+    save(); bravo(p.give, p.name, 'MERCI !'); };
+}
+$('#b-shop').addEventListener('click', () => { sfx.tap(); openPanel('shop'); });
+$('#b-missions').addEventListener('click', () => { sfx.tap(); openPanel('missions', 'day'); });
+$('#b-pass').addEventListener('click', () => { sfx.tap(); openPanel('pass'); });
+$('#b-market').addEventListener('click', () => { sfx.tap(); openPanel('market'); });
+document.querySelector('#hud2 .me')?.addEventListener('click', () => { sfx.tap(); openPanel('profile'); });
+
 /* ---------- écran « Bravo ! » (récompenses en grand, puis elles volent vers les compteurs) ---------- */
 let pendingStory = -1;
 function story(i){
@@ -976,6 +1085,7 @@ function giveReward(r, el){
   for (const [k, n] of Object.entries(r)){
     if (!n || k === 'xp') continue;
     if (k === 'stars'){ S.stars += n; continue; }
+    if (k === 'parcel'){ S.parcels ||= []; for (let j = 0; j < n; j++) S.parcels.push(1); continue; }
     const room = T.RES.includes(k) ? Math.max(0, T.cap(S, k) - S[k]) : Infinity, g = Math.min(n, room);
     if (g){ T.give(S, k, g); fly(k, g, el); }
   }
@@ -1002,7 +1112,6 @@ $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
 $('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); });
 $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
-$('#b-tgames').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
 $('#b-village').addEventListener('click', () => { sfx.tap(); closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o){ centerOn(o.x + 2, o.y + 2); cam.z = startZoom(); } });
 
 /* ---------- mini-jeux (Tournée de Noël, Bataille de boules de neige) ---------- */
