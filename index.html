@@ -1116,6 +1116,18 @@ body.tutoring #sideL2,body.sheet-open #sideL2,body.placing #sideL2,body:not(.pla
 .mchests .mch{position:static;transform:none;padding:8px 4px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5;gap:4px}
 .mchests .mch.can{border-color:#4cc85a;box-shadow:0 0 0 3px rgba(76,200,90,.35)}
 .mchests .mch .pbox{width:38px;height:38px}
+
+/* commandes spéciales */
+.jobs{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.job{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:9px 10px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5}
+.job .jt{grid-column:1/3;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.job .jt b{font-size:14.5px}
+.job .jr{display:flex;flex-direction:column;gap:3px}
+.job .jr .meta{display:flex;align-items:center;gap:4px;font-size:11.5px}
+.job .jr .meta img,.job .jr .meta i.i{width:18px!important;height:18px!important;font-size:8px}
+.job .btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:4px;padding-bottom:4px}
+.job .btn .costs .chip{font-size:11px;padding:0 5px;background:rgba(255,255,255,.85)}
+.jobrun{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:14px;background:#fff3c4;border:2px solid #e2b54a;margin-bottom:10px}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>

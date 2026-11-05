@@ -399,6 +399,7 @@ function drawHint(o){
   if (r.cx < -60 || r.cx > W + 60 || top < -60 || r.cy > H + 80) return;
   const w = workEnd(o);
   if (w){ const total = o.build ? o.btotal : o.utotal; timerPill(r.cx, top, (speedCost(o) ? '' : '✓ ') + fmtTime((w - now()) / 1000), 1 - (w - now()) / (total || 1)); return; }
+  if (o.job && o.job.end <= now()) return bubble(r.cx, top, B(o).res, '★');
   if (b.kind === 'prod' && o.keeper){ if (keeperFull.has(o)) bubble(r.cx, top, b.res, 'PLEIN'); }
   else if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); if (ripe(o)) bubble(r.cx, top, b.res, n >= buf ? 'MAX' : ''); }
   if (b.kind === 'craft'){ const d = craftDone(o); if (d.length) bubble(r.cx, top, d[0].item, d.length > 1 ? 'x' + d.length : ''); else if (o.q?.length){ const j = o.q[0]; timerPill(r.cx, top, fmtTime((j.end - now()) / 1000), 1 - (j.end - now()) / (TOYS[j.item].time / T.craftSpeed(o.lv) * 1000)); } }
@@ -535,7 +536,7 @@ function tap(o, at){
   selObj = o;
   const b = B(o);
   if (workEnd(o)) return openPanel('site', o);
-  if (b.kind === 'prod'){ if (!collectBld(o)) openPanel('bld', o); return; }
+  if (b.kind === 'prod'){ if (o.job && o.job.end <= now()) return openPanel('bld', o); if (!collectBld(o)) openPanel('bld', o); return; }
   if (b.kind === 'craft'){ if (!collectToys(o, at)) openPanel('craft', o); return; }
   if (b.kind === 'orders') return openPanel('orders');
   if (b.kind === 'stable') return openPanel('exp', o);
@@ -776,6 +777,7 @@ function renderPanel(){
     const rows = T.stats(S, o).map(r => `<div class="srow"><span>${r.label}</span><b>${r.now}</b>${o.lv < max ? `<i class="arrow"></i><em>${r.next}</em>` : ''}</div>`).join('');
     let extra = '';
     if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); extra = `<div class="work"><div class="bar"><i style="width:${n / buf * 100}%"></i></div><span>${fmt(n)} / ${fmt(buf)} ${ITEMS[b.res].name.toLowerCase()} dans le bâtiment${T.workRatio(S) < 1 ? ' · <b class="bad">pas assez de lutins !</b>' : ''}</span></div>${ripe(o) ? '<button class="btn gold wide" data-a="collect">Récolter</button>' : ''}`; }
+    if (T.JOBS[o.type]) extra += jobsBox(o);
     if (b.kind === 'stable') extra = '<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>';
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
     if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>`; }
@@ -817,6 +819,9 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'jobgo'){ const o = panelArg, j = T.JOBS[o.type].find(x => x.k === b.dataset.k), why = T.jobStart(S, o, b.dataset.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.jobPlan(S, o, j).cost, j.name, null) : toast(why); } sfx.build(); T.track(S, 'job'); toast(`Les lutins s'y mettent : ${j.name}`); save(); panelHtml = ''; return renderPanel(); }
+  if (a === 'jobget'){ const o = panelArg, r = T.jobCollect(S, o, now()); if (r){ T.track(S, 'jobdone'); gainXp(4 + o.lv, null); closePanel(); bravo(r, T.JOBS[o.type].length ? 'Commande spéciale terminée' : ''); } return; }
+  if (a === 'jobspeed'){ const o = panelArg, st = T.speedStars(o.job.end - now()); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop', 'stars'); } S.stars -= st; o.job.end = now(); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'stab'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'mtab'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'iap') return buyIap(b.dataset.k);
@@ -926,6 +931,12 @@ function keeperLine(o){
   return b.desc;
 }
 
+function jobsBox(o){
+  if (o.job){ const j = T.JOBS[o.type].find(x => x.k === o.job.k), done = o.job.end <= now(), st = T.speedStars(o.job.end - now());
+    return `<h3>Commande spéciale</h3><div class="jobrun"><b>${j.name}</b>${done ? '<button class="btn gold wide" data-a="jobget">Récupérer</button>' : `<div class="work"><div class="bar"><i data-end="${o.job.end}" data-total="${o.job.end - o.job.start}"></i></div><span>Prêt dans <b data-until="${o.job.end}"></b></span></div><button class="btn gold sm" data-a="jobspeed">${st ? `Finir <i class="i star"></i>${st}` : 'Finir'}</button>`}</div>`; }
+  return `<h3>Commandes spéciales <small class="meta">· choisis selon ton temps</small></h3><div class="jobs">${T.JOBS[o.type].map(j => { const p = T.jobPlan(S, o, j), ok = T.has(S, p.cost);
+    return `<div class="job"><div class="jt"><b>${j.name}</b><span class="chip time">${fmtTime(p.time / 1000)}</span></div><div class="jr"><span class="costs">${rewardChips(p.give)}</span><small class="meta">${Math.round(j.bonus[0] * 100)} % de chance : ${resImg(j.bonus[1])}</small></div><button class="btn ${ok ? 'green' : 'blue'} sm" data-a="jobgo" data-k="${j.k}"><span class="costs">${costChips(p.cost)}</span>Lancer</button></div>`; }).join('')}</div>`;
+}
 function keeperBox(o){
   const k = o.keeper || 0, why = T.keeperBlock(S, o), stars = '★'.repeat(k) + '☆'.repeat(T.KEEPER_MAX - k);
   if (T.hqLv(S) < T.keeperHq) return `<div class="kbox klock"><b>Gardien</b><span>Se débloque avec la Maison du Père Noël niv. ${T.keeperHq} : il récoltera tout seul pour toi.</span></div>`;
