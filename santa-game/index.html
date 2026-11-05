@@ -1018,6 +1018,104 @@ i.i.joy{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org
 .lack small{font-family:Fredoka,system-ui,sans-serif!important;-webkit-text-stroke:0!important;text-shadow:none!important}
 i.pk{width:28px!important;height:28px!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M15 9 25 29' stroke='%232e202c' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M15 9 25 29' stroke='%23b8743a' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M3 12C9 3 21 2 29 7c-6-1-12 0-17 3z' fill='%23d9e2ee' stroke='%232e202c' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E")!important}
 #modal.bravo h2.long{font-size:clamp(30px,10vw,44px)!important;white-space:nowrap}
+
+/* ===== V6 : boutons de gauche (missions, pass, marché) ===== */
+#sideL2{position:fixed;left:max(8px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 96px);z-index:4;display:flex;flex-direction:column;gap:14px;transition:opacity .25s}
+#sideL2 button{position:relative;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,#ffffff,#f3e3c0 70%,#e2c896);border:2px solid #fff;box-shadow:0 0 0 2px var(--wood-d),0 4px 0 2px var(--wood-d),0 8px 12px rgba(10,16,40,.3)}
+#sideL2 button[hidden]{display:none}
+#sideL2 img{width:40px;height:40px;object-fit:contain;margin-top:-4px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.25))}
+#sideL2 small{position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);font-family:var(--display);font-size:11px;color:#fff;white-space:nowrap;padding:0 6px;border-radius:7px;background:linear-gradient(180deg,#2b3d5e,#18233a);border:1.5px solid rgba(255,255,255,.25)}
+#sideL2 .badge{position:absolute;top:-8px;right:-8px}
+body.tutoring #sideL2,body.sheet-open #sideL2,body.placing #sideL2,body:not(.playing) #sideL2,body.in-game #sideL2{opacity:0;pointer-events:none}
+#hud2 .me{cursor:pointer}
+/* boutique */
+.offer{position:relative;display:flex;align-items:center;gap:10px;justify-content:space-between;margin:0 0 10px;padding:12px;border-radius:16px;background:linear-gradient(135deg,#fff3c4,#ffd36b);border:2.5px solid #c98a12;box-shadow:0 3px 0 rgba(122,74,5,.35)}
+.offer.gold{background:linear-gradient(135deg,#2b3d7e,#5a3aa8);border-color:#1b1e4a;color:#fff}
+.offer.gold .meta{color:#dfe3ff}
+.offer b{display:block;font-family:var(--display);font-weight:400;font-size:18px}
+.offer small{display:block;font-size:12px;opacity:.85;margin-bottom:4px}
+.offer .ptag{position:absolute;top:-10px;left:10px;background:#e5383b;color:#fff;font-size:11px;font-weight:900;border-radius:8px;padding:2px 8px}
+.deals{display:flex;flex-direction:column;gap:8px}
+.deal{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:9px 10px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5;flex-wrap:wrap}
+.deal b{flex:1 1 100%;font-size:14px}
+.deal.done{opacity:.55}
+.pack small{font-size:11.5px;color:#7a4a05;font-weight:700}
+.rshop{margin:0 0 10px;padding:9px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5}
+.rsh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rsh img,.rsh i.i{width:32px!important;height:32px!important;font-size:13px}
+.rsh small{margin-left:auto;color:#7a6650;font-size:12px}
+.rpacks{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.rpack{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px;border-radius:12px;border:2px solid #e2b54a;background:linear-gradient(180deg,#fff7d9,#ffe7a3);cursor:pointer;font:inherit}
+.rpack small{font-size:10.5px;color:#7a5a30;font-weight:700;text-align:center}
+.rpack b{font-family:var(--display);font-weight:400;font-size:16px;color:#3a2208}
+.rpack span{font-weight:900;color:#7a4a05}
+.rpack:disabled{opacity:.5}
+.chests{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.chest{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5;text-align:center}
+.chest .pbig{width:58px;height:58px;border-radius:12px;margin:4px auto;animation:none}
+.chest small{font-size:11px;color:#6b5a48;line-height:1.25}
+/* missions et succès */
+.mbar{position:relative;height:46px;margin:8px 14px 2px}
+.mbar .bar{position:absolute;left:0;right:0;top:16px;height:12px;border-radius:6px;background:#3a2a18;overflow:hidden}
+.mbar .bar i{display:block;height:100%;background:linear-gradient(90deg,#6fe07f,#2f9e44)}
+.mch{position:absolute;top:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;border:0;background:none;padding:0;cursor:pointer}
+.mch .pbox{width:34px;height:34px;filter:grayscale(.7) brightness(.9)}
+.mch.can .pbox{filter:none;animation:pfloat 1.2s ease-in-out infinite}
+.mch.got .pbox{opacity:.4}
+.mch small{font-weight:900;font-size:11px;color:#5a3a10}
+.mlist{display:flex;flex-direction:column;gap:7px}
+.mis{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:9px 11px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5}
+.mis>div{flex:1;min-width:0}
+.mis b{display:block;font-size:14.5px}
+.mis small{display:block;font-size:12px;color:#7a6650}
+.mis .bar{height:7px;border-radius:4px;background:#e9dcc2;overflow:hidden;margin:4px 0 2px}
+.mis .bar i{display:block;height:100%;background:linear-gradient(90deg,#6fe07f,#2f9e44)}
+.mis.done{opacity:.6}
+.mis .ok{font-size:22px;color:#2f9e44;font-weight:900}
+.mis .pts{font-weight:900;color:#7a4a05;white-space:nowrap}
+.kst{font-style:normal;color:#e6a10f;letter-spacing:1px}
+/* pass */
+.ptop{display:flex;align-items:center;gap:10px;margin:2px 0 6px}
+.ptop>div{flex:1}
+.ptop .bar{height:12px;border-radius:6px;background:#3a2a18;overflow:hidden}
+.ptop .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffe766,#e6a10f)}
+.ptop small{font-size:12px;color:#7a6650}
+.ptier{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:linear-gradient(180deg,#ffe766,#e6a10f);border:3px solid #7a4a05;font:400 20px var(--display);color:#3a2208}
+.gtag{font-weight:900;color:#7a4a05;background:#ffe766;border-radius:10px;padding:4px 10px}
+.ptrack{display:flex;flex-direction:column;gap:5px}
+.phead,.prow{display:grid;grid-template-columns:34px 1fr 1fr;gap:6px;align-items:stretch}
+.phead span{font-size:11px;font-weight:900;text-transform:uppercase;color:#9a6a2a;text-align:center}
+.pn{display:grid;place-items:center;font:400 15px var(--display);color:#7a6650;border-radius:10px;background:#efe2c6}
+.prow.ok .pn{background:#ffd34a;color:#3a2208}
+.pr{position:relative;display:flex;flex-wrap:wrap;gap:3px;align-items:center;justify-content:center;min-height:42px;padding:4px;border-radius:12px;border:2px solid #ead7b5;background:#fffaf0;cursor:pointer;font:inherit}
+.pr .chip{font-size:12px;padding:1px 6px}
+.pr.gold{background:linear-gradient(180deg,#fff2c2,#ffe08a);border-color:#e2b54a}
+.pr.lock{filter:grayscale(.6);opacity:.7}
+.pr.can{box-shadow:0 0 0 3px #4cc85a}
+.pr.got{opacity:.5}
+/* profil */
+.prof{display:flex;align-items:center;gap:12px;margin:2px 0 12px}
+.prof img{width:72px;height:72px;border-radius:18px;border:3px solid #fff;box-shadow:0 0 0 2px var(--ink)}
+.prof b{display:block;font:400 20px var(--display)}
+.prof small{display:block;color:#7a6650;margin-bottom:6px}
+
+.rguide{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.rg{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5;cursor:pointer}
+.rg>img,.rg>i.i{width:40px!important;height:40px!important;flex:none;font-size:15px}
+.rg b{display:block;font-size:15px}
+.rg b em{font-style:normal;font-weight:800;font-size:12px;color:#fff;background:#2b3a55;border-radius:8px;padding:1px 7px;margin-left:4px}
+.rg small{display:block;font-size:12px;color:#6b5a48;line-height:1.35}
+.rg .from img{width:22px;height:18px;object-fit:contain;vertical-align:middle;margin-right:2px}
+.rg .use{color:#2f6d2f;font-weight:700}
+
+.offer.gold b,.offer.gold small{color:#ffe766!important;-webkit-text-stroke:0!important}
+.offer:first-of-type,.tabs+.offer{margin-top:16px}
+.mprog{height:12px;border-radius:6px;background:#3a2a18;overflow:hidden;margin:6px 2px 8px}
+.mprog i{display:block;height:100%;background:linear-gradient(90deg,#6fe07f,#2f9e44)}
+.mchests{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+.mchests .mch{position:static;transform:none;padding:8px 4px;border-radius:14px;background:#fffaf0;border:2px solid #ead7b5;gap:4px}
+.mchests .mch.can{border-color:#4cc85a;box-shadow:0 0 0 3px rgba(76,200,90,.35)}
+.mchests .mch .pbox{width:38px;height:38px}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>
@@ -1036,12 +1134,13 @@ i.pk{width:28px!important;height:28px!important;background-image:url("data:image
   <div class="row2"><div id="xpbar"><i></i><b>0 / 20</b></div><span class="chipx" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="chipx joy" id="h-joy" title="Bonheur">+0 %</span><span class="title" id="h-title">Lutin apprenti</span></div>
 </div>
 <nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button><button id="b-album" aria-label="Album des jouets"><img id="i-album" alt=""><small>Album</small><span class="badge stroke" hidden>0</span></button><button id="b-parcels" aria-label="Colis mystère" hidden><img id="i-parcels" alt=""><small>Colis</small><span class="badge stroke" hidden>0</span></button><button id="b-advent" aria-label="Calendrier de l'Avent"><img id="i-advent" alt=""><small>Avent</small><span class="badge stroke" hidden>!</span></button></nav>
+<nav id="sideL2" class="side"><button id="b-missions" aria-label="Missions du jour"><img id="i-missions" alt=""><small>Missions</small><span class="badge stroke" hidden>0</span></button><button id="b-pass" aria-label="Pass de Noël"><img id="i-pass" alt=""><small>Pass</small><span class="badge stroke" hidden>0</span></button><button id="b-market" aria-label="Marché" hidden><img id="i-market" alt=""><small>Marché</small></button></nav>
 <nav id="tabbar">
   <button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Lettres</b><span class="badge stroke" hidden>0</span></button>
   <button id="b-barn"><img class="ico" id="i-barn" alt=""><b>Stock</b><small>0</small></button>
   <button id="b-build" class="big"><img class="ico" id="i-build" alt=""><b>Construire</b></button>
   <button id="b-village" class="on"><img class="ico" id="i-village" alt=""><b>Village</b></button>
-  <button id="b-tgames"><img class="ico" id="i-tgames" alt=""><b>Tournée</b></button>
+  <button id="b-shop"><img class="ico" id="i-shop" alt=""><b>Boutique</b><span class="badge stroke" hidden>!</span></button>
 </nav>
 <button id="quest2"></button>
 <div id="seeds" hidden></div>
