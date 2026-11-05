@@ -75,8 +75,8 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
     Object.assign(ring.style, {left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px'});
     Object.assign(hand.style, {left: (r.left + r.width * .62) + 'px', top: (r.top + r.height * .62) + 'px'});
     // la bulle de dialogue se met en haut ou en bas pour ne pas cacher la cible
-    const bh = box.offsetHeight || 110, bottomTop = innerHeight - 150 - bh, topBottom = 120 + bh;
-    const overlapsBottom = r.bottom > bottomTop - 8, overlapsTop = r.top < topBottom + 8;
+    const bh = box.offsetHeight || 110, bottomTop = innerHeight - 96 - bh, topBottom = 120 + bh;
+    const overlapsBottom = r.bottom > bottomTop - 18, overlapsTop = r.top < topBottom + 18;
     box.classList.toggle('up', overlapsBottom && !overlapsTop);
     box.classList.toggle('low', overlapsBottom && overlapsTop);
   }
