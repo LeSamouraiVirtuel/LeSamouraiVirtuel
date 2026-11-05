@@ -21,7 +21,18 @@ const TW = 64, TH = TW / 2;
 /* =====================================================================
    CHARGEMENT
    ===================================================================== */
-const TIPS = ['Glisse le doigt sur plusieurs champs pour tout récolter d’un coup.', 'Les commandes du traîneau rapportent beaucoup d’XP.', 'Les usines travaillent pendant que tu fais autre chose.', 'Agrandis ta grange avec des planches, des clous et de la peinture.', 'Les maisons apportent des habitants, nécessaires pour les usines.', 'Reviens chaque jour pour ton cadeau du jour !'];
+const TIPS = [
+  'Touche une ressource en haut de l’écran pour savoir à quoi elle sert et où en trouver.',
+  'Glisse le doigt sur plusieurs bâtiments prêts pour tout récolter d’un coup.',
+  'Les lettres des enfants rapportent le plus d’expérience : livre-les souvent !',
+  'La Maison du Père Noël fixe le niveau maximum de tous les bâtiments.',
+  'Un gardien récolte tout seul, même quand tu ne joues pas.',
+  'Moins de 3 minutes de chantier ? C’est gratuit : touche « Terminer ».',
+  'La Grotte aux cristaux est plus riche à chaque étage : trouve l’escalier !',
+  'Plus les rennes vont loin, plus les colis rares sont fréquents.',
+  'Les illuminations du village donnent +1 % de production par niveau, pour toujours.',
+  'Les étoiles d’or sont rares : garde-les pour un bâtisseur de plus.',
+]
 let tipI = Math.floor(Math.random() * TIPS.length);
 const tip = () => { const e = $('#tip'); if (e) e.textContent = TIPS[tipI++ % TIPS.length]; };
 tip(); const tipTimer = setInterval(tip, 3200);
@@ -57,9 +68,11 @@ if (!packed){
 }
 clearInterval(tipTimer);
 bar(1);
+ICON.ice = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g stroke="#1d2b4a" stroke-width="3" stroke-linejoin="round"><path d="M20 52 12 30l8-16 8 16z" fill="#7fd3ff"/><path d="M44 54 34 26l10-20 10 20z" fill="#a9e6ff"/><path d="M32 58 24 34l8-14 8 14z" fill="#4fb4f5"/></g><path d="M40 12l-4 10M18 20l-3 7" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/><ellipse cx="32" cy="58" rx="22" ry="3" fill="#1d2b4a" opacity=".25"/></svg>`);
+ICON.cookies = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="33" r="26" fill="#2e202c"/><circle cx="32" cy="31" r="23" fill="#c8793a"/><circle cx="32" cy="31" r="23" fill="none" stroke="#e9a35f" stroke-width="3" stroke-dasharray="4 5"/><circle cx="32" cy="31" r="18" fill="#b5652c"/><circle cx="25" cy="26" r="3.2" fill="#fff6e8"/><circle cx="39" cy="25" r="3.2" fill="#fff6e8"/><circle cx="33" cy="35" r="3.2" fill="#ff4d6a"/><circle cx="24" cy="38" r="2.6" fill="#7ad36b"/><circle cx="41" cy="38" r="2.6" fill="#fff6e8"/><path d="M14 22a20 20 0 0 1 14-12" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`);
 $('#h-coins img').src = ICON.coins; $('#h-avatar').src = portrait; $('#i-village').src = thumbs.santa; $('#i-tgames').src = ICON.mg_sleigh;
 for (const im of document.querySelectorAll('.resimg')) im.src = ICON[im.dataset.r];
-$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-album').src = ICON.train; $('#i-advent').src = ICON.bell; $('#i-games').src = ICON.mg_sleigh; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
+$('#i-orders').src = thumbs.orders; $('#i-daily').src = thumbs.gifts; $('#i-album').src = ICON.train; $('#i-advent').src = ICON.bell; $('#i-games').src = ICON.mg_sleigh; $('#i-parcels').src = thumbs.gifts; $('#i-barn').src = thumbs.storage; $('#i-build').src = buildIcon;
 const elfPortrait = portrait;
 
 /* =====================================================================
@@ -156,7 +169,7 @@ function queueToy(o, k){
   if (S.lvl < t.lvl){ sfx.err(); return toast(`Niveau ${t.lvl} requis`); }
   o.q = o.q || [];
   if (o.q.length >= T.craftSlots(o.lv)){ sfx.err(); return toast("La file de l'atelier est pleine"); }
-  if (!T.has(S, t.cost)){ sfx.err(); return toast('Ressources insuffisantes'); }
+  if (!T.has(S, t.cost)){ sfx.err(); return showMissing(t.cost, `Fabriquer : ${ITEMS[k].name}`, () => queueToy(o, k)); }
   T.take(S, t.cost);
   const start = Math.max(now(), o.q.length ? o.q[o.q.length - 1].end : 0);
   o.q.push({item: k, end: start + t.time / T.craftSpeed(o.lv) * 1000}); sfx.pop(); tutoEv('craft'); save(); renderPanel();
@@ -182,12 +195,13 @@ function refreshOrders(){
 }
 /* ---------- chantiers : construction et amélioration ---------- */
 function startUpgrade(o, el){
-  const why = T.upBlock(S, o); if (why){ sfx.err(); return toast(why); }
+  const why = T.upBlock(S, o); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.upCost(o.type, o.lv + 1), `${B(o).name} niveau ${o.lv + 1}`, () => startUpgrade(o)) : toast(why); }
   const lv = o.lv + 1;
   // on récolte d'abord ce qui attend dans le bâtiment (sinon ce serait perdu)
   if (B(o).kind === 'prod') collectBld(o);
   T.take(S, T.upCost(o.type, lv));
-  const ms = T.upTime(o.type, lv) * 1000; o.up = now() + ms; o.utotal = ms; o.upTo = lv;
+  // pendant le tutoriel, le chantier dure 2 min : le temps de lire et de découvrir « Terminer gratuitement »
+  const ms = Math.max(T.upTime(o.type, lv) * 1000, tuto.active() && S.tuto <= 6 ? 120e3 : 0); o.up = now() + ms; o.utotal = ms; o.upTo = lv;
   sfx.build(); tutoEv('upgrade'); save(); closePanel();
 }
 function finishWorks(){
@@ -197,7 +211,7 @@ function finishWorks(){
   }
 }
 const workEnd = o => o.build || o.up || 0;
-function speedCost(o){ const left = workEnd(o) - now(); return left <= T.freeFinish ? 0 : Math.max(1, Math.ceil(left / 300e3)); }
+function speedCost(o){ return T.speedStars(workEnd(o) - now()); }
 
 /* =====================================================================
    RENDU
@@ -283,7 +297,9 @@ function draw(){
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
   // noms des bâtiments, puis indicateurs au-dessus
+  labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width);
   for (const o of S.objs) plate(o);
+  for (const l of T.lotsShown(S)) lotLabel(l);
   for (const o of S.objs) drawHint(o);
   // neige qui tombe
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -299,6 +315,17 @@ function vignette(){ // calculée une fois en petite taille, puis étirée (dég
     const g = x.createRadialGradient(w / 2, h * .45, Math.min(w, h) * .35, w / 2, h * .45, Math.hypot(w, h) * .62); g.addColorStop(0, 'rgba(20,30,70,0)'); g.addColorStop(1, 'rgba(20,30,70,.28)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }
   return vig;
 }
+// Étiquettes : jamais coupées au bord de l'écran, jamais sous la barre du haut, les boutons de droite ou la barre du bas,
+// et jamais l'une sur l'autre (la première posée gagne : bâtiments d'abord, terrains réservés ensuite).
+let labels = [], labelZones = [];
+function labelSpot(x, y, w, h){
+  x = Math.round(Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, x))); y = Math.round(y);
+  const L = x - w / 2, R = x + w / 2, T_ = y - h / 2, Bm = y + h / 2;
+  if (T_ < 120 || Bm > H - 170) return null;
+  for (const z of labelZones) if (L < z.right && R > z.left && T_ < z.bottom && Bm > z.top) return null;
+  for (const r of labels) if (L < r.R + 4 && R > r.L - 4 && T_ < r.B + 3 && Bm > r.T - 3) return null;
+  labels.push({L, R, T: T_, B: Bm}); return {x, y};
+}
 const PLATE = new Set(['hq', 'prod', 'storage', 'craft', 'orders', 'stable', 'fun']);
 function plate(o){
   const b = B(o); if (!PLATE.has(b.kind) || cam.z < .5 || o.build) return;
@@ -306,8 +333,9 @@ function plate(o){
   if (p.x < -100 || p.x > W + 100 || p.y < -40 || p.y > H + 40) return;
   // étiquette discrète au pied du bâtiment : pastille de niveau dorée + nom en police fine (comme Bid Master)
   const label = b.name, lv = String(o.lv || 1);
-  ctx.save(); ctx.translate(Math.round(p.x), Math.round(p.y - 10));
   ctx.font = '600 11px Fredoka, sans-serif'; const tw = ctx.measureText(label).width, w = tw + 30, h = 18;
+  const at = labelSpot(p.x, p.y - 10, w, h); if (!at) return;
+  ctx.save(); ctx.translate(at.x, at.y);
   ctx.fillStyle = 'rgba(18,22,44,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 5); ctx.fill();
   ctx.fillStyle = '#ffc93a'; ctx.beginPath(); ctx.arc(-w / 2 + 10, 0, 7, 0, 7); ctx.fill(); ctx.strokeStyle = '#7a4a05'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = '#3a2208'; ctx.font = '400 9.5px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(lv, -w / 2 + 10, .5);
@@ -317,9 +345,21 @@ function plate(o){
 function drawLot(l){
   const b = BUILDINGS[l.type], c = toScreen(l.x + b.w / 2, l.y + b.h / 2), ok = (b.hq || 1) <= T.hqLv(S);
   diamond(l.x, l.y, b.w, b.h, ok ? 'rgba(90,200,110,.18)' : 'rgba(40,50,90,.16)', ok ? 'rgba(60,170,80,.7)' : 'rgba(255,255,255,.55)');
-  drawSprite(`b:${l.type}:1`, c.x, c.y, ok ? .55 : .32);
+  // poteau et panneau en bois au centre du terrain (plus de bâtiment fantôme en transparence)
+  { const z = Math.min(1.2, Math.max(.7, cam.z)); ctx.save(); ctx.translate(c.x, c.y); ctx.scale(z, z);
+    ctx.fillStyle = '#6b4220'; ctx.fillRect(-2.5, -26, 5, 28); ctx.strokeStyle = '#2e202c'; ctx.lineWidth = 2; ctx.strokeRect(-2.5, -26, 5, 28);
+    ctx.fillStyle = ok ? '#e9b65f' : '#b9a58a'; ctx.beginPath(); ctx.roundRect(-17, -44, 34, 22, 4); ctx.fill(); ctx.stroke();
+    if (ok){ ctx.fillStyle = '#2f9e44'; ctx.fillRect(-7, -35.5, 14, 4.5); ctx.fillRect(-2.25, -40.5, 4.5, 14.5); }
+    else { ctx.strokeStyle = '#5a3a10'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(0, -36, 4, Math.PI, 0); ctx.stroke(); ctx.fillStyle = '#5a3a10'; ctx.fillRect(-6, -36, 12, 9); }
+    ctx.restore(); }
+}
+/** Étiquette d'un terrain réservé (dessinée avec les autres étiquettes, après les bâtiments). */
+function lotLabel(l){
+  const b = BUILDINGS[l.type], ok = (b.hq || 1) <= T.hqLv(S);
   const p = toScreen(l.x + b.w, l.y + b.h), label = ok ? `${b.name} · à construire` : `${b.name} · Maison niv. ${b.hq}`;
-  ctx.save(); ctx.translate(Math.round(p.x), Math.round(p.y - 10));
+  ctx.font = '600 11px Fredoka, sans-serif'; const lw = ctx.measureText(label).width + 30;
+  const at = labelSpot(p.x, p.y - 10, lw, 18); if (!at) return;
+  ctx.save(); ctx.translate(at.x, at.y);
   ctx.font = '600 11px Fredoka, sans-serif'; const w = ctx.measureText(label).width + 30, h = 18;
   ctx.fillStyle = ok ? 'rgba(20,110,40,.85)' : 'rgba(18,22,44,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 5); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(label, -w / 2 + 21, .5);
@@ -354,6 +394,8 @@ function drawHint(o){
   if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); if (ripe(o)) bubble(r.cx, top, b.res, n >= buf ? 'MAX' : ''); }
   if (b.kind === 'craft'){ const d = craftDone(o); if (d.length) bubble(r.cx, top, d[0].item, d.length > 1 ? 'x' + d.length : ''); else if (o.q?.length){ const j = o.q[0]; timerPill(r.cx, top, fmtTime((j.end - now()) / 1000), 1 - (j.end - now()) / (TOYS[j.item].time / T.craftSpeed(o.lv) * 1000)); } }
   if (b.kind === 'orders'){ const ok = S.orders.some(od => od.items && T.has(S, od.items)); if (ok) return bubble(r.cx, top, 'coins', '!'); }
+  if (b.kind === 'mine'){ const st = T.mineState(S); if (st && st.M.picks >= st.max) return bubble(r.cx, top, 'ice', String(st.M.picks)); }
+  if (b.kind === 'stable'){ const run = S.exps || []; if (run.length >= T.expSlots(o.lv)){ const e = run.reduce((a, x) => x.end < a.end ? x : a); const d = T.EXP_DEST.find(d => d.k === e.k); return timerPill(r.cx, top, fmtTime((e.end - now()) / 1000), 1 - (e.end - now()) / d.time); } if (!T.expBlock(S, 'forest')) return bubble(r.cx, top, 'gold', '!'); }
   if (T.isUpgradable(b) && !ripe(o) && !(b.kind === 'craft' && craftDone(o).length) && !T.upBlock(S, o)) bang(r.cx + r.width * .22, top + 6);
 }
 /** « ! » rouge : ce bâtiment peut être amélioré maintenant (comme les « ! » de Bid Master). */
@@ -374,7 +416,8 @@ function fxHarvest(o, k, n){
   const tx = tr.left + tr.width / 2, ty = tr.top + tr.height * .4;
   for (let i = 0; i < 4; i++){ const x0 = c.x + (Math.random() - .5) * 46 * cam.z, y0 = c.y - 8 * cam.z + (Math.random() - .5) * 16;
     FX.push({k: 'item', target: targetOf(k), url: ICON[k], x0, y0, cx: (x0 + tx) / 2 + (Math.random() - .5) * 120, cy: Math.min(y0, ty) - 90 - Math.random() * 80, tx, ty, t: -i * .07, d: .8, last: i === 3}); }
-  FX.push({k: 'txt', txt: '+' + n, x: c.x - 16, y: c.y - 28 * cam.z, t: 0, d: 1.1, col: '#fff'});
+  const near = FX.filter(f => f.k === 'txt' && f.t < f.d * .8 && Math.abs(f.x - (c.x - 16)) < 70 && Math.abs(f.y0 - (c.y - 28 * cam.z)) < 60).length;
+  FX.push({k: 'txt', txt: '+' + fmt(n), x: c.x - 16, y: c.y - 28 * cam.z - near * 30, y0: c.y - 28 * cam.z, t: 0, d: 1.2, col: '#fff', icon: ICON[k]});
   
 }
 // bâtiment terminé : nuage de poussière + étincelles
@@ -399,7 +442,7 @@ function drawFx(dt){
       const y = f.y - 46 * ease(u); ctx.globalAlpha = u > .7 ? (1 - u) / .3 : 1;
       ctx.font = '400 22px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = '#2a1a0e';
       if (f.k === 'xp'){ ctx.fillStyle = '#3aa8ff'; ctx.beginPath(); ctx.arc(f.x - 20, y, 11, 0, 7); ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke(); ctx.lineWidth = 5; ctx.font = '400 10px "Lilita One", sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('XP', f.x - 20, y + 1); ctx.font = '400 20px "Lilita One", sans-serif'; ctx.strokeText(f.txt, f.x + 6, y); ctx.fillStyle = '#9be3ff'; ctx.fillText(f.txt, f.x + 6, y); }
-      else { ctx.strokeText(f.txt, f.x, y); ctx.fillStyle = f.col; ctx.fillText(f.txt, f.x, y); }
+      else { ctx.strokeText(f.txt, f.x, y); ctx.fillStyle = f.col; ctx.fillText(f.txt, f.x, y); if (f.icon){ const im = img(f.icon); if (im.complete){ const tw = ctx.measureText(f.txt).width; ctx.drawImage(im, f.x + tw / 2 + 2, y - 13, 26, 26); } } }
     } else if (f.k === 'puff'){
       f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = (1 - u) * .85; ctx.fillStyle = '#fbf6ee'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + u * 1.3), 0, 7); ctx.fill();
     } else if (f.k === 'spark'){
@@ -484,7 +527,8 @@ function tap(o, at){
   if (b.kind === 'prod'){ if (!collectBld(o)) openPanel('bld', o); return; }
   if (b.kind === 'craft'){ if (!collectToys(o, at)) openPanel('craft', o); return; }
   if (b.kind === 'orders') return openPanel('orders');
-  if (b.kind === 'stable') return openPanel('bld', o);
+  if (b.kind === 'stable') return openPanel('exp', o);
+  if (b.kind === 'mine') return openPanel('mine', o);
   if (T.isUpgradable(b)) return openPanel('bld', o);
   openPanel('info', o);
 }
@@ -492,6 +536,8 @@ function tap(o, at){
 /* =====================================================================
    INTERFACE
    ===================================================================== */
+// barre du haut : 4 caractères au plus (999, 9,5k, 40k, 1,2M) pour que tout tienne sur un iPhone
+const fmtS = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(n < 1e7 ? 1 : 0).replace('.', ',') + 'M' : n >= 1e4 ? Math.floor(n / 1e3) + 'k' : n >= 1e3 ? (Math.floor(n / 100) / 10).toFixed(1).replace('.', ',') + 'k' : String(n); };
 const fmt = n => { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + 'k' : String(n); };
 const fmtTime = s => { s = Math.max(0, Math.ceil(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return h ? `${h}h ${String(m).padStart(2, '0')}` : m ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`; };
 const icon = k => `<img class="i" src="${ICON[k]}" alt="">`;
@@ -518,13 +564,13 @@ const TITLES = ['Lutin apprenti', 'Lutin confirmé', 'Chef des lutins', 'Maître
 function hud(){
   $('#h-lvl').textContent = S.lvl;
   $('#xpbar i').style.width = Math.min(100, S.xp / T.xpNeed(S.lvl) * 100) + '%';
-  $('#xpbar b').textContent = `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}`;
-  $('#h-coins b').textContent = fmt(S.coins);
-  $('#h-stars b').textContent = fmt(S.stars);
+  $('#xpbar b').textContent = `XP ${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}`;
+  $('#h-coins b').textContent = fmtS(S.coins);
+  $('#h-stars b').textContent = fmtS(S.stars);
   for (const r of ['wood', 'cookies', 'fabric']){
     const e = $('#h-' + r), c = T.cap(S, r);
     e.hidden = r === 'fabric' && !S.fabric && !S.objs.some(o => o.type === 'mill');
-    e.querySelector('b').textContent = fmt(S[r]); e.querySelector('.cap i').style.width = Math.min(100, S[r] / c * 100) + '%'; e.classList.toggle('full', S[r] >= c);
+    e.querySelector('b').textContent = fmtS(S[r]); e.querySelector('.cap i').style.width = Math.min(100, S[r] / c * 100) + '%'; e.classList.toggle('full', S[r] >= c);
   }
   const L = T.lutins(S), E = T.employed(S);
   $('#h-pop').textContent = `${Math.min(E, L)} / ${L}`; $('#h-pop').classList.toggle('bad', E > L);
@@ -534,6 +580,7 @@ function hud(){
   $('#b-barn small').textContent = toys;
   const ready = S.orders.filter(od => od.items && T.has(S, od.items)).length;
   const bd = $('#b-orders .badge'); bd.textContent = ready; bd.hidden = !ready;
+  { const n = (S.parcels || []).length, e = $('#b-parcels .badge'); e.textContent = n; e.hidden = !n; $('#b-parcels').hidden = !n && !S.exps?.length && !S.mine; }
   $('#b-daily .badge').hidden = !T.dailyReady(S);
   { const n = T.albumClaimable(S).length, e = $('#b-album .badge'); e.textContent = n; e.hidden = !n; }
   { const a = T.adventState(S), e = $('#b-advent .badge'); e.hidden = !(a.open && T.adventCan(S, a.today)); $('#b-advent small').textContent = a.open ? 'Avent' : `J-${a.untilStart}`; }
@@ -561,16 +608,17 @@ function renderPanel(){
       ? `<button class="ot ${i === selOrder ? 'sel' : ''} ${T.has(S, o.items) ? 'ok' : ''}" data-a="osel" data-i="${i}">${Object.keys(o.items).slice(0, 3).map(k => `<img src="${ICON[k]}" alt="">`).join('')}${T.has(S, o.items) ? '<i class="ck"></i>' : ''}</button>`
       : `<div class="ot wait"><b data-until="${o.wait}"></b></div>`).join('');
     const detail = od?.items ? `<div class="od">
-        <div class="odh"><small>Commande de ${od.kid}</small><span class="rw"><span>${icon('coins')}${od.coins}</span><span><i class="i xp">XP</i>${od.xp}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
+        <div class="letter"><p>${od.msg || 'Cher Père Noël, voici ma liste !'}</p><i>— ${od.kid}${od.age ? `, ${od.age} ans, ${od.city}` : ''}</i></div>
+        <div class="odh"><small>Récompense</small><span class="rw"><span>${icon('coins')}${od.coins}</span><span><i class="i xp">XP</i>${od.xp}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
         <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : ''}<b>${h}/${n}</b></div>`; }).join('')}</div>
         <div class="oacts"><button class="trash" data-a="trash" data-i="${selOrder}" aria-label="Remplacer cette commande"></button><button class="btn green" data-a="deliver" data-i="${selOrder}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button></div>
       </div>` : '<p class="meta">De nouvelles commandes arrivent…</p>';
-    h = hd('Lettres des enfants', 'Bureau du traîneau') + (workshopOf() ? '' : '<p class="meta warn">Les jouets se fabriquent à l’<b>Atelier des jouets</b> (Maison du Père Noël niv. 2).</p>') + detail + `<div class="otiles">${tiles}</div>`;
+    h = hd('Lettres des enfants', 'Bureau du traîneau') + (workshopOf() ? `<p class="help">Fabrique les jouets à l’<b>Atelier des jouets</b>, puis reviens ici pour les livrer. <button class="lnk" data-a="gocraft">Aller à l’atelier ›</button></p>` : '<p class="help">Les jouets se fabriquent à l’<b>Atelier des jouets</b>, qui se débloque avec la <b>Maison du Père Noël niv. 2</b>.</p>') + detail + `<div class="otiles">${tiles}</div>`;
   }
   else if (panel === 'craft'){
     const o = panelArg, q = o.q || [], n = T.craftSlots(o.lv);
     const slots = Array.from({length: n}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
-    h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + `<h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
+    h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + `<p class="help">Touche un jouet pour le mettre dans la file. Les jouets marqués <b>Demandé</b> sont attendus dans les lettres.</p><h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
       ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}
       <h3>Jouets</h3><div class="recipes">${Object.entries(TOYS).map(([k, t]) => { const lock = S.lvl < t.lvl, wanted = S.orders.some(od => od.items?.[k]);
         return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, t.cost) ? 'ok' : ''}" data-a="queue" data-k="${k}">${wanted && !lock ? '<span class="wanted">Demandé</span>' : ''}<img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
@@ -595,16 +643,52 @@ function renderPanel(){
       <div class="advent2">${T.ADVENT.map((r, i) => { const d = i + 1, done = S.advent?.[d], can = T.adventCan(S, d);
         return `<button class="door2 ${done ? 'open' : ''} ${can ? 'can' : ''} ${d === 24 ? 'big' : ''}" data-a="advent" data-d="${d}" ${can ? '' : 'disabled'}><b>${d}</b>${done ? '<i class="ck"></i>' : `<span class="mini-r">${rewardChips(r)}</span>`}</button>`; }).join('')}</div>`;
   }
+  else if (panel === 'mine'){
+    const st = T.mineState(S);
+    if (!st) h = hd('', 'Grotte aux cristaux') + '<p class="meta">La grotte est encore en travaux.</p>';
+    else {
+      const {o, M, max, next} = st;
+      h = hd(`Étage ${M.floor} · record ${M.best || M.floor}`, 'Grotte aux cristaux') + `<div class="minebar"><span class="picks"><i class="pk"></i><b>${M.picks} / ${max}</b></span><small>${next ? `+1 pioche dans <b data-until="${next}"></b>` : 'Pioches au maximum'}</small>${M.picks < max ? `<button class="btn gold sm" data-a="refill">Remplir <i class="i star"></i>${T.PICK_REFILL}</button>` : ''}</div>
+        <div class="mgrid f${Math.min(5, Math.ceil(M.floor / 10))}">${M.cells.map((c, i) => c.open ? `<div class="mc open k-${c.k}">${cellIcon(c)}</div>` : `<button class="mc" data-a="dig" data-i="${i}" aria-label="Creuser"></button>`).join('')}</div>
+        ${M.stairs ? `<button class="btn green wide" data-a="down">Descendre à l'étage ${M.floor + 1}</button>` : '<p class="meta">Chaque case coûte une pioche. Trouve l’<b>escalier</b> pour descendre : plus profond, plus de cristaux, de lingots et de colis rares.</p>'}
+        <div class="acts"><button class="btn blue sm" data-a="bldinfo">Améliorer la grotte (niv. ${o.lv})</button></div>`;
+    }
+  }
+  else if (panel === 'exp'){
+    const o = panelArg, slots = T.expSlots(o.lv), run = S.exps || [];
+    const runs = run.map((e, i) => { const d = T.EXP_DEST.find(d => d.k === e.k), st = T.speedStars(e.end - now());
+      return `<div class="erun"><b>${d.name}</b><div class="work"><div class="bar"><i data-end="${e.end}" data-total="${e.end - e.start}"></i></div><span>Retour dans <b data-until="${e.end}"></b></span></div><button class="btn gold sm" data-a="expspeed" data-i="${i}">${st ? `<i class="i star"></i>${st}` : 'Rentrer'}</button></div>`; }).join('');
+    h = hd(`Écurie niv. ${o.lv} · ${run.length} équipe${run.length > 1 ? 's' : ''} en route sur ${slots}`, 'Expéditions des rennes') + (runs ? `<h3>En route</h3>${runs}` : '') + `<h3>Destinations</h3><div class="dests">${T.EXP_DEST.map(d => { const why = T.expBlock(S, d.k), lock = d.lv > o.lv;
+      return `<div class="dest ${lock ? 'locked' : ''}"><div class="dt"><b>${d.name}</b><small>${fmtTime(d.time / 1000)} · ${d.n} colis</small></div><div class="odds">${d.odds.map((p, r) => p ? `<i style="flex:${p};background:${T.RARITY[r].c}" title="${T.RARITY[r].name} ${p} %"></i>` : '').join('')}</div><div class="oddl">${d.odds.map((p, r) => p ? `<span style="color:${T.RARITY[r].c}">${T.RARITY[r].name} ${p} %</span>` : '').join('')}</div>
+        ${lock ? `<span class="why">Écurie niv. ${d.lv}</span>` : `<div class="acts"><span class="costs">${costChips(T.expCost(S, d))}</span><button class="btn green sm" data-a="expgo" data-k="${d.k}" ${why && why !== 'Pas assez de biscuits pour les rennes' ? 'disabled' : ''}>Partir</button></div>`}</div>`; }).join('')}</div>
+      <p class="meta">Les rennes rapportent des <b>colis mystère</b> : plus la destination est lointaine, plus les colis rares sont fréquents.</p>
+      <div class="acts"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Améliorer l'écurie (niv. ${o.lv})</button></div>`;
+  }
+  else if (panel === 'shop'){
+    h = hd("Étoiles d'or : la monnaie rare", 'Boutique') + `<p class="meta">Les étoiles d'or terminent un chantier tout de suite, remplissent les pioches, ramènent les rennes et engagent des bâtisseurs. On en gagne au compte-gouttes : niveaux, tâches, album, colis légendaires.</p>
+      <h3>Bâtisseurs</h3><div class="builders">${T.BUILDER_PRICE.map((p, i) => { const own = (S.extraBuilders || 0) > i, can = (S.extraBuilders || 0) === i;
+        return `<div class="bcard ${own ? 'own' : ''}"><img src="${elfImg()}" alt=""><b>Bâtisseur ${i + 3}</b>${own ? '<span class="meta">Engagé</span>' : `<button class="btn ${can ? 'gold' : 'blue'} sm" data-a="builder" ${can ? '' : 'disabled'}><i class="i star"></i>${p}</button>`}</div>`; }).join('')}</div>
+      <h3>Paquets d'étoiles</h3><div class="packs">${T.SHOP.map(p => `<button class="pack" data-a="buy" data-k="${p.k}">${p.tag ? `<span class="ptag">${p.tag}</span>` : ''}<i class="i star"></i><b>${fmt(p.stars)}</b><span class="btn green sm">${p.price}</span></button>`).join('')}</div>
+      <p class="meta">Le paiement sera activé avec la version App Store.</p>`;
+  }
+  else if (panel === 'lights'){
+    const n = T.lightsLv(S), c = T.lightsCost(n), why = T.lightsBlock(S);
+    h = hd(`Niveau ${n} · production +${n} %`, 'Illuminations du village') + `<div class="garland">${Array.from({length: 14}, (_, i) => `<i class="${i < Math.min(14, n) ? 'on' : ''}"></i>`).join('')}</div>
+      <p class="meta">Ni bâtisseur ni attente : chaque niveau allume de nouvelles guirlandes et donne <b>+1 % de production</b> à tout le village, pour toujours. Le prix monte à chaque niveau.</p>
+      <h3>Niveau ${n} → ${n + 1}</h3><div class="costs">${costChips(c)}</div>
+      <div class="acts"><button class="btn green" data-a="lights" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>Allumer</button></div>${why ? `<p class="note">${why}</p>` : ''}`;
+  }
   else if (panel === 'stock'){
-    h = hd('Ressources, jouets et outils', 'Stock') + `<h3>Ressources</h3><div class="stock">${T.RES.map(r => `<div class="st"><img src="${ICON[r]}" alt=""><b>${fmt(S[r])}</b><small>${r === 'coins' ? ITEMS[r].name : `${ITEMS[r].name} · max ${fmt(T.cap(S, r))}`}</small></div>`).join('')}</div>
+    h = hd('Ressources, jouets et outils', 'Stock') + `<p class="help">Touche une ressource pour savoir à quoi elle sert et où en trouver.</p><h3>Ressources</h3><div class="stock">${T.RES.map(r => `<div class="st" data-a="rinfo" data-k="${r}"><img src="${ICON[r]}" alt=""><b>${fmt(S[r])}</b><small>${r === 'coins' ? ITEMS[r].name : `${ITEMS[r].name} · max ${fmt(T.cap(S, r))}`}</small></div>`).join('')}</div>
       <h3>Jouets</h3><div class="stock">${Object.keys(TOYS).filter(k => S.inv[k] > 0).map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k]}</b><small>${ITEMS[k].name}</small></div>`).join('') || '<p class="meta">Aucun jouet : fabrique-les à l’Atelier des jouets.</p>'}</div>
+      <h3>Matériaux rares</h3><div class="stock">${T.RARE.map(k => `<div class="st" data-a="rinfo" data-k="${k}"><img src="${ICON[k]}" alt=""><b>${fmt(S.inv[k] || 0)}</b><small>${ITEMS[k].name}</small></div>`).join('')}</div>
       <h3>Outils</h3><div class="stock">${['axe', 'saw'].map(k => `<div class="st"><img src="${ICON[k]}" alt=""><b>${S.inv[k] || 0}</b><small>${ITEMS[k].name}</small></div>`).join('')}</div>
-      <p class="meta">Le stock maximum dépend de la Maison du Père Noël et des Entrepôts. Haches et scies : lettres, cadeau du jour, mini-jeux.</p>`;
+      <p class="meta">Le stock maximum dépend de la Maison du Père Noël et des Entrepôts. Haches et scies : lettres, cadeau du jour, mini-jeux. Cristaux et lingots : Grotte aux cristaux et colis des rennes.</p>`;
   }
   else if (panel === 'build'){
     const cat = panelArg || 'prod';
     const list = Object.entries(BUILDINGS).filter(([k, b]) => T.catOf(b) === cat && !b.max);
-    h = hd(`Bâtisseurs ${T.BUILDERS - T.busyBuilders(S)} / ${T.BUILDERS} libres`, 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
+    h = hd(`Bâtisseurs ${T.builders(S) - T.busyBuilders(S)} / ${T.builders(S)} libres`, 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
       <div class="grid">${list.map(([k, b]) => { const why = T.buildBlock(S, k), hard = why && why !== 'Ressources insuffisantes', c = T.upCost(k, 1), n = T.countOf(S, k), m = T.maxOf(S, k);
         const role = b.kind === 'prod' ? `+${fmt(T.rate(k, 1))} ${ITEMS[b.res].name.toLowerCase()}/h` : b.kind === 'house' ? `+${T.housing(1)} lutins` : b.kind === 'storage' ? `+${fmt(T.storageAdd(1))} de stock` : b.kind === 'deco' ? `+${b.joy} bonheur` : b.desc.split('.')[0];
         return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${role}</span>${m < 99 ? `<span class="meta">${n} / ${m}</span>` : ''}${hard ? `<span class="why">${why}</span>` : `<span class="costs">${costChips(c)}${T.upTime(k, 1) ? `<span class="chip time">${fmtTime(T.upTime(k, 1))}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
@@ -617,7 +701,7 @@ function renderPanel(){
   else if (panel === 'site'){
     const o = panelArg, end = workEnd(o), total = o.build ? o.btotal : o.utotal, left = Math.max(0, end - now()), st = speedCost(o);
     h = hd(o.build ? 'Construction' : `Amélioration vers le niveau ${o.upTo}`, B(o).name) + `<div class="work"><div class="bar"><i data-end="${end}" data-total="${total || 1}"></i></div><span>Encore <b data-until="${end}"></b></span></div>
-      <div class="acts">${st ? `<button class="btn gold" data-a="speed">Terminer · <i class="i star"></i>${st}</button>` : '<button class="btn green" data-a="speed">Terminer gratuitement</button>'}</div>
+      <div class="acts">${st ? `<button class="btn gold" data-a="speed">Terminer <i class="i star"></i>${st}</button>` : '<button class="btn green" data-a="speed">Terminer gratuitement</button>'}</div>
       <p class="meta">Moins de 3 minutes restantes : c'est gratuit.</p>`;
   }
   else if (panel === 'bld'){
@@ -627,13 +711,14 @@ function renderPanel(){
     const rows = T.stats(S, o).map(r => `<div class="srow"><span>${r.label}</span><b>${r.now}</b>${o.lv < max ? `<i class="arrow"></i><em>${r.next}</em>` : ''}</div>`).join('');
     let extra = '';
     if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); extra = `<div class="work"><div class="bar"><i style="width:${n / buf * 100}%"></i></div><span>${fmt(n)} / ${fmt(buf)} ${ITEMS[b.res].name.toLowerCase()} dans le bâtiment${T.workRatio(S) < 1 ? ' · <b class="bad">pas assez de lutins !</b>' : ''}</span></div>${ripe(o) ? '<button class="btn gold wide" data-a="collect">Récolter</button>' : ''}`; }
-    if (b.kind === 'stable') extra = '<button class="btn blue wide" data-a="games">Jouer aux mini-jeux</button>';
-    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : ''; }
+    if (b.kind === 'stable') extra = '<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>';
+    if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
+    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>`; }
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
-    h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt=""><div class="say"><b>${K.name}</b><span>${said}</span></div>${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Niv. ${next}</small></div>` : ''}</div>
+    h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt="">${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Au niv. ${next}</small></div>` : ''}</div><div class="say2"><b>${K.name}</b><span>${said}</span></div>
       ${extra}${b.kind === 'prod' ? keeperBox(o) : ''}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
       ${o.lv < (b.kind === 'hq' ? b.max : 99) ? `<h3>Coût de l'amélioration</h3><div class="costs">${costChips(c)}<span class="chip time">${fmtTime(T.upTime(o.type, next))}</span></div>
-      <div class="acts"><button class="btn green" data-a="upgrade" ${why ? 'disabled' : ''}>Améliorer</button><button class="btn blue sm" data-a="move">Déplacer</button></div>${why ? `<p class="note">${why}</p>` : ''}` : ''}`;
+      ${why ? `<p class="note">${whyHelp(o, why)}</p>` : ''}<div class="acts sticky"><button class="btn green" data-a="upgrade" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>Améliorer</button><button class="btn blue sm" data-a="move">Déplacer</button></div>` : ''}`;
   }
   else if (panel === 'info'){
     const o = panelArg, b = B(o);
@@ -666,17 +751,31 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'upgrade') return startUpgrade(panelArg, b);
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
+  if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'rinfo') return resInfo(b.dataset.k);
+  if (a === 'gocraft'){ const w = workshopOf(); return w ? goTo('workshop') : null; }
+  if (a === 'gomine') return openPanel('mine', panelArg);
+  if (a === 'golights') return openPanel('lights');
+  if (a === 'bldinfo'){ const o = panel === 'mine' ? T.mineState(S)?.o : panelArg; return o && openPanel('bld', o); }
+  if (a === 'dig') return digCell(+b.dataset.i, b);
+  if (a === 'down'){ if (T.mineDown(S)){ sfx.level(); toast(`Étage ${S.mine.floor} !`); T.track(S, 'floor'); save(); } return renderPanel(); }
+  if (a === 'refill'){ const st = T.mineState(S); if (!st) return; if (S.stars < T.PICK_REFILL){ sfx.err(); return openPanel('shop'); } S.stars -= T.PICK_REFILL; st.M.picks = st.max; st.M.t = now(); sfx.level(); save(); return renderPanel(); }
+  if (a === 'expgo'){ const why = T.expStart(S, b.dataset.k, now()); if (why){ sfx.err(); return toast(why); } sfx.level(); T.track(S, 'exp'); toast('Les rennes sont partis !'); save(); return renderPanel(); }
+  if (a === 'expspeed'){ const e = (S.exps || [])[+b.dataset.i]; if (!e) return; const st = T.speedStars(e.end - now()); if (S.stars < st){ sfx.err(); return openPanel('shop'); } S.stars -= st; e.end = now(); checkExps(); return renderPanel(); }
+  if (a === 'builder'){ const n = S.extraBuilders || 0, p = T.BUILDER_PRICE[n]; if (p == null) return; if (S.stars < p){ sfx.err(); return toast(`Il faut ${p} étoiles d'or`); } S.stars -= p; S.extraBuilders = n + 1; sfx.level(); toast(`Bâtisseur ${n + 3} engagé !`); save(); return renderPanel(); }
+  if (a === 'buy'){ sfx.tap(); return toast('Les achats arriveront avec la version App Store'); }
+  if (a === 'lights'){ const why = T.lightsUp(S); if (why){ sfx.err(); return toast(why); } sfx.level(); gainXp(2, b); T.track(S, 'lights'); toast(`Illuminations niv. ${S.lights} : production +${S.lights} %`); save(); return renderPanel(); }
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
   if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); if (!T.has(S, c)) return; T.take(S, c); S.chunks.push(`${cx},${cy}`); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); toast('Nouveau terrain !'); closePanel(); save(); return; }
-  if (a === 'speed'){ const o = panelArg; if (!workEnd(o)) return closePanel(); const st = speedCost(o); if (S.stars < st){ sfx.err(); return toast("Pas assez d'étoiles"); } S.stars -= st; if (o.build) o.build = now(); else o.up = now(); closePanel(); tutoEv('speed'); return; }
+  if (a === 'speed'){ const o = panelArg; if (!workEnd(o)) return closePanel(); const st = speedCost(o); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; if (o.build) o.build = now(); else o.up = now(); closePanel(); tutoEv('speed'); return; }
   if (a === 'move'){ const o = panelArg; closePanel(); ghost = {type: o.type, x: o.x, y: o.y, move: o}; showGhostUI(); return; }
   if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (o.wild) gainXp(1, null); else if (!o.free) S.coins += Math.round((BUILDINGS[o.type].cost.coins || 0) / 2); closePanel(); save(); return; }
 });
 
 /* ---------- placement d'un nouveau bâtiment ---------- */
 function startPlace(type, lot){
-  const why = T.buildBlock(S, type); if (why){ sfx.err(); return toast(why); }
+  const why = T.buildBlock(S, type); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.upCost(type, 1), `Construire : ${BUILDINGS[type].name}`, () => startPlace(type, lot)) : toast(why); }
   closePanel();
   const t = toTile(W / 2, H / 2), b = BUILDINGS[type];
   ghost = {type, x: Math.round(t.x - b.w / 2), y: Math.round(t.y - b.h / 2)};
@@ -727,6 +826,7 @@ const KEEPER = {
   orders:   {name: 'Facteur Grelot', img: elfImg},
   stable:   {name: 'Dame Rennes', img: elfImg},
   theater:  {name: 'Monsieur Fil', img: elfImg},
+  mine:     {name: 'Pic le mineur', img: elfImg},
 };
 function keeperLine(o){
   const b = B(o), L = o.lv, N = L + 1, f = fmt;
@@ -736,7 +836,8 @@ function keeperLine(o){
     case 'storage': return `Je garde <b>+${f(T.storageAdd(L))}</b> de bois, biscuits et tissu. Sans moi, ce qui dépasse est perdu !`;
     case 'craft': return `Je fabrique les jouets des lettres, <b>${T.craftSlots(L)} à la fois</b>. Plus je monte, plus je vais vite.`;
     case 'orders': return `Les enfants m'envoient leurs lettres. J'en garde <b>${T.orderSlots(L)}</b> et je paie <b>+${Math.round((T.orderBonus(L) - 1) * 100)} %</b>.`;
-    case 'stable': return `Mes rennes s'entraînent pour la Tournée : <b>${T.ticketsMax(L)} tickets</b>, gains <b>×${T.gameBonus(L).toFixed(2)}</b>.`;
+    case 'stable': return `Mes rennes partent en expédition : <b>${T.expSlots(L)} équipe${T.expSlots(L) > 1 ? 's' : ''}</b> en même temps, <b>${T.EXP_DEST.filter(d => d.lv <= L).length} destination${T.EXP_DEST.filter(d => d.lv <= L).length > 1 ? 's' : ''}</b>. Elles reviennent avec des colis mystère !`;
+    case 'mine': return `J'ai <b>${T.minePicks(L)} pioches</b>, une de plus toutes les <b>${T.minePickMin(L)} min</b>. Plus on descend, plus c'est riche !`;
     case 'fun': return `Mes spectacles donnent <b>+${T.theaterJoy(L)} bonheur</b> : toute la production augmente.`;
     case 'hq': return `Ma maison fixe le niveau de tout le village : jusqu'au <b>niveau ${L + 1}</b>. Améliore-la pour débloquer de nouveaux bâtiments !`;
   }
@@ -750,6 +851,101 @@ function keeperBox(o){
     ${k < T.KEEPER_MAX ? `<button class="btn ${k ? 'gold' : 'green'} sm" data-a="keeper" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>${k ? 'Améliorer' : 'Engager'}<span class="costs">${costChips(T.keeperCost(o))}</span></button>` : ''}</div>`;
 }
 
+/* ---------- grotte, expéditions, colis ---------- */
+function cellIcon(c){
+  if (c.k === 'stairs') return '<i class="stairs"></i>';
+  if (c.k === 'parcel') return `<i class="pbox" style="--rc:${T.RARITY[c.r || 0].c}"></i>`;
+  if (c.k === 'pick') return '<i class="pk"></i>';
+  if (c.k === 'rock') return '';
+  return `<img src="${ICON[c.got || c.k] || ICON.coins}" alt="">`;
+}
+function digCell(i, el){
+  const res = T.mineDig(S, i, now());
+  if (res.err){ sfx.err(); toast(res.err); if (res.err === 'Plus de pioches') return openPanel('shop'); return; }
+  const c = S.mine.cells[i], r = res.r; c.got = Object.keys(r).find(k => k !== 'picks' && k !== 'parcel');
+  if (r.parcel != null) c.r = r.parcel;
+  T.track(S, 'dig');
+  const give = {}; for (const [k, n] of Object.entries(r)) if (k !== 'picks' && k !== 'parcel') give[k] = n;
+  if (Object.keys(give).length) giveReward(give, el); else sfx.tap();
+  if (res.k === 'stairs') toast("L'escalier ! Tu peux descendre.");
+  if (res.k === 'pick') toast('+2 pioches !');
+  if (r.parcel != null) toast(`Un colis ${T.RARITY[r.parcel].name.toLowerCase()} !`);
+  save(); renderPanel();
+}
+function checkExps(){
+  const back = T.expCollect(S, now()); if (!back.length) return;
+  toast(`Les rennes sont rentrés avec ${back.length} colis !`); sfx.level(); save();
+}
+function openParcel(){
+  const list = S.parcels || []; if (!list.length) return toast("Pas de colis : envoie les rennes en expédition ou creuse la grotte");
+  const r = list[0], R = T.RARITY[r], m = $('#modal'); m.className = 'glow parcelm';
+  m.querySelector('.mcard').innerHTML = `<small>Colis ${1} sur ${list.length}</small><h2 class="stroke" style="color:${R.c}">Colis ${R.name.toLowerCase()}</h2><div class="pbig r${r}" style="--rc:${R.c}"><i></i></div><button class="btn green" data-m="open">Ouvrir</button>`;
+  m.hidden = false; sfx.tap();
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; const box = m.querySelector('.pbig'); box.classList.add('shake'); b.disabled = true;
+    setTimeout(() => { list.shift(); const rw = T.parcelReward(S, r); T.track(S, 'parcel'); save(); bravo(rw, `Colis ${R.name.toLowerCase()}`, r === 3 ? 'LÉGENDAIRE !' : r === 2 ? 'ÉPIQUE !' : 'BRAVO !'); }, 650); };
+}
+$('#b-parcels').addEventListener('click', () => openParcel());
+for (const id of ['#h-stars', '#h-coins']) $(id).querySelector('.plus')?.addEventListener('click', e => { e.stopPropagation(); sfx.tap(); openPanel('shop'); });
+for (const [id, k] of [['#h-wood', 'wood'], ['#h-cookies', 'cookies'], ['#h-fabric', 'fabric'], ['#h-coins', 'coins'], ['#h-stars', 'stars'], ['#xpbar', 'xp'], ['#h-pop', 'pop'], ['#h-joy', 'joy']])
+  $(id)?.addEventListener('click', () => { sfx.tap(); resInfo(k); });
+
+/* ---------- ressources expliquées : nom, utilité, où en trouver, bouton « Y aller » ---------- */
+const RINFO = {
+  coins:   {name: 'Pièces', use: 'Construire, améliorer, engager les gardiens, dégager de nouveaux terrains.', from: 'Le Bureau des lettres en produit. Les lettres livrées, la grotte et les colis en rapportent beaucoup.', go: 'letters'},
+  wood:    {name: 'Bois', use: 'Construire et améliorer, fabriquer les jouets en bois (train, luge…).', from: 'La Scierie : touche sa bulle pour récolter.', go: 'sawmill'},
+  cookies: {name: 'Biscuits', use: 'Nourrir les lutins sur les gros chantiers et les rennes en expédition, fabriquer les boîtes de biscuits.', from: 'Le Four à biscuits : touche sa bulle pour récolter.', go: 'bakery'},
+  fabric:  {name: 'Tissu', use: 'Fabriquer les peluches et les chaussettes, construire le Théâtre.', from: 'La Filature (Maison du Père Noël niv. 3).', go: 'mill'},
+  stars:   {name: "Étoiles d'or", use: 'La monnaie rare : terminer un chantier tout de suite, remplir les pioches, engager un bâtisseur de plus.', from: 'Montées de niveau, tâches, album, colis légendaires, calendrier de l’Avent… ou la boutique.', go: 'shop'},
+  ice:     {name: 'Cristaux de glace', use: 'Améliorer les bâtiments à partir du niveau 6.', from: 'La Grotte aux cristaux et les colis rares des rennes.', go: 'mine'},
+  gold:    {name: "Lingots d'or polaire", use: 'Améliorer les bâtiments à partir du niveau 11.', from: 'La Grotte (étage 3 et plus) et les colis épiques ou légendaires.', go: 'mine'},
+  axe:     {name: 'Haches', use: 'Dégager un nouveau terrain dans la forêt.', from: 'Lettres des enfants, cadeau du jour, mini-jeux, colis.', go: 'orders'},
+  saw:     {name: 'Scies', use: 'Dégager un nouveau terrain dans la forêt.', from: 'Lettres des enfants, cadeau du jour, mini-jeux, colis.', go: 'orders'},
+  xp:      {name: 'Expérience', use: 'Remplir la barre fait monter de niveau : nouveaux jouets, nouvelles lettres, coffres de la barre.', from: 'Livrer les lettres (le plus), fabriquer des jouets, finir des chantiers, récolter.', go: 'orders'},
+  pop:     {name: 'Lutins', use: 'Les bâtiments de production emploient des lutins (au travail / logés). S’il en manque, la production baisse.', from: 'Construis ou améliore des Chalets des lutins.', go: 'cabin'},
+  joy:     {name: 'Bonheur', use: 'Chaque point de bonheur donne +1 % de production à tout le village.', from: 'Les décorations et le Théâtre de marionnettes.', go: 'build:deco'},
+};
+const qty = k => k === 'xp' ? `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}` : k === 'pop' ? `${T.employed(S)} au travail / ${T.lutins(S)} logés` : k === 'joy' ? `${T.joy(S)} points · +${T.joy(S)} %` : T.RES.includes(k) && k !== 'coins' ? `${fmt(S[k])} / ${fmt(T.cap(S, k))} (stock max)` : fmt(haveOf(k));
+const resImg = k => k === 'stars' ? '<i class="i star"></i>' : k === 'xp' ? '<i class="i xp">XP</i>' : k === 'pop' ? '<i class="i pop"></i>' : k === 'joy' ? '<i class="i joy"></i>' : `<img src="${ICON[k]}" alt="">`;
+function resInfo(k){
+  const I = RINFO[k]; if (!I) return;
+  const m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<div class="rhead">${resImg(k)}<div><h2 class="stroke">${I.name}</h2><b class="rq">${qty(k)}</b></div></div>
+    <div class="rrow"><small>À quoi ça sert</small><p>${I.use}</p></div><div class="rrow"><small>Où en trouver</small><p>${I.from}</p></div>
+    <div class="acts">${I.go ? `<button class="btn green" data-m="go">${I.go === 'shop' ? 'Boutique' : 'Y aller'}</button>` : ''}<button class="btn blue" data-m="ok">OK</button></div>`;
+  m.hidden = false;
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m === 'go') goTo(I.go); };
+}
+/** Emmène le joueur là où l'on obtient une ressource (le bâtiment s'il existe, sinon la page Construire). */
+function goTo(where){
+  closePanel();
+  if (where === 'shop' || where === 'orders') return openPanel(where);
+  if (where.startsWith('build:')) return openPanel('build', where.slice(6));
+  const o = S.objs.find(x => x.type === where && !x.wild && !x.free) || S.objs.find(x => x.type === where);
+  const b = BUILDINGS[where];
+  if (!o){ toast(`Construis d'abord : ${b.name}`); return openPanel('build', T.catOf(b)); }
+  centerOn(o.x + b.w / 2, o.y + b.h / 2);
+  setTimeout(() => { if (workEnd(o)) return openPanel('site', o); if (b.kind === 'mine') return openPanel('mine', o); if (b.kind === 'stable') return openPanel('exp', o); if (b.kind === 'craft') return openPanel('craft', o); if (b.kind === 'prod' && collectBld(o)) return; openPanel('bld', o); }, 350);
+}
+/** Ce qui manque pour une action : combien, où le trouver, et la possibilité de compléter en étoiles d'or. */
+function showMissing(req, what, retry){
+  const lack = Object.entries(req).map(([k, n]) => [k, n - haveOf(k)]).filter(([, d]) => d > 0);
+  if (!lack.length) return retry?.();
+  const st = T.missingStars(S, Object.fromEntries(lack.map(([k]) => [k, req[k]]))), m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>${what}</small><h2 class="stroke">Il te manque…</h2>
+    <div class="lacks">${lack.map(([k, d]) => `<div class="lack">${resImg(k)}<div><b>${fmt(d)} ${(RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase()}</b><small>${RINFO[k]?.from || ''}</small></div>${RINFO[k]?.go ? `<button class="btn green sm" data-m="go" data-k="${RINFO[k].go}">Y aller</button>` : ''}</div>`).join('')}</div>
+    <div class="acts">${isFinite(st) ? `<button class="btn gold" data-m="buy">Compléter <i class="i star"></i>${st}</button>` : ''}<button class="btn blue" data-m="ok">Plus tard</button></div>`;
+  m.hidden = false;
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return;
+    if (b.dataset.m === 'go'){ m.hidden = true; return goTo(b.dataset.k); }
+    if (b.dataset.m === 'buy'){ if (S.stars < st){ m.hidden = true; toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; for (const [k, d] of lack) T.give(S, k, d); m.hidden = true; sfx.level(); save(); return retry?.(); }
+    m.hidden = true; };
+}
+function whyHelp(o, why){
+  if (why !== 'Ressources insuffisantes') return why;
+  const c = T.upCost(o.type, o.lv + 1), lack = Object.entries(c).filter(([k, n]) => haveOf(k) < n).map(([k, n]) => `${fmt(n - haveOf(k))} ${(RINFO[k]?.name || k).toLowerCase()}`);
+  return `Il manque ${lack.join(', ')}. Touche <b>Améliorer</b> pour savoir où en trouver.`;
+}
+
 /* ---------- écran « Bravo ! » (récompenses en grand, puis elles volent vers les compteurs) ---------- */
 let pendingStory = -1;
 function story(i){
@@ -757,10 +953,10 @@ function story(i){
   m.querySelector('.mcard').innerHTML = `<small>Chapitre ${i + 1}</small><h2 class="stroke">${c.title}</h2><div class="storyrow"><img src="${portrait}" alt=""><p>${c.story}</p></div><button class="btn green" data-m="ok">C'est parti !</button>`;
   m.hidden = false; m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; };
 }
-function bravo(r, sub = 'Tu as gagné'){
+function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
   const m = $('#modal'); m.className = 'cere bravo';
   const cards = Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<div class="rcard r-${k}">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : `<img src="${ICON[k]}" alt="">`}<b>${fmt(n)}</b></div>`).join('');
-  m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2>BRAVO !</h2><small>${sub}</small><div class="rcards">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
+  m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2${title.length > 9 ? ' class="long"' : ''}>${title}</h2><small>${sub}</small><div class="rcards">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
   m.hidden = false; sfx.level();
   m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; giveReward(r, m.querySelector('.rcards') || $('#quest2')); if (pendingStory >= 0){ const k = pendingStory; pendingStory = -1; setTimeout(() => story(k), 900); } };
 }
@@ -858,15 +1054,15 @@ function levelUp(L){
 /* =====================================================================
    DIDACTICIEL (Pépin)
    ===================================================================== */
-const rectOf = pred => () => { const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o); return {left: r.left + r.width * .15, top: r.top + r.height * .15, width: r.width * .7, height: r.height * .7}; };
+const rectOf = pred => () => { if (panel) return null; const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o); return {left: r.left + r.width * .15, top: r.top + r.height * .15, width: r.width * .7, height: r.height * .7}; };
 const STEPS = [
   {say: "Ho ho ho ! Je prends ma retraite… <b>c'est toi le nouveau Père Noël</b> ! Je vais te montrer.", tap: true},
   {say: "La scierie a produit du bois. <b>Touche-la</b> pour le récolter !", target: rectOf(o => o.type === 'sawmill'), wait: 'collect:sawmill', focus: [14.5, 16.5]},
   {say: "Les lettres des enfants arrivent avec des pièces. <b>Récolte le Bureau des lettres.</b>", target: rectOf(o => o.type === 'letters'), wait: 'collect:letters', focus: [26.5, 16.5]},
   {say: "Chaque bâtiment a son rôle. <b>Touche la scierie</b> pour voir sa fiche.", target: rectOf(o => o.type === 'sawmill'), wait: 'open:bld', focus: [14.5, 16.5]},
-  {say: "Chaque niveau produit plus de bois. <b>Touche Améliorer !</b>", target: () => document.querySelector('[data-a="upgrade"]'), wait: 'upgrade'},
-  {say: "Les lutins travaillent… Sous 3 minutes, c'est gratuit : <b>touche le chantier.</b>", target: rectOf(o => o.type === 'sawmill'), wait: 'open:site'},
-  {say: "<b>Termine gratuitement !</b>", target: () => document.querySelector('[data-a="speed"]'), wait: 'speed'},
+  {say: "Chaque niveau produit plus de bois. <b>Touche Améliorer !</b>", target: () => document.querySelector('[data-a="upgrade"]'), wait: 'upgrade', skipIf: s => s.objs.some(o => o.type === 'sawmill' && (o.lv >= 2 || o.up))},
+  {say: "Les lutins travaillent… Il reste moins de 3 minutes : c'est gratuit ! <b>Touche le chantier.</b>", target: rectOf(o => o.type === 'sawmill'), wait: 'open:site', skipIf: s => !s.objs.some(o => o.type === 'sawmill' && o.up) || panel === 'site'},
+  {say: "<b>Termine gratuitement !</b>", target: () => document.querySelector('[data-a="speed"]'), wait: 'speed', skipIf: s => !s.objs.some(o => o.type === 'sawmill' && o.up)},
   {say: "Les lutins ont besoin de biscuits pour les gros chantiers. <b>Touche Construire.</b>", target: () => document.querySelector('#b-build'), wait: 'open:build'},
   {say: "Choisis le <b>Four à biscuits</b>.", target: () => document.querySelector('[data-a="place"][data-k="bakery"]'), wait: 'placing'},
   {say: "Glisse-le où tu veux, puis touche <b>✓</b>.", target: () => document.querySelector('#pb-ok'), wait: 'placed'},
@@ -891,7 +1087,7 @@ function autoCollect(){
   for (const o of S.objs){ if (!o.keeper || B(o).kind !== 'prod' || !ripe(o)) continue; const k = B(o).res, got = T.collect(S, o); if (got > 0){ T.track(S, 'collect:' + k, got); const c = toScreen(o.x + 1.5, o.y + 1.5); if (c.x > 0 && c.x < W && c.y > 0 && c.y < H) fxHarvest(o, k, got); } }
 }
 function step(t, dt){
-  autoT -= dt; if (autoT <= 0){ autoT = 3; autoCollect(); }
+  autoT -= dt; if (autoT <= 0){ autoT = 3; autoCollect(); checkExps(); }
   fxDt = dt;
   refreshOrders(); finishWorks(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }

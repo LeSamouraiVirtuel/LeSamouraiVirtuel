@@ -43,10 +43,12 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
   // suit la cible (elle bouge avec la caméra et les animations) et place le trou, l'anneau et la main
   function track(){
     raf = requestAnimationFrame(track);
-    if (step?.skipIf?.(S()) && !step.skipping){ step.skipping = true; setTimeout(next, 300); }
+    if (step?.skipIf?.(S()) && !step.skipping){ step.skipping = true; const from = S().tuto; setTimeout(() => next(from), 300); }
     const el = step?.target?.();
     // la cible peut être un élément HTML ou un rectangle à l'écran (objet dessiné dans le canvas)
     let r = el && (el.getBoundingClientRect ? el.getBoundingClientRect() : el);
+    // une cible HTML à moitié hors de l'écran (bas d'une fiche) : on la fait défiler dans la vue
+    if (el?.scrollIntoView && r && (r.bottom > innerHeight - 8 || r.top < 0) && step.scrolled !== el){ step.scrolled = el; el.scrollIntoView({block: 'center', behavior: 'smooth'}); }
     if (!r || !r.width){
       // pas de cible (dialogue) ou cible pas encore à l'écran : tout est bloqué, pas de main
       for (const b of [bt, br, bb, bl]) Object.assign(b.style, {left: '0px', top: '0px', width: '0px', height: '0px'});
@@ -67,7 +69,8 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
     box.classList.toggle('up', overlapsBottom && !overlapsTop);
     box.classList.toggle('low', overlapsBottom && overlapsTop);
   }
-  function next(){
+  function next(from = S().tuto){
+    if (S().tuto !== from) return;           // déjà avancé (deux déclencheurs pour la même étape)
     S().tuto++; save(); sfx.tap();
     if (S().tuto >= STEPS_.length){ finish(); return; }
     show();
@@ -81,7 +84,7 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
     active,
     // appelé par le jeu à chaque action : on avance si c'est l'action attendue
     // une seule avance par étape, même si l'action se répète (glisser sur 6 champs = 6 récoltes)
-    event(name){ if (active() && step && step.wait === name && !pending){ pending = true; const at = step; setTimeout(() => { pending = false; if (step === at) next(); }, name === 'close' ? 50 : 350); } },
+    event(name){ if (active() && step && step.wait === name && !pending){ pending = true; const at = step, from = S().tuto; setTimeout(() => { pending = false; if (step === at) next(from); }, name === 'close' ? 50 : 350); } },
     skip: finish,
   };
 }
