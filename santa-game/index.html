@@ -1197,6 +1197,14 @@ body.sheet-open #toast{top:auto!important;bottom:calc(env(safe-area-inset-bottom
 #upban s{color:#a08a70}#upban em{font-style:normal;font-weight:900;color:#2f8a3f}
 .card.qwant{border-color:#e6a10f!important;box-shadow:0 0 0 3px #ffd34a,0 0 18px rgba(255,200,60,.7)!important}
 .card{position:relative}
+
+/* iPhone réel : bannière d'amélioration au-dessus de la carte de tâche, jamais sur la barre du haut ni sur une fenêtre */
+#upban{top:auto!important;bottom:calc(env(safe-area-inset-bottom,0px) + 200px)!important;transform:translate(-50%,40px)!important;opacity:0;transition:transform .4s cubic-bezier(.2,1.4,.4,1),opacity .25s!important}
+#upban.on{transform:translate(-50%,0)!important;opacity:1}
+body.sheet-open #upban,body.tutoring #upban{display:none!important}
+/* barre de progression de la tâche : toujours pleine largeur */
+#quest2 .qbar{width:100%!important;box-sizing:border-box;flex:none}
+#quest2 .costs{width:100%}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>
