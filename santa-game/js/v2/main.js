@@ -53,10 +53,16 @@ async function loadPack(){
   let saved0 = null; try { saved0 = JSON.parse(localStorage.getItem('village-du-pole-v5')); } catch(e){}
   const used = new Set((saved0?.objs || []).map(o => o.type));
   const eager = k => !k.startsWith('b:') || used.has(k.slice(2).split(':')[0]) || /^b:(santa|sawmill|letters|orders|cabin|path|wildtree|tree|lantern|bench|gifts|reindeer|snowman|candy)/.test(k);
-  const lazy = (k, m) => { let im = null; SPR[k] = {ax: m.ax, ay: m.ay, w: m.w, h: m.h, get canvas(){ if (!im){ im = new Image(); im.decoding = 'async'; im.src = dir + m.f + q; } return im; }}; };
+  const lazy = (k, m) => { let im = null, c = null; SPR[k] = {ax: m.ax, ay: m.ay, w: m.w, h: m.h, get canvas(){ if (c) return c; if (!im){ im = new Image(); im.onload = () => { c = raster(im); im = null; }; im.src = dir + m.f + q; } return im || c; }}; };
   const now0 = keys.filter(eager);
   for (const k of keys) if (!eager(k)) lazy(k, P.spr[k]);
-  await Promise.all(now0.map(async k => { const m = P.spr[k]; SPR[k] = {canvas: await img(dir + m.f + q), ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / now0.length); }));
+  // Sur iPhone, Safari « sous-échantillonne » les grandes images quand la mémoire manque : elles deviennent floues
+  // et changent d'aspect d'une image à l'autre. On les recopie une fois dans un canevas, plafonné à 900 px.
+  const raster = im => { const k = Math.min(1, 900 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height); return c; };
+  await Promise.all(now0.map(async k => { const m = P.spr[k], im = await img(dir + m.f + q); try { await im.decode?.(); } catch(e){}
+    SPR[k] = {canvas: raster(im), ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / now0.length); }));
   for (const [k, f] of Object.entries(P.icon)) ICON[k] = dir + f + q;
   for (const [k, f] of Object.entries(P.thumb)) thumbs[k] = dir + f + q;
   portrait = dir + P.portrait + q; buildIcon = dir + P.buildIcon + q;
@@ -1105,6 +1111,7 @@ function renderPanel(){
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
       ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<div class="mis"><div><b>Dernier souci d'affichage</b><small style="word-break:break-all">${e.slice(0, 160).replace(/</g, '&lt;')}</small></div></div>` : ''; })()}
+      <div class="mis"><b>Version du jeu</b><span class="meta">59</span></div>
       <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
       <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
   }
