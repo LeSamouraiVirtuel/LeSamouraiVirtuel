@@ -1301,6 +1301,20 @@ body.sheet-open #upban,body.tutoring #upban{display:none!important}
 .pf{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;background:#fffaf0;border:2px solid #e3cfa8;border-radius:12px;padding:16px 4px 8px;font:inherit;color:#5a3a1e}
 .pf.fav{border-color:#e05a7a;background:#fff0f4}.pf .tag{position:absolute;top:-9px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#e05a7a;color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:1px 6px}
 .pf b{font-size:13px;color:#2a7de1}.pf .chip{font-size:11px}
+/* pêche sur glace */
+.fishhole{position:relative;height:190px;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#dff2ff,#b8e0fb);border:3px solid #fff;box-shadow:0 0 0 2px #7fb8e0;margin-bottom:10px}
+.fishhole .hole{position:absolute;left:50%;top:58%;width:120px;height:46px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(ellipse,#1f4a7a 0,#2f6aa0 60%,#9fd0f5 100%);border:3px solid #fff}
+.fishhole .bob{position:absolute;left:50%;top:40%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:linear-gradient(180deg,#ff4a4a 50%,#fff 50%);border:2px solid #2a1a0e;opacity:0}
+.fishhole .bob::before{content:'';position:absolute;left:6px;bottom:14px;width:1.5px;height:90px;background:#2a1a0e;opacity:.6}
+.fishhole.wait .bob,.fishhole.bite .bob{opacity:1;animation:bobw 1.6s ease-in-out infinite}.fishhole.bite .bob{animation:bobb .25s ease-in-out infinite}
+@keyframes bobw{50%{transform:translateY(3px)}}@keyframes bobb{50%{transform:translateY(10px) scale(.9)}}
+.fishhole .fmsg{position:absolute;left:0;right:0;top:12px;text-align:center;font-family:'Lilita One',sans-serif;font-size:20px;color:#1f3a5a}
+.fishhole.bite .fmsg{color:#d33;font-size:30px;animation:vping .25s infinite alternate}
+.fishhole .fgot{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.88);gap:2px}.fishhole .fgot b{color:#5a3a1e;font-size:17px}.fishhole .fgot small{color:#7a5a3a;font-size:12px}.fishhole .fgot em{color:#1f8a3a;font-style:normal;font-weight:700}
+.btn.big{font-size:20px;padding-top:14px;padding-bottom:14px}
+.fishbook{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.fb{display:flex;flex-direction:column;align-items:center;text-align:center;background:#fffaf0;border:2px solid var(--rc);border-radius:10px;padding:6px 3px}.fb.no{opacity:.6;border-color:#e3cfa8}
+.fb b{font-size:11px;color:#5a3a1e;line-height:1.15}.fb small{font-size:10px;color:#8a6a4a}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">

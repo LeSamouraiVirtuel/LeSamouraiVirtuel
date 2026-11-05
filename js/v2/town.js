@@ -1082,3 +1082,32 @@ export function petPat(s, t = Date.now()){
   s.pet.pat = t; const L = s.pet.lv, r = Math.random(), gift = r < .5 ? {coins: R5(100 * (1 + L * .4))} : r < .8 ? {ice: 2 + Math.floor(L / 3)} : r < .95 ? {[Math.random() < .5 ? 'axe' : 'saw']: 1} : {stars: 1};
   const xp = Math.round(petNeed(L) * .08); return {gift, xp, up: petGain(s, xp)};
 }
+
+/* ===================== PÊCHE SUR GLACE (la pêche de Hay Day) ===================== */
+// Au Lac Gelé et au Port des Glaces : on lance la ligne (un appât en biscuits), on attend que ça morde et on ferre à temps.
+// Les poissons rares mordent moins longtemps. Chaque espèce nouvelle entre dans le carnet de pêche et rapporte des étoiles.
+export const FISH = [
+  {k: 'cod', name: 'Morue des glaces', r: 0, c: '#8fa3b8', v: 30},  {k: 'herring', name: 'Hareng argenté', r: 0, c: '#b8c8d8', v: 25},
+  {k: 'perch', name: 'Perche du Nord', r: 0, c: '#9ab86a', v: 35},  {k: 'salmon', name: 'Saumon rose', r: 1, c: '#f08a8a', v: 70},
+  {k: 'trout', name: 'Truite arc-en-ciel', r: 1, c: '#6fc0a0', v: 80}, {k: 'char', name: 'Omble chevalier', r: 1, c: '#e8783a', v: 90},
+  {k: 'flake', name: 'Poisson-flocon', r: 2, c: '#cfe8ff', v: 180}, {k: 'halibut', name: 'Flétan géant', r: 2, c: '#a08a6a', v: 220},
+  {k: 'lantern', name: 'Poisson-lanterne', r: 2, c: '#4a5ae0', v: 240}, {k: 'aurora', name: 'Poisson des aurores', r: 3, c: '#3fe0a0', v: 600},
+  {k: 'gold', name: 'Carpe dorée', r: 3, c: '#ffc83a', v: 700}, {k: 'narwhal', name: 'Petit narval', r: 3, c: '#e8f0ff', v: 900},
+];
+export const FISH_ODDS = [62, 27, 9, 2];
+export const FISH_WIN = [1.2, .9, .65, .45];          // secondes pour ferrer selon la rareté
+export const canFish = s => (s.chunks || []).some(k => ZONES[k]?.feat === 'lake');
+export const baitCost = s => ({cookies: R5(40 * (1 + s.lvl * .3))});
+export function fishRoll(s){
+  const r = rollRarity(FISH_ODDS), pool = FISH.filter(f => f.r === r), f = pool[Math.floor(Math.random() * pool.length)];
+  return {...f, size: Math.round((20 + r * 25 + Math.random() * (30 + r * 30)))};       // centimètres
+}
+/** Ramène le poisson : récompense, nouvelle espèce, record de taille. */
+export function fishCatch(s, f){
+  s.fish ||= {}; const prev = s.fish[f.k], first = !prev, rec = !prev || f.size > prev.best;
+  s.fish[f.k] = {n: (prev?.n || 0) + 1, best: Math.max(prev?.best || 0, f.size)};
+  const m = 1 + s.lvl * .25, rw = {coins: R5(f.v * m * (f.size / 50)), xp: 3 + f.r * 4};
+  if (f.r >= 2) rw.ice = 1 + f.r; if (f.r === 3) rw.gold = 1;
+  if (first) rw.stars = f.r + 1;
+  return {rw, first, rec};
+}
