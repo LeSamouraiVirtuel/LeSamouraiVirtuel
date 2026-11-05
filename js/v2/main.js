@@ -763,6 +763,9 @@ function renderPanel(){
       <div class="evtop"><span class="evpts">❄ ${fmt(E.pts)}</span><div><div class="bar"><i style="width:${Math.min(100, E.pts / top * 100)}%"></i></div><small>${next ? `${fmt(next - E.pts)} flocons avant la prochaine récompense` : 'Toutes les récompenses sont débloquées !'}</small></div></div>
       <div class="mlist">${M.EV_STEPS.map((p, i) => { const ok = E.pts >= p, got = E.got[i];
         return `<div class="mis ${got ? 'done' : ''}"><div><b>Palier ${i + 1} · ❄ ${fmt(p)}</b><span class="costs">${rewardChips(M.eventReward(S, i))}</span></div>${got ? '<span class="ok">✓</span>' : ok ? `<button class="btn green sm" data-a="evclaim" data-i="${i}">Prendre</button>` : `<span class="pts">${Math.round(E.pts / p * 100)} %</span>`}</div>`; }).join('')}</div>
+      <h3>Boutique de l'événement <small class="meta">· ❄ ${fmt(M.evSpendable(S))} à dépenser</small></h3>
+      <div class="deals">${M.EV_SHOP.map(it => `<div class="deal"><b>${it.name}</b>${it.deco ? `<img class="evimg" src="${thumbs[it.deco]}" alt=""><small class="meta">à poser gratuitement</small>` : `<span class="costs">${rewardChips(it.give)}</span>`}<button class="btn blue sm" data-a="evbuy" data-k="${it.k}" ${M.evSpendable(S) >= it.price ? '' : 'disabled'}>❄ ${it.price}</button></div>`).join('')}</div>
+      <p class="meta">Dépenser des flocons ne fait pas reculer les paliers.</p>
       <p class="meta">Les flocons tombent à chaque action : récolter, livrer une lettre (10), envoyer une expédition (8), un visiteur (12), une amélioration (6)… Un nouvel événement commence chaque lundi.</p>`;
   }
   else if (panel === 'missions'){
@@ -825,7 +828,7 @@ function renderPanel(){
     h = hd(`Bâtisseurs ${T.builders(S) - T.busyBuilders(S)} / ${T.builders(S)} libres`, 'Construire') + `<div class="tabs">${T.CATS.map(([k, l]) => `<button class="${k === cat ? 'on' : ''}" data-a="cat" data-k="${k}">${l}</button>`).join('')}</div>
       <div class="grid">${list.map(([k, b]) => { const why = T.buildBlock(S, k), hard = why && why !== 'Ressources insuffisantes', c = T.upCost(k, 1), n = T.countOf(S, k), m = T.maxOf(S, k);
         const role = b.kind === 'prod' ? `+${fmt(T.rate(k, 1))} ${ITEMS[b.res].name.toLowerCase()}/h` : b.kind === 'house' ? `+${T.housing(1)} lutins` : b.kind === 'storage' ? `+${fmt(T.storageAdd(1))} de stock` : b.kind === 'deco' ? `+${b.joy} bonheur` : b.desc.split('.')[0];
-        return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${role}</span>${m < 99 ? `<span class="meta">${n} / ${m}</span>` : ''}${hard ? `<span class="why">${why}</span>` : `<span class="costs">${costChips(c)}${T.upTime(k, 1) ? `<span class="chip time">${fmtTime(T.upTime(k, 1))}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
+        return `<button class="card ${hard ? 'locked' : ''}" data-a="place" data-k="${k}"><img src="${thumbs[k]}" alt=""><b>${b.name}</b><span class="meta">${role}</span>${m < 99 ? `<span class="meta">${n} / ${m}</span>` : ''}${hard ? `<span class="why">${why}</span>` : S.tokens?.[k] > 0 ? `<span class="costs"><span class="chip free">Gratuit ×${S.tokens[k]}</span>` : `<span class="costs">${costChips(c)}${T.upTime(k, 1) ? `<span class="chip time">${fmtTime(T.upTime(k, 1))}</span>` : ''}</span>`}</button>`; }).join('')}</div>`;
   }
   else if (panel === 'expand'){
     const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n);
@@ -888,6 +891,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'evbuy'){ const r = M.evBuy(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } save(); if (r.deco){ sfx.level(); toast(`${BUILDINGS[r.deco].name} : à poser gratuitement`); return startPlace(r.deco); } closePanel(); return bravo(r.give, 'Boutique de l’événement'); }
   if (a === 'showgo'){ const o = panelArg, sh = T.SHOWS.find(x => x.k === b.dataset.k), why = T.showStart(S, sh.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.showCost(sh, o.lv), sh.name, null) : toast(why); } T.track(S, 'show'); sfx.level(); toast(`Lever de rideau ! Production +${Math.round(S.show.pct * 100)} %`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'evclaim'){ const i = +b.dataset.i, E = M.eventState(S); if (E.pts < M.EV_STEPS[i] || E.got[i]) return; S.ev.got[i] = 1; closePanel(); return bravo(M.eventReward(S, i), `${E.name} · palier ${i + 1}`); }
   if (a === 'wrap'){ S.wrapOn = !S.wrapOn; if (S.wrapOn && !(S.inv.paper > 0)) toast('Fabrique du papier cadeau à l’Atelier des jouets'); sfx.tap(); save(); return renderPanel(); }
@@ -952,9 +956,9 @@ $('#pb-ok').addEventListener('click', () => {
   if (!ghost || !fits(ghost.type, ghost.x, ghost.y, ghost.move)) return;
   if (ghost.move){ ghost.move.x = ghost.x; ghost.move.y = ghost.y; }
   else {
-    const b = BUILDINGS[ghost.type], cost = T.upCost(ghost.type, 1), why = T.buildBlock(S, ghost.type);
+    const b = BUILDINGS[ghost.type], tok = S.tokens?.[ghost.type] > 0, cost = tok ? {} : T.upCost(ghost.type, 1), why = T.buildBlock(S, ghost.type);
     if (why){ sfx.err(); return toast(why); }
-    T.take(S, cost);
+    T.take(S, cost); if (tok) S.tokens[ghost.type]--;
     const o = {id: 'o' + now() + Math.random().toString(36).slice(2, 5), type: ghost.type, x: ghost.x, y: ghost.y, lv: 1, t: now()};
     const ms = T.upTime(ghost.type, 1) * 1000; if (ms){ o.build = now() + ms; o.btotal = ms; }
     if (b.kind === 'craft') o.q = [];

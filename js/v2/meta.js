@@ -192,3 +192,20 @@ export function eventReward(s, i){
   return [{coins: R5(400 * m)}, {wood: R5(500 * m), cookies: R5(300 * m)}, {ice: 6 + i}, {stars: 3, coins: R5(300 * m)}][i % 4];
 }
 export const eventClaimable = s => { const E = eventState(s); return EV_STEPS.filter((p, i) => E.pts >= p && !E.got[i]).length; };
+
+/* Boutique de l'événement : les flocons dépensés ici ne font pas reculer les paliers (on compte à part). */
+export const EV_SHOP = [
+  {k: 'reindeer', name: 'Renne décoré', price: 150, deco: 'reindeer'},
+  {k: 'gifts', name: 'Pile de cadeaux', price: 90, deco: 'gifts'},
+  {k: 'snowman', name: 'Bonhomme de neige', price: 60, deco: 'snowman'},
+  {k: 'parcel', name: 'Colis rare', price: 200, give: {parcel: 1}},
+  {k: 'stars', name: '5 étoiles d’or', price: 300, give: {stars: 5}},
+];
+export const evSpendable = s => { eventState(s); return s.ev.pts - (s.ev.spent || 0); };
+export function evBuy(s, k){
+  const it = EV_SHOP.find(x => x.k === k); if (!it) return null;
+  if (evSpendable(s) < it.price) return 'Pas assez de flocons';
+  s.ev.spent = (s.ev.spent || 0) + it.price;
+  if (it.deco){ s.tokens ||= {}; s.tokens[it.deco] = (s.tokens[it.deco] || 0) + 1; return {deco: it.deco}; }
+  return {give: it.give};
+}
