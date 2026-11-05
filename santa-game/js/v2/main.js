@@ -1349,17 +1349,22 @@ const built = o => !o.build;
 const working = o => { const b = B(o); if (o.build || o.up || o.wild || o.free) return false;
   if (b.kind === 'prod') return !!o.job || T.stored(S, o) < (o.keeper ? T.keeperBuffer(o) : T.buffer(o.type, o.lv));
   if (b.kind === 'craft') return (o.q || []).some(j => j.end > now());
-  return b.kind === 'hq' || b.kind === 'house' || b.kind === 'mine'; };
+  return b.kind === 'hq' || b.kind === 'house' || b.kind === 'mine' || b.kind === 'orders' || b.kind === 'storage'; };
 let smokeT = 0;
 // position de la cheminée sur l'image du bâtiment (mesurée sur les rendus)
-const CHIMNEY = {santa: [.59, .22]};
+// sommet de chaque cheminée, mesuré sur les images (type → [apparence 1, 2, 3], null = pas de cheminée)
+const CHIMNEY = {
+  santa: [[.57, .15], [.59, .12], [.56, .11]], cabin: [[.51, .15], [.6, .15], [.6, .15]], workshop: [[.52, .16], [.56, .13], [.56, .13]],
+  bakery: [[.51, .24], [.56, .21], [.49, .22]], mill: [null, [.5, .15], [.55, .12]], letters: [null, [.49, .17], [.54, .14]],
+  orders: [null, [.51, .16], [.56, .13]], storage: [[.46, .22], [.51, .14], null],
+};
 function smoke(dt){
   smokeT -= dt; if (smokeT > 0 || cam.z < .45) return; smokeT = .22;
   if (FX.filter(f => f.k === 'smoke').length > 40) return;
   for (const o of S.objs){
-    if (!CHIMNEY[o.type] || Math.random() > .8 || !working(o)) continue;
+    if (!CHIMNEY[o.type] || Math.random() > .55 || !working(o)) continue;
     const r = objScreenRect(o); if (r.cx < -50 || r.cx > W + 50 || r.top < -80 || r.top > H) continue;
-    const at = CHIMNEY[o.type]; if (!at) continue; const x = r.left + r.width * at[0], y = r.top + r.height * at[1];
+    const at = CHIMNEY[o.type]?.[tierOf(o.lv || 1) - 1]; if (!at) continue; const x = r.left + r.width * at[0], y = r.top + r.height * (at[1] + .03);
     FX.push({k: 'smoke', x: x + (Math.random() - .5) * 6, y, vx: 6 + Math.random() * 8, vy: -16 - Math.random() * 10, r: (9 + Math.random() * 5) * cam.z, t: 0, d: 2.4 + Math.random()});
   }
 }

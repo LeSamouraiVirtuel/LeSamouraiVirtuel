@@ -56,6 +56,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Ressources, cristaux, outils, étoiles, colis ou lingots ; 8 % de chances d'un gros lot de 10 étoiles.
 - Retournement de carte en animation simple (fiable sur iPhone).
 
+## Tour 12 — Fumée sur toutes les cheminées
+- Position de chaque cheminée mesurée automatiquement sur les images (3 apparences par bâtiment).
+- Fumée sur la Maison, les chalets, l'atelier, le four, la filature, les bureaux et l'entrepôt quand ils travaillent.
+
 ## Idées pour la suite
-2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
-5. Fumée et petites animations propres à chaque bâtiment (roue de la scierie, four).
+5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
