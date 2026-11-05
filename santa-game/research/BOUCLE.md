@@ -260,5 +260,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Cinématiques : bandes noires, caméra qui survole le village, dialogues avec portraits. Intro (le vieux Père Noël part à la retraite, le Krampus des Glaces veut éteindre l'Étoile du Nord), puis une cinématique à chaque chapitre, avec les répliques du Krampus qui tissent la trame.
 - Comptes et connexion (Google, e-mail) : demandent un projet Firebase créé par le joueur ; en attente.
 
+## Tour 49 — Fond qui bave au lancement, tous les téléphones
+- Lancement depuis l'écran d'accueil : iOS peut vider la mémoire du dessin quand l'app revient ; la surface de dessin est maintenant recréée à chaque retour (pageshow, focus, retour au premier plan, contexte perdu).
+- Mémoire : images du jeu réduites (198 → 99 Mo une fois décodées) et chargement à la demande des bâtiments absents du village ; c'est la cause la plus probable des images floues sur les iPhone qui manquent de mémoire.
+- Toute erreur de dessin est enregistrée et affichée dans Profil → Réglages (« Dernier souci d'affichage »).
+- Tailles vérifiées image par image : iPhone 5/SE 1 (320×568), iPhone 8, iPhone 12 mini, iPhone 15 Pro Max, Android 360×640, Pixel 7, iPad mini. Aucun débordement mesuré ; cinématique, tutoriel, fiche et boutique lisibles partout. Compatibilité iOS 15+ (roundRect, Array.at, import maps).
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
