@@ -934,16 +934,16 @@ export function upcoming(s, now = Date.now()){
 // Une recherche à la fois. Chaque niveau donne un bonus permanent. Le niveau de la Bibliothèque plafonne le niveau des recherches
 // et débloque de nouvelles branches. Les niveaux coûtent de plus en plus (pièces, puis cristaux, puis lingots) et prennent de plus en plus de temps.
 export const RESEARCH = [
-  {k: 'saw',   name: 'Scies affûtées',        icon: 'wood',    p: .05, lib: 1, txt: p => `+${p} % de bois produit`},
-  {k: 'oven',  name: 'Recettes de grand-mère', icon: 'cookies', p: .05, lib: 1, txt: p => `+${p} % de biscuits produits`},
-  {k: 'post',  name: 'Tri du courrier',        icon: 'coins',   p: .05, lib: 1, txt: p => `+${p} % de pièces produites`},
-  {k: 'loom',  name: 'Métiers à tisser',       icon: 'fabric',  p: .05, lib: 2, txt: p => `+${p} % de tissu produit`},
-  {k: 'store', name: 'Rangement malin',        icon: 'storage', p: .04, lib: 2, txt: p => `+${p} % de place dans le stock`},
-  {k: 'craft', name: 'Doigts de fée',          icon: 'workshop', p: .04, lib: 3, txt: p => `Jouets fabriqués ${p} % plus vite`},
-  {k: 'swift', name: 'Rennes véloces',         icon: 'stable',  p: .04, lib: 3, txt: p => `Expéditions ${p} % plus rapides`},
-  {k: 'frost', name: 'Givre éternel',          icon: 'ice',     p: .06, lib: 4, txt: p => `+${p} % de cristaux produits`},
-  {k: 'plan',  name: 'Plans d’architecte',     icon: 'build',   p: .03, lib: 5, txt: p => `Chantiers ${p} % plus courts`},
-  {k: 'forge', name: 'Forge des aurores',      icon: 'gold',    p: .06, lib: 7, txt: p => `+${p} % de lingots produits`},
+  {k: 'saw',   name: 'Scies affûtées',        icon: 'wood',    p: .05, lib: 1, txt: p => `+${p}\u00a0% de bois produit`},
+  {k: 'oven',  name: 'Recettes de grand-mère', icon: 'cookies', p: .05, lib: 1, txt: p => `+${p}\u00a0% de biscuits produits`},
+  {k: 'post',  name: 'Tri du courrier',        icon: 'coins',   p: .05, lib: 1, txt: p => `+${p}\u00a0% de pièces produites`},
+  {k: 'loom',  name: 'Métiers à tisser',       icon: 'fabric',  p: .05, lib: 2, txt: p => `+${p}\u00a0% de tissu produit`},
+  {k: 'store', name: 'Rangement malin',        icon: 'storage', p: .04, lib: 2, txt: p => `+${p}\u00a0% de place dans le stock`},
+  {k: 'craft', name: 'Doigts de fée',          icon: 'workshop', p: .04, lib: 3, txt: p => `Jouets fabriqués ${p}\u00a0% plus vite`},
+  {k: 'swift', name: 'Rennes véloces',         icon: 'stable',  p: .04, lib: 3, txt: p => `Expéditions ${p}\u00a0% plus rapides`},
+  {k: 'frost', name: 'Givre éternel',          icon: 'ice',     p: .06, lib: 4, txt: p => `+${p}\u00a0% de cristaux produits`},
+  {k: 'plan',  name: 'Plans d’architecte',     icon: 'build',   p: .03, lib: 5, txt: p => `Chantiers ${p}\u00a0% plus courts`},
+  {k: 'forge', name: 'Forge des aurores',      icon: 'gold',    p: .06, lib: 7, txt: p => `+${p}\u00a0% de lingots produits`},
 ];
 export const RS_RES = {wood: 'saw', cookies: 'oven', coins: 'post', fabric: 'loom', ice: 'frost', gold: 'forge'};
 export const RS_MAX = 20;

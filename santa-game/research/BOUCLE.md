@@ -163,5 +163,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Équilibre (simulation de 3 000 ventes au niveau 10) : enchérir jusqu'à l'estimation gagne 29 % des ventes avec un rendement de 1,44 ; enchérir jusqu'à 1,5 fois gagne 93 % des ventes mais rend à peine plus que la mise (1,07).
 - Corrigé pendant les tests : boutons coupés sur iPhone SE, pas d'enchère mal arrondi, trop d'étoiles dans les lots, « 1 lingots » au marchand.
 
+## Tour 35 — Bibliothèque des lutins (arbre de recherche)
+- Nouveau bâtiment unique (Maison niv. 6), gardienne Mademoiselle Plume, modèle 3D ajouté au pack.
+- 10 domaines comme le Science Center de DoA : bois, biscuits, pièces, tissu (+5 %/niv.), stock (+4 %), atelier et rennes (+4 % de vitesse), cristaux et lingots (+6 %), chantiers (−3 %). Bonus plafonné à 75 %.
+- Une recherche à la fois ; 10 min au niveau 1, ×1,85 par niveau, jusqu'à 5 jours ; coût en pièces, puis cristaux (niv. 3+), puis lingots (niv. 7+). Accélérable en étoiles.
+- Le niveau de la Bibliothèque plafonne les recherches (2 niveaux par niveau de bâtiment) et ouvre les domaines (niv. 1, 2, 3, 4, 5, 7).
+- « Mon village » signale une Bibliothèque inoccupée. Testé sur iPhone 13 et SE, tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
