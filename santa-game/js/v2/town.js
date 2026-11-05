@@ -276,10 +276,10 @@ export function give(s, k, n = 1){ if (RES.includes(k) || k === 'stars') s[k] = 
 export const busyBuilders = (s, now = Date.now()) => s.objs.filter(o => (o.build && o.build > now) || (o.up && o.up > now)).length;
 export function buildBlock(s, type){
   const b = BUILDINGS[type];
-  if ((b.hq || 1) > hqLv(s)) return `Maison du Père Noël niv. ${b.hq}`;
+  if ((b.hq || 1) > hqLv(s) && !(s.tokens?.[type] > 0)) return `Maison du Père Noël niv. ${b.hq}`;
   if (countOf(s, type) >= maxOf(s, type)) return b.unique ? 'Déjà construit' : 'Maximum atteint : améliore la Maison du Père Noël';
   if (isUpgradable(b) && busyBuilders(s) >= builders(s)) return 'Tous les bâtisseurs sont occupés';
-  if (!has(s, upCost(type, 1))) return 'Ressources insuffisantes';
+  if (!(s.tokens?.[type] > 0) && !has(s, upCost(type, 1))) return 'Ressources insuffisantes';
   return null;
 }
 export function upBlock(s, o){

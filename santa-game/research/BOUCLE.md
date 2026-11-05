@@ -42,6 +42,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - 3 spectacles : 1 h (+15 %), 4 h (+25 %), 8 h (+40 %), +2 % par niveau du théâtre ; coût en biscuits, tissu, pièces ou cristaux.
 - Toute la production du village augmente ; le compteur de bonus en haut passe en rouge orangé pendant le spectacle.
 
+## Tour 9 — Boutique de l'événement
+- Les flocons s'échangent contre un renne décoré, une pile de cadeaux, un bonhomme de neige (posés gratuitement, même sans le niveau de Maison), un colis rare ou 5 étoiles d'or.
+- Dépenser ne fait pas reculer les paliers de l'événement.
+
 ## Idées pour la suite
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
-5. Boutique de l'événement : échanger les flocons restants contre des décorations exclusives.
+5. Fumée et petites animations propres à chaque bâtiment (roue de la scierie, four).
