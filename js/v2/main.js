@@ -311,6 +311,7 @@ function draw(){
   if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : T.isUpgradable(b) ? `b:${ghost.type}:1` : 'b:' + ghost.type, c.x, c.y, .85); }}); }
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
+  drawDrop();
   ambiance();
   // noms des bâtiments, puis indicateurs au-dessus
   labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden]), #sideL2 > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width).map(r => ({left: r.left - 8, right: r.right + 8, top: r.top - 6, bottom: r.bottom + 16}));
@@ -586,7 +587,34 @@ addEventListener('pointerup', endPtr); addEventListener('pointercancel', endPtr)
 cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(.45, Math.min(1.5, cam.z * (1 - e.deltaY * .001))); }, {passive: false});
 function clampCam(){ const c = iso(T.MAP / 2, T.MAP / 2), r = T.MAP * TW * .45; cam.x = Math.max(c.x - r, Math.min(c.x + r, cam.x)); cam.y = Math.max(c.y - r * .5 - 200, Math.min(c.y + r * .5 + 200, cam.y)); }
 
+/* ---------- cadeaux tombés du traîneau : à ramasser sur la carte ---------- */
+let dropRect = null;
+function dropTick(){
+  const t = now();
+  if (S.drop && S.drop.until < t) S.drop = null;
+  if (S.drop || tuto.active() || S.lvl < 2) return;
+  S.dropNext ||= t + 3 * 60e3; if (t < S.dropNext) return;
+  const paths = S.objs.filter(o => o.type === 'path'); if (!paths.length) return;
+  const p = paths[Math.floor(Math.random() * paths.length)];
+  S.drop = {x: p.x + .5, y: p.y + .5, until: t + 4 * 60e3, born: t}; S.dropNext = t + (6 + Math.random() * 6) * 60e3;
+}
+function drawDrop(){
+  dropRect = null; const d = S.drop; if (!d) return;
+  const c = toScreen(d.x, d.y), age = (now() - d.born) / 1000, fall = Math.max(0, 1 - age / .8), z = Math.max(.75, cam.z);
+  const y = c.y - 26 * z - fall * 260 + Math.sin(performance.now() / 300) * 3, r = 30 * z;
+  const pu = 1.5 + Math.sin(performance.now() / 180) * .25; ctx.drawImage(GLOW, c.x - r * pu, y - r * pu, r * pu * 2, r * pu * 2); ctx.drawImage(GLOW, c.x - r * pu, y - r * pu, r * pu * 2, r * pu * 2);
+  ctx.save(); ctx.globalAlpha = .9; ctx.strokeStyle = '#ffd34a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(c.x, c.y, 26 * z * pu / 1.5, 13 * z * pu / 1.5, 0, 0, 7); ctx.stroke(); ctx.restore();
+  const im = img(thumbs.gifts); if (im.complete) ctx.drawImage(im, c.x - r, y - r, r * 2, r * 2);
+  dropRect = {left: c.x - r, right: c.x + r, top: y - r, bottom: y + r + 10};
+}
+function pickDrop(){
+  const L = S.lvl, r = Math.random(), m = 1 + L * .3;
+  const give = r < .05 ? {stars: 1} : r < .2 ? {ice: 2 + Math.floor(L / 4)} : r < .35 ? {[Math.random() < .5 ? 'axe' : 'saw']: 1} : r < .7 ? {coins: Math.round(120 * m)} : {[['wood', 'cookies'][Math.floor(Math.random() * 2)]]: Math.round(150 * m)};
+  const at = toScreen(S.drop.x, S.drop.y); S.drop = null; T.track(S, 'drop'); sfx.collect();
+  giveReward(give, {x: at.x, y: at.y - 30}); toast('Un cadeau tombé du traîneau !'); save();
+}
 function tap(o, at){
+  if (S.drop && dropRect && at.x > dropRect.left - 10 && at.x < dropRect.right + 10 && at.y > dropRect.top - 10 && at.y < dropRect.bottom) return pickDrop();
   if (o) o.bounce = performance.now();
   if (S.visitor && visitorRect && at.x > visitorRect.left && at.x < visitorRect.right && at.y > visitorRect.top && at.y < visitorRect.bottom) return openVisitor();
   sfx.tap();
@@ -1370,7 +1398,7 @@ function smoke(dt){
 }
 function step(t, dt){
   smoke(dt);
-  if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); if (!tuto.active()){ const had = !!S.visitor; T.visitorTick(S, now()); if (!had && S.visitor){ toast(`${S.visitor.who} arrive au village !`); sfx.pop(); } } }
+  if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); dropTick(); if (!tuto.active()){ const had = !!S.visitor; T.visitorTick(S, now()); if (!had && S.visitor){ toast(`${S.visitor.who} arrive au village !`); sfx.pop(); } } }
   fxDt = dt;
   refreshOrders(); finishWorks(); moveElves(dt);
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
