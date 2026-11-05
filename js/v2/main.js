@@ -451,6 +451,21 @@ function sign(x, y, cx, cy){
   ctx.font = '400 15px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeText('À VENDRE', 0, -2); ctx.fillStyle = '#fff'; ctx.fillText('À VENDRE', 0, -2);
   ctx.restore();
 }
+// échafaudage en bois devant un bâtiment en cours d'amélioration (comme Township)
+function scaffold(o){
+  const b = B(o), c = toScreen(o.x + b.w, o.y + b.h * .5), z = cam.z, half = b.w * 9 * z, L = c.x - half, R = c.x + half, B0 = c.y + 4 * z, T0 = B0 - b.w * 15 * z;
+  ctx.save(); ctx.lineCap = 'round';
+  const pole = (x1, y1, x2, y2, w) => { ctx.lineWidth = w + 3 * z; ctx.strokeStyle = '#2e202c'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.lineWidth = w; ctx.strokeStyle = '#c98a4a'; ctx.stroke(); };
+  for (const x of [L, (L + R) / 2, R]) pole(x, B0, x, T0, 3.5 * z);
+  for (const y of [T0 + (B0 - T0) * .25, T0 + (B0 - T0) * .65]){ pole(L - 4 * z, y, R + 4 * z, y, 5 * z); }
+  pole(L, B0, (L + R) / 2, T0 + (B0 - T0) * .25, 3 * z);
+  // petite grue : mât + flèche + crochet qui se balance
+  const cx = R + 6 * z, top = T0 - 22 * z, sw = Math.sin(performance.now() / 500) * 4 * z;
+  pole(cx, B0, cx, top, 3.5 * z); pole(cx + 6 * z, top, cx - (R - L) * .45, top + 4 * z, 3 * z);
+  ctx.lineWidth = 1.5 * z; ctx.strokeStyle = '#2e202c'; const hx = cx - (R - L) * .3 + sw; ctx.beginPath(); ctx.moveTo(cx - (R - L) * .3, top + 5 * z); ctx.lineTo(hx, top + 22 * z); ctx.stroke();
+  ctx.fillStyle = '#ffd34a'; ctx.strokeStyle = '#2e202c'; ctx.lineWidth = 2 * z; ctx.beginPath(); ctx.rect(hx - 5 * z, top + 22 * z, 10 * z, 7 * z); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
 function drawObj(o){
   const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2);
   if (selObj === o) diamond(o.x, o.y, b.w, b.h, 'rgba(255,214,90,.35)', '#ffc83a');
@@ -461,6 +476,7 @@ function drawObj(o){
   else if (o.job || (B(o).kind === 'craft' && (o.q || []).some(j => j.end > now()))){ const k = Math.sin(t / 260 + o.x) * .012; sx = 1 - k; sy = 1 + k; }
   if (sx !== 1 || sy !== 1){ ctx.save(); ctx.translate(c.x, c.y); ctx.scale(sx, sy); ctx.translate(-c.x, -c.y); drawSprite(spriteKey(o), c.x, c.y); ctx.restore(); }
   else drawSprite(spriteKey(o), c.x, c.y);
+  if (o.up && !o.build) scaffold(o);
   // chantier : étincelles des marteaux
   if ((o.build || o.up) && Math.random() < .08){ const r = objScreenRect(o); FX.push({k: 'spark', x: r.cx + (Math.random() - .5) * r.width * .4, y: r.top + r.height * .45, vx: (Math.random() - .5) * 120, vy: -120 - Math.random() * 80, t: 0, d: .6}); }
 }
