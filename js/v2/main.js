@@ -162,9 +162,15 @@ function collectBld(o){
   const b = B(o), got = T.collect(S, o);
   if (got === -1){ toastOnce(`Stock de ${ITEMS[b.res].name.toLowerCase()} plein : construis ou améliore un Entrepôt`); return true; }
   if (!got) return false;
-  T.track(S, 'collect:' + b.res, got); fxHarvest(o, b.res, got); gainXp(T.collectXp(o), null);
-  sfx.collect(); tutoEv('collect:' + o.type); save(); return true;
+  // combo : récoltes enchaînées (moins de 4 s d'écart) → +5 % par palier, jusqu'à +25 %
+  const t = performance.now(); combo.n = t - combo.t < 4000 ? Math.min(6, combo.n + 1) : 1; combo.t = t;
+  let bonus = 0;
+  if (combo.n > 1){ bonus = Math.min(T.cap(S, b.res) - S[b.res], Math.round(got * .05 * (combo.n - 1))); if (bonus > 0) S[b.res] += bonus; else bonus = 0;
+    const c = toScreen(o.x + b.w / 2, o.y + b.h / 2); FX.push({k: 'combo', txt: `Combo ×${combo.n}`, x: Math.min(W - 160, Math.max(160, c.x)), y: Math.max(170, c.y - 150 * cam.z), t: 0, d: 1.2}); }
+  T.track(S, 'collect:' + b.res, got + bonus); fxHarvest(o, b.res, got + bonus); gainXp(T.collectXp(o), null);
+  sfx.collect(); if (combo.n > 1) tone(660 + combo.n * 110, .12, 'triangle', .05, .05); tutoEv('collect:' + o.type); save(); return true;
 }
+const combo = {n: 0, t: 0};
 /* ---------- Atelier : file de fabrication des jouets ---------- */
 function workshopOf(){ return findType('workshop'); }
 function craftDone(o){ return (o.q || []).filter(j => j.end <= now()); }
@@ -530,6 +536,9 @@ function drawFx(dt){
       ctx.font = '400 22px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = '#2a1a0e';
       if (f.k === 'xp'){ ctx.fillStyle = '#3aa8ff'; ctx.beginPath(); ctx.arc(f.x - 20, y, 11, 0, 7); ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke(); ctx.lineWidth = 5; ctx.font = '400 10px "Lilita One", sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('XP', f.x - 20, y + 1); ctx.font = '400 20px "Lilita One", sans-serif'; ctx.strokeText(f.txt, f.x + 6, y); ctx.fillStyle = '#9be3ff'; ctx.fillText(f.txt, f.x + 6, y); }
       else { ctx.strokeText(f.txt, f.x, y); ctx.fillStyle = f.col; ctx.fillText(f.txt, f.x, y); if (f.icon){ const im = img(f.icon); if (im.complete){ const tw = ctx.measureText(f.txt).width; ctx.drawImage(im, f.x + tw / 2 + 2, y - 13, 26, 26); } } }
+    } else if (f.k === 'combo'){
+      const sc = u < .2 ? .6 + u * 3 : 1.2 - (u - .2) * .25; ctx.globalAlpha = u > .75 ? (1 - u) / .25 : 1;
+      ctx.save(); ctx.translate(f.x, f.y - 30 * u); ctx.scale(sc, sc); ctx.font = '400 30px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 7; ctx.strokeStyle = '#7a1a10'; ctx.strokeText(f.txt, 0, 0); ctx.fillStyle = '#ffd34a'; ctx.fillText(f.txt, 0, 0); ctx.restore();
     } else if (f.k === 'smoke'){
       f.x += f.vx * dt; f.y += f.vy * dt; f.vx += 4 * dt; const R = f.r * (1 + u * 1.6); ctx.globalAlpha = Math.min(1, u * 6) * (1 - u * u); const g = ctx.createRadialGradient(f.x - R * .3, f.y - R * .3, R * .1, f.x, f.y, R); g.addColorStop(0, '#ffffff'); g.addColorStop(.55, '#cfd4de'); g.addColorStop(1, 'rgba(120,130,150,.0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, R, 0, 7); ctx.fill();
     } else if (f.k === 'puff'){
