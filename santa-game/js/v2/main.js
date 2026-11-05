@@ -1040,7 +1040,7 @@ function renderPanel(){
       <button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
   }
   else if (panel === 'profile'){
-    const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Améliorations', S.cnt.upgrade || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Record de la grotte', 'étage ' + (S.mine?.best || 0)], ['Illuminations', 'niv. ' + T.lightsLv(S)], ['Succès', M.ACH.reduce((a, x) => a + (S.ach?.[x.k] || 0), 0) + ' / ' + M.ACH.length * 3 + ' ★']];
+    const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Améliorations', S.cnt.upgrade || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Record de la grotte', 'étage ' + (S.mine?.best || 0)], ['Illuminations', 'niv. ' + T.lightsLv(S)], ['Camps de trolls vaincus', (S.camps?.at || 0)], ['Flocon, le renne magique', S.pet ? 'niv. ' + S.pet.lv : '—'], ['Espèces pêchées', Object.keys(S.fish || {}).length + ' / ' + T.FISH.length], ['Trouvailles du musée', T.RELICS.filter(x => (S.relics || {})[x.k]).length + ' / ' + T.RELICS.length], ['Succès', M.ACH.reduce((a, x) => a + (S.ach?.[x.k] || 0), 0) + ' / ' + M.ACH.length * 3 + ' ★']];
     h = hd(M.titleOf(S.lvl), S.name || 'Mon village') + `<div class="prof"><img src="${portrait}" alt=""><div><b>Niveau ${S.lvl}</b><small>Maison du Père Noël niv. ${T.hqLv(S)}</small><button class="btn blue sm" data-a="rename">Renommer le village</button></div></div>
       <div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div>
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
@@ -1357,8 +1357,8 @@ const RINFO = {
   cookies: {name: 'Biscuits', use: 'Nourrir les lutins sur les gros chantiers et les rennes en expédition, fabriquer les boîtes de biscuits.', from: 'Le Four à biscuits : touche sa bulle pour récolter.', go: 'bakery'},
   fabric:  {name: 'Tissu', use: 'Fabriquer les peluches et les chaussettes, construire le Théâtre.', from: 'La Filature (Maison du Père Noël niv. 3).', go: 'mill'},
   stars:   {name: "Étoiles d'or", use: 'La monnaie rare : terminer un chantier tout de suite, remplir les pioches, engager un bâtisseur de plus.', from: 'Montées de niveau, tâches, album, colis légendaires, calendrier de l’Avent… ou la boutique.', go: 'shop'},
-  ice:     {name: 'Cristaux de glace', use: 'Améliorer les bâtiments à partir du niveau 6.', from: 'La Grotte aux cristaux et les colis rares des rennes.', go: 'mine'},
-  gold:    {name: "Lingots d'or polaire", use: 'Améliorer les bâtiments à partir du niveau 11.', from: 'La Grotte (étage 3 et plus) et les colis épiques ou légendaires.', go: 'mine'},
+  ice:     {name: 'Cristaux de glace', use: 'Améliorer les bâtiments à partir du niveau 6.', from: 'Le Puits de cristaux, la Grotte aux cristaux, les colis rares des rennes, la Salle des ventes.', go: 'mine'},
+  gold:    {name: "Lingots d'or polaire", use: 'Améliorer les bâtiments à partir du niveau 11.', from: 'La Fonderie d’or polaire, la Grotte (étage 3 et plus), les colis épiques ou légendaires, la Campagne des Trolls.', go: 'mine'},
   axe:     {name: 'Haches', use: 'Dégager un nouveau terrain dans la forêt.', from: 'Lettres des enfants, cadeau du jour, mini-jeux, colis.', go: 'orders'},
   saw:     {name: 'Scies', use: 'Dégager un nouveau terrain dans la forêt.', from: 'Lettres des enfants, cadeau du jour, mini-jeux, colis.', go: 'orders'},
   xp:      {name: 'Expérience', use: 'Remplir la barre fait monter de niveau : nouveaux jouets, nouvelles lettres, coffres de la barre.', from: 'Livrer les lettres (le plus), fabriquer des jouets, finir des chantiers, récolter.', go: 'orders'},
@@ -1371,8 +1371,8 @@ const GUIDE = [
   ['cookies', ['bakery'], 'gros chantiers, rennes, boîtes de biscuits'],
   ['fabric', ['mill'], 'peluches, chaussettes, théâtre'],
   ['coins', ['letters', 'orders'], 'tout acheter et améliorer'],
-  ['ice', ['mine', 'stable'], 'bâtiments à partir du niveau 6'],
-  ['gold', ['mine', 'stable'], 'bâtiments à partir du niveau 11'],
+  ['ice', ['icewell', 'mine', 'stable'], 'bâtiments à partir du niveau 6'],
+  ['gold', ['foundry', 'mine', 'stable'], 'bâtiments à partir du niveau 11'],
   ['stars', ['Succès, Pass, niveaux, boutique'], 'accélérer, bâtisseurs, achats'],
 ];
 const qty = k => k === 'xp' ? `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}` : k === 'pop' ? `${T.employed(S)} au travail / ${T.lutins(S)} logés` : k === 'joy' ? `${T.joy(S)} points · +${T.joy(S)} %` : T.RES.includes(k) && k !== 'coins' ? `${fmt(S[k])} / ${fmt(T.cap(S, k))} (stock max)` : fmt(haveOf(k));

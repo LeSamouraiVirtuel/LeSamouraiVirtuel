@@ -213,5 +213,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Corrigé pendant les tests : cartes trop serrées sur iPhone SE (3 colonnes et badge ×N).
 - Testé sur iPhone 13 et SE, tutoriel OK.
 
+## Tour 42 — Audit complet
+- Parcours complets des écrans relancés sur iPhone SE et iPhone 13 (boutique, missions, succès, pass, marché, profil, stock) : aucune erreur.
+- Corrigé : sur iPhone SE, la barre du haut débordait (le « + » des étoiles sortait de l'écran) ; les pastilles se resserrent sur les petits écrans.
+- Guide des ressources mis à jour : les cristaux viennent aussi du Puits et de la Salle des ventes, les lingots de la Fonderie et de la Campagne.
+- Profil : nouvelles lignes (camps vaincus, niveau de Flocon, espèces pêchées, trouvailles du musée).
+- Nouveau manque noté : les nouveautés des tours 31 à 41 ne sont présentées par aucune tâche d'histoire.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
