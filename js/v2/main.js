@@ -898,9 +898,18 @@ function renderPanel(){
         return `<div class="campc ${c.boss ? 'boss' : ''} ${cur ? 'cur' : ''} ${st ? 'won' : ''}"><div class="cn"><b>${c.name}</b><small>${c.n} trolls${c.boss ? ' + le chef' : ''}${c.hp > 1 ? ` · ${c.hp} coups chacun` : ''}</small><span class="cst">${[1, 2, 3].map(k => `<i class="${k <= st ? 'on' : ''}">★</i>`).join('')}</span></div>
           <div class="ca"><span class="costs">${rewardChips(T.campLoot(S, c.i, 3, !st))}</span><button class="btn ${cur ? 'red' : 'blue'} sm" data-a="campgo" data-i="${c.i}" ${lk ? 'disabled' : ''}><span class="costs">${costChips(cost)}</span>${cur ? 'Attaquer' : 'Rejouer'}</button></div></div>`; }).join('')}</div>`;
   }
+  else if (panel === 'museum'){
+    const R = S.relics || {}, done = T.RELIC_SETS.filter(st => T.relicSetDone(S, st)).length, got = T.RELICS.filter(x => R[x.k]).length;
+    S.relicClaim ||= {};
+    h = hd(`${got} / ${T.RELICS.length} trouvailles · production +${Math.round(T.museumProd(S) * 100)} %`, 'Musée des trouvailles') + `<p class="help">Des objets rares se cachent dans les lots de la Salle des ventes, les colis mystère, les chefs trolls et les poissons légendaires. Chaque collection complète : une récompense et <b>+2 % de production</b> pour toujours.</p>`
+      + T.RELIC_SETS.map(st => { const ok = T.relicSetDone(S, st), cl = S.relicClaim[st.k];
+        return `<div class="rset ${ok ? 'done' : ''}"><div class="rsh"><b>${st.name}</b><small>${st.items.filter(([k]) => R[k]).length} / 5</small></div><div class="relics">${st.items.map(([k, name, ico, r]) => { const n = R[k] || 0;
+          return `<div class="relic ${n ? '' : 'no'}" style="--rc:${T.RARITY[r].c}"><span class="ri">${n ? ico : '?'}</span><small>${n ? name : T.RARITY[r].name}</small>${n > 1 ? `<em class="cnt">×${n}</em><button class="dup" data-a="relicsell" data-k="${k}">Vendre ${icon('coins')}${fmt(T.relicSell(T.RELICS.find(x => x.k === k)).coins)}</button>` : ''}</div>`; }).join('')}</div>
+          ${ok && !cl ? `<button class="btn gold wide" data-a="relicclaim" data-k="${st.k}">Collection complète ! Récupérer</button>` : ok ? '<p class="meta ok">Collection exposée · +2 % de production</p>' : `<div class="costs rsrw">${rewardChips(T.relicSetReward(st))}<span class="meta">+2 % de production</span></div>`}</div>`; }).join('');
+  }
   else if (panel === 'album'){
     const claim = T.albumClaimable(S);
-    h = hd(`${T.albumTotal(S)} / ${T.TOY_KEYS.length * 3} étoiles · lettres +${Math.round((T.albumBonus(S) - 1) * 100)} %`, 'Album des jouets') + `<p class="meta">Chaque jouet livré aux enfants remplit l'album. Chaque étoile augmente pour toujours ce que paient les lettres.</p>
+    h = hd(`${T.albumTotal(S)} / ${T.TOY_KEYS.length * 3} étoiles · lettres +${Math.round((T.albumBonus(S) - 1) * 100)} %`, 'Album des jouets') + museumEntry() + `<p class="meta">Chaque jouet livré aux enfants remplit l'album. Chaque étoile augmente pour toujours ce que paient les lettres.</p>
       ${claim.length ? `<button class="btn gold wide" data-a="albumclaim">Récupérer ${claim.length} récompense${claim.length > 1 ? 's' : ''}</button>` : ''}
       <div class="album">${T.TOY_KEYS.map(k => { const n = S.cnt['deliver:' + k] || 0, st = T.albumStars(S, k), next = T.ALBUM_STEPS[st], lock = S.lvl < TOYS[k].lvl;
         return `<div class="acard ${lock ? 'locked' : ''} s${st}"><img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b><span class="ast">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span><small>${lock ? `Niveau ${TOYS[k].lvl}` : next ? `${n} / ${next} livrés` : `${n} livrés · complet`}</small></div>`; }).join('')}</div>`;
@@ -1178,6 +1187,9 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'camp') return openPanel('camp');
   if (a === 'pet') return openPanel('pet');
   if (a === 'fishcast') return fishCast();
+  if (a === 'museum') return openPanel('museum');
+  if (a === 'relicsell'){ const it = T.RELICS.find(x => x.k === b.dataset.k); if (!it || (S.relics[it.k] || 0) < 2) return; S.relics[it.k]--; giveReward(T.relicSell(it), b); sfx.collect(); save(); return renderPanel(); }
+  if (a === 'relicclaim'){ const st = T.RELIC_SETS.find(x => x.k === b.dataset.k); if (!st || !T.relicSetDone(S, st) || S.relicClaim[st.k]) return; S.relicClaim[st.k] = 1; save(); bravo(T.relicSetReward(st), st.name, 'COLLECTION !'); return renderPanel(); }
   if (a === 'fishtap') return fishTap();
   if (a === 'petfeed'){ const r = T.petFeed(S, b.dataset.k); if (r.why){ sfx.err(); return r.cost ? showMissing(r.cost, 'Nourrir Flocon', null) : toastOnce(r.why); } sfx.collect(); petUp(r.up, b); save(); return renderPanel(); }
   if (a === 'petpat'){ const r = T.petPat(S); if (!r) return; sfx.pop(); giveReward(r.gift, b); petUp(r.up, b); toast('Flocon est tout content !'); save(); return renderPanel(); }
@@ -1331,7 +1343,7 @@ function openParcel(){
   m.querySelector('.mcard').innerHTML = `<small>Colis ${1} sur ${list.length}</small><h2 class="stroke" style="color:${R.c}">Colis ${R.name.toLowerCase()}</h2><div class="pbig r${r}" style="--rc:${R.c}"><i></i></div><button class="btn green" data-m="open">Ouvrir</button>`;
   m.hidden = false; sfx.tap();
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; const box = m.querySelector('.pbig'); box.classList.add('shake'); b.disabled = true;
-    setTimeout(() => { list.shift(); const rw = T.parcelReward(S, r); T.track(S, 'parcel'); save(); bravo(rw, `Colis ${R.name.toLowerCase()}`, r === 3 ? 'LÉGENDAIRE !' : r === 2 ? 'ÉPIQUE !' : 'BRAVO !'); }, 650); };
+    setTimeout(() => { list.shift(); const rw = T.parcelReward(S, r); T.track(S, 'parcel'); save(); if (Math.random() < [.04, .08, .15, .35][r]) relicFound(r); bravo(rw, `Colis ${R.name.toLowerCase()}`, r === 3 ? 'LÉGENDAIRE !' : r === 2 ? 'ÉPIQUE !' : 'BRAVO !'); }, 650); };
 }
 $('#b-parcels').addEventListener('click', () => openParcel());
 for (const id of ['#h-stars', '#h-coins']) $(id).querySelector('.plus')?.addEventListener('click', e => { e.stopPropagation(); sfx.tap(); openPanel('shop', 'stars'); });
@@ -1573,7 +1585,7 @@ function aucDraw(){
 function aucEnd(){
   const a = auc; if (!a || a.done) return; a.done = true; clearInterval(aucOpen.t);
   const val = Math.round(M.lotValue(S, a.l.items) / 5) * 5, m = $('#modal'), won = a.lead === -2, all = {...a.l, seen: a.l.items.map((_, j) => j)};
-  if (won){ S.coins -= a.price; save(); }
+  if (won){ S.coins -= a.price; save(); if (Math.random() < .3 + a.l.r * .15) relicFound(a.l.r); }
   const diff = val - a.price - a.l.fee;
   m.className = 'glow aucm';
   m.querySelector('.mcard').innerHTML = won
@@ -1642,6 +1654,7 @@ function todoList(){
   { const free = T.builders(S) - T.busyBuilders(S, t); if (free > 0) add(buildIcon, `${free} bâtisseur${free > 1 ? 's' : ''} libre${free > 1 ? 's' : ''}`, 'build'); }
   { const Ms = M.missions(S), n = Ms.list.filter(m => !m.done && m.v >= m.n).length + M.achClaimable(S); if (n) add(SVGI.missions, `${n} mission${n > 1 ? 's' : ''} ou succès à récupérer`, 'missions'); }
   { const ts = T.trainState(S); if (ts && !ts.away && ts.tr.wag.some(w => !w.done && T.has(S, w.want))) add(thumbs.station || buildIcon, 'Le train attend : des wagons à charger', {o: ts.o}); else if (ts && !ts.away && ts.tr.wag.every(w => w.done)) add(thumbs.station || buildIcon, 'Le train est plein : fais-le partir !', {o: ts.o}); }
+  { const st = T.RELIC_SETS.find(st => T.relicSetDone(S, st) && !(S.relicClaim || {})[st.k]); if (st) add(thumbs.gifts, `Musée : collection « ${st.name} » complète !`, 'museum'); }
   { const lb = S.objs.find(o => o.type === 'library' && !o.build); if (lb && !S.rsRun && T.RESEARCH.some(r => !T.rsBlock(S, r.k))) add(thumbs.library || buildIcon, 'La Bibliothèque peut lancer une recherche', {o: lb}); }
   if (T.hqLv(S) >= M.MARKET_HQ && M.auction(S).lots.length >= M.AUC_LOTS) add(thumbs.gifts, 'Salle des ventes : de nouveaux lots à saisir', 'auction');
   if (T.canFish(S) && !S.fish) add(ICON.ice, 'Le Lac Gelé est ouvert : va pêcher !', 'fish');
@@ -1654,7 +1667,7 @@ function todoGo(g){
   if (g === 'daily') return openDaily(); if (g === 'sack') return openSack(); if (g === 'visitor') return openVisitor();
   if (g === 'drop'){ centerOn(S.drop.x, S.drop.y); return; } if (g === 'quest') return $('#quest2').click();
   if (g === 'parcels') return openParcel(); if (g === 'build') return openPanel('build', 'prod');
-  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'pet') return openPanel('pet'); if (g === 'fish') return openPanel('fish'); if (g === 'orders' || g === 'event') return openPanel(g);
+  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'pet') return openPanel('pet'); if (g === 'fish') return openPanel('fish'); if (g === 'museum') return openPanel('museum'); if (g === 'orders' || g === 'event') return openPanel(g);
   if (g.o && g.o.type === 'library') return openPanel('lab', g.o);
   if (g.o && g.o.type === 'station') return openPanel('train', g.o);
   if (g.o) return goTo(g.o.type === 'cabin' ? 'cabin' : g.o.type);
@@ -1692,6 +1705,13 @@ function playGame(k){
   });
 }
 
+/* ---------- musée des trouvailles ---------- */
+function museumEntry(){ const n = T.RELICS.filter(x => (S.relics || {})[x.k]).length; return `<button class="museumentry" data-a="museum"><span>🏛️</span><div><b>Musée des trouvailles</b><small>${n} / ${T.RELICS.length} objets rares · production +${Math.round(T.museumProd(S) * 100)} %</small></div><span class="btn blue sm">Visiter</span></button>`; }
+function relicFound(rar){
+  const it = T.relicDrop(S, rar); save();
+  setTimeout(() => { toast(`Trouvaille pour le musée : ${it.ico} ${it.name} !`); sfx.level(); }, 1200);
+  return it;
+}
 /* ---------- pêche sur glace ---------- */
 const fishSt = {mode: 'idle', msg: '', got: null, t: 0};
 const fishSvg = (c, w) => `<svg viewBox="0 0 64 36" width="${w}" height="${w * .56}"><path d="M8 18 C18 2 44 2 52 18 C44 34 18 34 8 18 Z" fill="${c}" stroke="#2a1a0e" stroke-width="2.5"/><path d="M50 18 L63 6 L60 18 L63 30 Z" fill="${c}" stroke="#2a1a0e" stroke-width="2.5" stroke-linejoin="round"/><circle cx="20" cy="15" r="3" fill="#2a1a0e"/><path d="M28 10 Q32 18 28 26" stroke="#2a1a0e" stroke-width="2" fill="none" opacity=".5"/></svg>`;
@@ -1710,7 +1730,7 @@ function fishTap(){
   if (fishSt.mode !== 'bite') return;
   clearTimeout(fishSt.t); const f = fishSt.fish, r = T.fishCatch(S, f);
   Object.assign(fishSt, {mode: 'idle', msg: 'Bien ferré !', got: f, first: r.first, rec: r.rec});
-  sfx.level(); giveReward(r.rw, $('#sheet .fishhole')); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save(); renderPanel();
+  sfx.level(); if (f.r >= 2 && Math.random() < (f.r === 3 ? .5 : .12)) relicFound(f.r); giveReward(r.rw, $('#sheet .fishhole')); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save(); renderPanel();
 }
 /* ---------- Flocon, le renne magique ---------- */
 function petEntry(){
@@ -1735,7 +1755,7 @@ function campGo(i){
     camp: {...c, hearts: 3 + T.petHearts(S)}, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
     result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
-      C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
+      if (first && c.boss) relicFound(Math.min(3, 1 + c.ch)); C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
     grant: (rw, el) => { giveReward(rw, el); if (rw.xp) gainXp(rw.xp, el); },
     onClose: () => { document.body.classList.remove('in-game'); openPanel('camp'); },
   });

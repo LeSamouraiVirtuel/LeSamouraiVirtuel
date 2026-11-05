@@ -578,7 +578,7 @@ export function zoneB(s, k, res){
   for (const key of s.chunks || []){ const z = ZONES[key]; if (!z || z.b.k !== k || (res && z.b.res !== res)) continue; v += z.b.p ?? z.b.n; }
   return v;
 }
-export const zoneProd = (s, res) => 1 + zoneB(s, 'res', res) + zoneB(s, 'all') + rsBonus(s, RS_RES[res]) + petProd(s);
+export const zoneProd = (s, res) => 1 + zoneB(s, 'res', res) + zoneB(s, 'all') + rsBonus(s, RS_RES[res]) + petProd(s) + museumProd(s);
 export function zoneBonusText(b){
   const pc = Math.round((b.p || 0) * 100);
   switch (b.k){
@@ -1111,3 +1111,24 @@ export function fishCatch(s, f){
   if (first) rw.stars = f.r + 1;
   return {rw, first, rec};
 }
+
+/* ===================== MUSÉE DES TROUVAILLES (le musée de Bid Master) ===================== */
+// Des objets rares se cachent dans les lots des enchères, les colis mystère, les chefs trolls et les poissons légendaires.
+// Le musée les expose ; chaque collection complète donne une récompense et +2 % de production pour toujours. Les doubles se revendent.
+export const RELIC_SETS = [
+  {k: 'old', name: 'Jouets d’autrefois', items: [['yoyo', 'Yo-yo en bois', '🪀', 0], ['bear', 'Ours du grenier', '🧸', 0], ['matr', 'Poupée gigogne', '🪆', 1], ['caro', 'Petit manège', '🎠', 2], ['loco', 'Locomotive à clé', '🚂', 3]]},
+  {k: 'north', name: 'Souvenirs du Grand Nord', items: [['comp', 'Boussole d’explorateur', '🧭', 0], ['map', 'Carte des glaces', '🗺️', 0], ['tele', 'Longue-vue', '🔭', 1], ['boat', 'Bateau en bouteille', '⛵', 2], ['peak', 'Montagne de verre', '🏔️', 3]]},
+  {k: 'aurora', name: 'Trésors des aurores', items: [['moon', 'Croissant d’argent', '🌙', 0], ['crys', 'Cristal chantant', '💎', 1], ['orb', 'Orbe des neiges', '🔮', 1], ['star', 'Étoile filante', '🌠', 2], ['sky', 'Fiole d’aurore', '🌌', 3]]},
+  {k: 'santa', name: 'Reliques du Père Noël', items: [['bell', 'Clochette du traîneau', '🔔', 0], ['candle', 'Bougie éternelle', '🕯️', 1], ['scroll', 'Première liste', '📜', 1], ['sled', 'Luge du petit Nicolas', '🛷', 2], ['hat', 'Bonnet du premier Noël', '🎅', 3]]},
+];
+export const RELICS = RELIC_SETS.flatMap(st => st.items.map(([k, name, ico, r]) => ({k, name, ico, r, set: st.k})));
+/** Tire une trouvaille (les rares sortent plus souvent des grandes occasions). */
+export function relicDrop(s, rar = 0){
+  const r = rollRarity(rar >= 3 ? [20, 35, 30, 15] : rar === 2 ? [40, 35, 18, 7] : rar === 1 ? [60, 28, 10, 2] : [75, 20, 4, 1]);
+  const pool = RELICS.filter(x => x.r === r), it = pool[Math.floor(Math.random() * pool.length)];
+  s.relics ||= {}; s.relics[it.k] = (s.relics[it.k] || 0) + 1; return it;
+}
+export const relicSetDone = (s, st) => st.items.every(([k]) => (s.relics || {})[k] > 0);
+export const museumProd = s => RELIC_SETS.filter(st => relicSetDone(s, st)).length * .02;
+export const relicSetReward = st => ({stars: 8, coins: 5000, xp: 150});
+export const relicSell = it => ({coins: [200, 600, 1800, 5000][it.r]});

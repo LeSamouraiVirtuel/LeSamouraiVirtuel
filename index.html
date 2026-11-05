@@ -1315,6 +1315,18 @@ body.sheet-open #upban,body.tutoring #upban{display:none!important}
 .fishbook{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .fb{display:flex;flex-direction:column;align-items:center;text-align:center;background:#fffaf0;border:2px solid var(--rc);border-radius:10px;padding:6px 3px}.fb.no{opacity:.6;border-color:#e3cfa8}
 .fb b{font-size:11px;color:#5a3a1e;line-height:1.15}.fb small{font-size:10px;color:#8a6a4a}
+/* musée des trouvailles */
+.museumentry{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:linear-gradient(180deg,#f3ecff,#e2d4ff);border:2px solid #8a5fb0;border-radius:14px;padding:6px 10px;margin:4px 0 10px;font:inherit;color:#3a1f5a}
+.museumentry>span:first-child{font-size:30px}.museumentry div{flex:1;min-width:0}.museumentry b{display:block;font-size:15px}.museumentry small{font-size:12px;color:#6a4a8a}
+.rset{background:#fffaf0;border:2px solid #e3cfa8;border-radius:14px;padding:8px;margin-bottom:10px}.rset.done{border-color:#d9a521;background:linear-gradient(180deg,#fff8dc,#fffaf0)}
+.rsh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}.rsh b{color:#5a3a1e}.rsh small{color:#8a6a4a}
+.relics{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.relic{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;background:#fff;border:2px solid var(--rc);border-radius:10px;padding:5px 2px;min-width:0}.relic.no{opacity:.55;border-color:#e3cfa8}
+.relic{position:relative}.relic .cnt{position:absolute;top:-7px;right:-5px;background:#2a1a3e;color:#ffd34a;font-style:normal;font-weight:800;font-size:10px;border-radius:8px;padding:0 5px;border:2px solid #fff}
+.relic .ri{font-size:26px;line-height:1.2}.relic.no .ri{font-family:'Lilita One',sans-serif;color:#b9a888}.relic small{font-size:9.5px;line-height:1.1;color:#5a3a1e;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
+@media (max-width:400px){.relics{grid-template-columns:repeat(3,1fr);gap:8px 6px}.relic small{font-size:11px}}
+.relic .dup{margin-top:2px;border:0;border-radius:6px;background:#3fa36b;color:#fff;font:600 10px Fredoka,sans-serif;padding:2px 4px;display:flex;align-items:center;gap:2px;max-width:100%;white-space:nowrap}.relic .dup .i{width:10px;height:10px}
+.rsrw{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:8px}.rset .ok{color:#1f8a3a;margin:8px 0 0;text-align:center}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">
