@@ -245,7 +245,7 @@ export const employed = s => s.objs.reduce((a, o) => a + (built(o) ? workers(o.t
 export const workRatio = s => { const e = employed(s); return e ? Math.min(1, lutins(s) / e) : 1; };
 export const joy = s => s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'deco' && !o.wild && !o.free ? BUILDINGS[o.type].joy || 0 : BUILDINGS[o.type].kind === 'fun' && built(o) ? theaterJoy(o.lv) : 0), 0);
 export const joyBonus = s => joy(s) / 100;              // +1 % de production par point de bonheur
-export const prodMult = s => workRatio(s) * (1 + joyBonus(s) + lightsBonus(s));
+export const prodMult = s => workRatio(s) * (1 + joyBonus(s) + lightsBonus(s) + showBonus(s));
 export const cap = (s, r) => r === 'coins' ? Infinity : hqStock(hqLv(s)) + s.objs.reduce((a, o) => a + (o.type === 'storage' && built(o) ? storageAdd(o.lv) : 0), 0);
 /** Ce qu'un bâtiment de production a accumulé (plafonné à son stock interne). */
 export function stored(s, o, now = Date.now()){
@@ -715,3 +715,20 @@ export function visitorAnswer(s, yes){
 // Une lettre emballée paie 50 % de plus (pièces et XP) et a 15 % de chances de donner une étoile d'or.
 export const wrapNeed = od => Object.values(od.items || {}).reduce((a, n) => a + n, 0);
 export const WRAP_BONUS = 1.5, WRAP_STAR = .15;
+
+/* ===================== SPECTACLES DU THÉÂTRE (boosts temporaires, comme les potions de Clash of Clans) ===================== */
+const HR = 3600e3;
+export const SHOWS = [
+  {k: 'puppets', name: 'Marionnettes du lutin farceur', pct: .15, time: 1 * HR, cost: {cookies: 200, fabric: 60}},
+  {k: 'ballet', name: 'Ballet des flocons', pct: .25, time: 4 * HR, cost: {cookies: 600, fabric: 200, coins: 800}},
+  {k: 'nutcracker', name: 'Le Grand Casse-Noisette', pct: .40, time: 8 * HR, cost: {cookies: 1500, fabric: 500, ice: 10}},
+];
+export const showCost = (sh, lv) => Object.fromEntries(Object.entries(sh.cost).map(([k, n]) => [k, k === 'ice' ? n + lv : R5(n * (1 + (lv - 1) * .35))]));
+export const showPct = (sh, lv) => sh.pct + .02 * (lv - 1);
+export const showBonus = (s, now = Date.now()) => s.show && s.show.end > now ? s.show.pct : 0;
+export function showStart(s, k, now = Date.now()){
+  const th = s.objs.find(o => o.type === 'theater' && built(o)); if (!th) return 'Construis le Théâtre';
+  if (s.show && s.show.end > now) return 'Un spectacle est déjà à l’affiche';
+  const sh = SHOWS.find(x => x.k === k), c = showCost(sh, th.lv); if (!has(s, c)) return 'Ressources insuffisantes';
+  take(s, c); s.show = {k, pct: showPct(sh, th.lv), end: now + sh.time, start: now}; return null;
+}

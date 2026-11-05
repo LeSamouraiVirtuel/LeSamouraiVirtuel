@@ -38,6 +38,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Chaque action rapporte des flocons d'or (« +N ❄ » près du bouton) ; 10 paliers de récompenses, dont des étoiles d'or, des cristaux, des lingots et des colis.
 - Bouton « Événement » à gauche (à partir du niveau 3), avec le nombre de récompenses à prendre.
 
+## Tour 8 — Spectacles du Théâtre (boosts façon Clash of Clans)
+- 3 spectacles : 1 h (+15 %), 4 h (+25 %), 8 h (+40 %), +2 % par niveau du théâtre ; coût en biscuits, tissu, pièces ou cristaux.
+- Toute la production du village augmente ; le compteur de bonus en haut passe en rouge orangé pendant le spectacle.
+
 ## Idées pour la suite
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
 5. Boutique de l'événement : échanger les flocons restants contre des décorations exclusives.
