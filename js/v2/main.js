@@ -448,6 +448,7 @@ function drawHint(o){
   const w = workEnd(o);
   if (w){ const total = o.build ? o.btotal : o.utotal; timerPill(r.cx, top, (speedCost(o) ? '' : '✓ ') + fmtTime((w - now()) / 1000), 1 - (w - now()) / (total || 1)); return; }
   if (o.job && o.job.end <= now()) return bubble(r.cx, top, B(o).res, '★');
+  if (b.kind === 'hq' && T.sackReady(S) && S.lvl >= 2 && !tuto.active()) return bubble(r.cx, top, 'parcel', '!');
   if (b.kind === 'prod' && o.keeper){ if (keeperFull.has(o)) bubble(r.cx, top, b.res, 'PLEIN'); }
   else if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); if (ripe(o)) bubble(r.cx, top, b.res, n >= buf ? 'MAX' : ''); }
   if (b.kind === 'craft'){ const d = craftDone(o); if (d.length) bubble(r.cx, top, d[0].item, d.length > 1 ? 'x' + d.length : ''); else if (o.q?.length){ const j = o.q[0]; timerPill(r.cx, top, fmtTime((j.end - now()) / 1000), 1 - (j.end - now()) / (TOYS[j.item].time / T.craftSpeed(o.lv) * 1000)); } }
@@ -861,7 +862,7 @@ function renderPanel(){
     if (b.kind === 'fun') extra += showsBox(o);
     if (b.kind === 'stable') extra = '<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>';
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
-    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>`; }
+    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
     h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt="">${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Au niv. ${next}</small></div>` : ''}</div><div class="say2"><b>${K.name}</b><span>${said}</span></div>
       ${extra}${b.kind === 'prod' ? keeperBox(o) : ''}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
@@ -900,6 +901,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'sack'){ closePanel(); return openSack(); }
   if (a === 'evbuy'){ const r = M.evBuy(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } save(); if (r.deco){ sfx.level(); toast(`${BUILDINGS[r.deco].name} : à poser gratuitement`); return startPlace(r.deco); } closePanel(); return bravo(r.give, 'Boutique de l’événement'); }
   if (a === 'showgo'){ const o = panelArg, sh = T.SHOWS.find(x => x.k === b.dataset.k), why = T.showStart(S, sh.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.showCost(sh, o.lv), sh.name, null) : toast(why); } T.track(S, 'show'); sfx.level(); toast(`Lever de rideau ! Production +${Math.round(S.show.pct * 100)} %`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'evclaim'){ const i = +b.dataset.i, E = M.eventState(S); if (E.pts < M.EV_STEPS[i] || E.got[i]) return; S.ev.got[i] = 1; closePanel(); return bravo(M.eventReward(S, i), `${E.name} · palier ${i + 1}`); }
@@ -1164,6 +1166,19 @@ function evPing(n){ evAcc += n; clearTimeout(evT); evT = setTimeout(() => { cons
 $('#b-market').addEventListener('click', () => { sfx.tap(); openPanel('market'); });
 document.querySelector('#hud2 .me')?.addEventListener('click', () => { sfx.tap(); openPanel('profile'); });
 
+/* ---------- la hotte du Père Noël : 3 cartes retournées, on en choisit une ---------- */
+function openSack(){
+  if (!T.sackReady(S)) return toast('La hotte se remplit… reviens plus tard');
+  const cards = T.sackCards(S), m = $('#modal'); m.className = 'glow sack';
+  m.querySelector('.mcard').innerHTML = `<small>Toutes les 4 heures</small><h2 class="stroke">La hotte du Père Noël</h2><p>Choisis une carte !</p>
+    <div class="cards3">${cards.map((c, i) => `<button class="card3" data-m="pick" data-i="${i}"><span class="back">🎁</span><span class="front">${rewardChips(c)}</span></button>`).join('')}</div>`;
+  m.hidden = false; sfx.pop();
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b || m.dataset.done) return; m.dataset.done = 1;
+    const i = +b.dataset.i; T.sackTake(S, now()); T.track(S, 'sack');
+    m.querySelectorAll('.card3').forEach((c, j) => setTimeout(() => c.classList.add('flip', j === i ? 'mine' : 'other'), j === i ? 0 : 500));
+    sfx.level(); save();
+    setTimeout(() => { delete m.dataset.done; bravo(cards[i], 'La hotte du Père Noël'); }, 1700); };
+}
 /* ---------- visiteurs ---------- */
 function openVisitor(){
   const v = S.visitor; if (!v) return; const ok = T.has(S, v.want), m = $('#modal'); m.className = 'glow rinfo';
