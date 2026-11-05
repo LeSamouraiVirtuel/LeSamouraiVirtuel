@@ -8,7 +8,7 @@ import path from 'path';
 
 const KEY = process.env.GEMINI_API_KEY;
 if (!KEY){ console.error('GEMINI_API_KEY manquante (https://aistudio.google.com/apikey, gratuit)'); process.exit(1); }
-const MODELS = (process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image,gemini-2.0-flash-preview-image-generation').split(',');
+const MODELS = (process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image,gemini-2.5-flash-image,gemini-3.1-flash-image-preview').split(',');
 const OUT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../assets/art');
 fs.mkdirSync(OUT, {recursive: true});
 
@@ -47,7 +47,7 @@ const done = fs.existsSync(DONE) ? JSON.parse(fs.readFileSync(DONE, 'utf8')) : {
 async function gen(prompt){
   let last = '';
   for (const m of MODELS){
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${KEY}`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: 'POST', headers: {'Content-Type': 'application/json', 'x-goog-api-key': KEY},
       body: JSON.stringify({contents: [{parts: [{text: prompt}]}], generationConfig: {responseModalities: ['IMAGE', 'TEXT']}})});
     const j = await r.json().catch(() => ({}));
     const part = j.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
