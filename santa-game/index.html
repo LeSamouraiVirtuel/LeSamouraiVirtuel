@@ -1205,6 +1205,19 @@ body.sheet-open #upban,body.tutoring #upban{display:none!important}
 /* barre de progression de la tâche : toujours pleine largeur */
 #quest2 .qbar{width:100%!important;box-sizing:border-box;flex:none}
 #quest2 .costs{width:100%}
+
+/* tutoriel plus vivant */
+#tuto .tprog{display:flex;align-items:center;gap:4px;margin:0 0 6px 96px}
+#tuto .tprog span{font:400 11px var(--display);color:var(--brown);margin-right:4px;white-space:nowrap}
+#tuto .tprog i{flex:none}
+#tuto .tprog i{width:7px;height:7px;border-radius:50%;background:#e2d2b4}
+#tuto .tprog i.ok{background:#4cc85a}#tuto .tprog i.on{background:var(--gold);box-shadow:0 0 0 2px #fff,0 0 6px var(--gold)}
+#tuto .tbox p{min-height:3.9em;padding-left:96px}
+#tuto .tbox.talking img{animation:talk .32s ease-in-out infinite alternate}
+@keyframes talk{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-4px) rotate(2deg)}}
+.tpraise{position:fixed;left:50%;top:38%;z-index:70;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 18px;border-radius:18px;background:linear-gradient(180deg,#fffaf0,#ffe9b0);border:3px solid #e6a10f;box-shadow:0 0 0 2px #7a4a05,0 10px 24px rgba(0,0,0,.4),0 0 40px rgba(255,214,90,.7);animation:praise 1.7s ease both;pointer-events:none}
+.tpraise b{font:400 20px var(--display);color:#3a2208}
+@keyframes praise{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}15%{transform:translate(-50%,-50%) scale(1.08);opacity:1}25%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{transform:translate(-50%,-80%) scale(.9);opacity:0}}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>

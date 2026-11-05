@@ -1472,19 +1472,27 @@ function levelUp(L){
    ===================================================================== */
 const rectOf = pred => () => { if (panel) return null; const o = S.objs.find(pred); if (!o) return null; const r = objScreenRect(o); return {left: r.left + r.width * .15, top: r.top + r.height * .15, width: r.width * .7, height: r.height * .7}; };
 const STEPS = [
-  {say: "Ho ho ho ! Je prends ma retraite… <b>c'est toi le nouveau Père Noël</b> ! Je vais te montrer.", tap: true},
-  {say: "La scierie a produit du bois. <b>Touche-la</b> pour le récolter !", target: rectOf(o => o.type === 'sawmill'), wait: 'collect:sawmill', focus: [14.5, 16.5]},
-  {say: "Les lettres des enfants arrivent avec des pièces. <b>Récolte le Bureau des lettres.</b>", target: rectOf(o => o.type === 'letters'), wait: 'collect:letters', focus: [26.5, 16.5]},
-  {say: "Chaque bâtiment a son rôle. <b>Touche la scierie</b> pour voir sa fiche.", target: rectOf(o => o.type === 'sawmill'), wait: 'open:bld', focus: [14.5, 16.5]},
-  {say: "Chaque niveau produit plus de bois. <b>Touche Améliorer !</b>", target: () => document.querySelector('[data-a="upgrade"]'), wait: 'upgrade', skipIf: s => s.objs.some(o => o.type === 'sawmill' && (o.lv >= 2 || o.up))},
-  {say: "Les lutins travaillent… Il reste moins de 3 minutes : c'est gratuit ! <b>Touche le chantier.</b>", target: rectOf(o => o.type === 'sawmill'), wait: 'open:site', skipIf: s => !s.objs.some(o => o.type === 'sawmill' && o.up) || panel === 'site'},
-  {say: "<b>Termine gratuitement !</b>", target: () => document.querySelector('[data-a="speed"]'), wait: 'speed', skipIf: s => !s.objs.some(o => o.type === 'sawmill' && o.up)},
-  {say: "Les lutins ont besoin de biscuits pour les gros chantiers. <b>Touche Construire.</b>", target: () => document.querySelector('#b-build'), wait: 'open:build'},
+  {say: "Ho ho ho ! Bienvenue au Pôle Nord ! Après 300 Noëls, je prends ma retraite… et <b>c'est toi le nouveau Père Noël</b> !", tap: true},
+  {say: "Les enfants comptent sur nous. Un village qui tourne bien, c'est des jouets à l'heure ! Je te montre tout, c'est promis.", tap: true},
+  {say: "La scierie a travaillé toute la nuit. <b>Touche-la</b> pour récolter le bois !", target: rectOf(o => o.type === 'sawmill'), wait: 'collect:sawmill', focus: [14.5, 16.5], reward: {coins: 20}, praise: 'Premier bois récolté !'},
+  {say: "Et voilà les pièces des enfants au Bureau des lettres. <b>Récolte-les !</b>", target: rectOf(o => o.type === 'letters'), wait: 'collect:letters', focus: [26.5, 16.5], reward: {wood: 20}, praise: 'Joli magot !'},
+  {say: "Chaque bâtiment a sa fiche. <b>Touche la scierie</b> pour voir ce qu'elle sait faire.", target: rectOf(o => o.type === 'sawmill'), wait: 'open:bld', focus: [14.5, 16.5]},
+  {say: "Plus elle monte de niveau, plus elle produit. <b>Touche « Améliorer » !</b>", target: () => document.querySelector('[data-a="upgrade"]'), wait: 'upgrade', skipIf: s => s.objs.some(o => o.type === 'sawmill' && (o.lv >= 2 || o.up)), reward: {coins: 30}, praise: 'Les lutins se mettent au travail !'},
+  {say: "Les lutins bâtissent… Moins de 3 minutes, c'est gratuit ! <b>Touche le chantier.</b>", target: rectOf(o => o.type === 'sawmill'), wait: 'open:site', skipIf: s => !s.objs.some(o => o.type === 'sawmill' && o.up) || panel === 'site'},
+  {say: "<b>Termine gratuitement !</b>", target: () => document.querySelector('[data-a="speed"]'), wait: 'speed', skipIf: s => !s.objs.some(o => o.type === 'sawmill' && o.up), reward: {stars: 2}, praise: 'Scierie niveau 2 !'},
+  {say: "Les lutins adorent les biscuits : ils en ont besoin pour les gros chantiers. <b>Touche Construire.</b>", target: () => document.querySelector('#b-build'), wait: 'open:build'},
   {say: "Choisis le <b>Four à biscuits</b>.", target: () => document.querySelector('[data-a="place"][data-k="bakery"]'), wait: 'placing'},
-  {say: "Glisse-le où tu veux, puis touche <b>✓</b>.", target: () => document.querySelector('#pb-ok'), wait: 'placed'},
-  {say: "Parfait ! Suis les <b>tâches</b> en bas à gauche : chaque bâtiment a son utilité, à toi de faire grandir le village !", tap: true, end: true},
-];
-const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, steps: STEPS, name: 'Père Noël', focusPlot: ([x, y]) => centerOn(x, y)});
+  {say: "Je l'ai mis sur son terrain. Touche <b>✓</b> pour lancer le chantier !", target: () => document.querySelector('#pb-ok'), wait: 'placed', reward: {coins: 50}, praise: 'Ton premier bâtiment !'},
+  {say: "Bravo, Père Noël ! Suis les <b>tâches</b> en bas à gauche : elles t'emmènent toujours au bon endroit. Le Pôle Nord est entre tes mains !", tap: true, end: true},
+]
+const tuto = createTuto({getState: () => S, save, sfx, portrait: elfPortrait, steps: STEPS, name: 'Père Noël', focusPlot: ([x, y]) => centerOn(x, y),
+  onReward: (r, praise) => { tutoPraise(r, praise); }, onEnd: () => setTimeout(() => bravo({coins: 300, stars: 10, axe: 1}, 'Tutoriel terminé : le village est à toi !', 'BRAVO !'), 500)});
+// petite carte « Bien joué ! » avec la récompense, puis les gains volent vers les compteurs
+function tutoPraise(r, praise){
+  const c = document.createElement('div'); c.className = 'tpraise';
+  c.innerHTML = `<b>${praise || 'Bien joué !'}</b><span class="costs">${rewardChips(r)}</span>`; document.body.appendChild(c);
+  sfx.level(); setTimeout(() => { giveReward(r, c); }, 500); setTimeout(() => c.remove(), 1700);
+}
 function tutoEv(n){ tuto.event(n); }
 
 /* =====================================================================
@@ -1561,6 +1569,6 @@ function welcomeBack(){
   bravo(got, `Pendant ton absence (${h ? h + ' h ' : ''}${m} min), tes gardiens ont récolté`, 'BON RETOUR !');
 }
 setTimeout(welcomeBack, 1400);
-setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {4: 3, 6: 5, 8: 7, 9: 7}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
+setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};

@@ -19,22 +19,33 @@ const q = s => document.querySelector(s);
 const bubble = id => q(`.bubble[data-id="${id}"]`);
 const plus = id => q(`.plus[data-id="${id}"]`);
 
-export function createTuto({getState, save, focusPlot, portrait, sfx, steps = STEPS, name = 'Pépin'}){
+export function createTuto({getState, save, focusPlot, portrait, sfx, steps = STEPS, name = 'Pépin', onReward = null, onEnd = null}){
   const STEPS_ = steps;
   const S = getState;
   const root = document.createElement('div'); root.id = 'tuto'; root.hidden = true;
   root.innerHTML = `<div class="tb t"></div><div class="tb r"></div><div class="tb b"></div><div class="tb l"></div>
     <div class="tring"></div><div class="thand"></div>
-    <div class="tbox"><img alt=""><div class="tname">${name}</div><p></p><span class="tnext">Toucher pour continuer ▾</span><button class="tskip">Passer ›</button></div>`;
+    <div class="tbox"><img alt=""><div class="tname">${name}</div><div class="tprog"></div><p></p><span class="tnext">Toucher pour continuer ▾</span><button class="tskip">Passer ›</button></div>`;
   document.body.appendChild(root);
   root.querySelector('.tbox img').src = portrait;
   const [bt, br, bb, bl] = root.querySelectorAll('.tb'), ring = root.querySelector('.tring'), hand = root.querySelector('.thand'), box = root.querySelector('.tbox');
   let step = null, raf = 0, pending = false;
 
+  // le texte s'écrit lettre par lettre (les balises restent intactes) ; toucher la bulle l'affiche d'un coup
+  let typing = 0;
+  function typeText(el, html){
+    clearInterval(typing); const parts = html.split(/(<[^>]+>)/); let shown = 0; const total = html.replace(/<[^>]+>/g, '').length;
+    box.classList.add('talking');
+    const render = n => { let left = n, out = ''; for (const p of parts){ if (p.startsWith('<')){ out += p; continue; } if (left <= 0) continue; out += p.slice(0, left); left -= p.length; } el.innerHTML = out; };
+    typing = setInterval(() => { shown += 2; render(shown); if (shown >= total){ clearInterval(typing); typing = 0; el.innerHTML = html; box.classList.remove('talking'); } }, 22);
+    el.dataset.full = html;
+  }
+  function typeDone(){ if (!typing) return false; clearInterval(typing); typing = 0; const el = box.querySelector('p'); el.innerHTML = el.dataset.full; box.classList.remove('talking'); return true; }
   const active = () => S().tuto != null && S().tuto < STEPS_.length;
   function show(){
     const i = S().tuto; step = STEPS_[i]; root.hidden = false; document.body.classList.add('tutoring');
-    box.querySelector('p').innerHTML = step.say;
+    typeText(box.querySelector('p'), step.say);
+    const total = STEPS_.length; box.querySelector('.tprog').innerHTML = `<span>Étape ${i + 1}/${total}</span>${Array.from({length: total}, (_, k) => `<i class="${k < i ? 'ok' : k === i ? 'on' : ''}"></i>`).join('')}`;
     box.querySelector('.tnext').hidden = !step.tap;
     box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
     if (step.focus) focusPlot(step.focus);
@@ -71,13 +82,14 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
   }
   function next(from = S().tuto){
     if (S().tuto !== from) return;           // déjà avancé (deux déclencheurs pour la même étape)
+    if (step?.reward && onReward) onReward(step.reward, step.praise);
     S().tuto++; save(); sfx.tap();
     if (S().tuto >= STEPS_.length){ finish(); return; }
     show();
   }
-  function finish(){ S().tuto = STEPS_.length; save(); root.hidden = true; document.body.classList.remove('tutoring'); cancelAnimationFrame(raf); step = null; }
+  function finish(done){ const was = active(); S().tuto = STEPS_.length; save(); root.hidden = true; clearInterval(typing); if (was && done && onEnd) onEnd(); document.body.classList.remove('tutoring'); cancelAnimationFrame(raf); step = null; }
   root.querySelector('.tskip').addEventListener('click', e => { e.stopPropagation(); finish(); sfx.tap(); });
-  root.addEventListener('click', e => { if (step?.tap && (e.target.closest('.tbox') || e.target.classList.contains('tb'))){ if (step.end) { finish(); sfx.level(); } else next(); } });
+  root.addEventListener('click', e => { if (e.target.closest('.tbox') && typeDone()) return; if (step?.tap && (e.target.closest('.tbox') || e.target.classList.contains('tb'))){ if (step.end) { finish(true); sfx.level(); } else next(); } });
 
   return {
     start(){ if (active()) show(); },
