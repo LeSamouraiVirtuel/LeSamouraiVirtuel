@@ -106,5 +106,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Quand la tâche demande un bâtiment, sa carte dans Construire porte l'étiquette rouge « Tâche » et un halo doré (seulement si on peut le construire).
 - Corrigé au passage : le nom de classe entrait en conflit avec l'étiquette « Demandé » de l'atelier.
 
+## Tour 24 — Combos de récolte
+- Récolter plusieurs bâtiments à moins de 4 s d'écart : « Combo ×2, ×3… », +5 % par palier (jusqu'à +25 %), avec un son qui monte.
+- Récompense le geste de glisser le doigt sur tout le village.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
