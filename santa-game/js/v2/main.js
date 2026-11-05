@@ -526,6 +526,7 @@ function drawObj(o){
   if (sx !== 1 || sy !== 1){ ctx.save(); ctx.translate(c.x, c.y); ctx.scale(sx, sy); ctx.translate(-c.x, -c.y); drawSprite(spriteKey(o), c.x, c.y); ctx.restore(); }
   else drawSprite(spriteKey(o), c.x, c.y);
   if (o.up && !o.build) scaffold(o);
+  else if (GLOWS[o.type] && cam.z > .4 && working(o)) bldGlow(o);
   // chantier : étincelles des marteaux
   if ((o.build || o.up) && Math.random() < .08){ const r = objScreenRect(o); FX.push({k: 'spark', x: r.cx + (Math.random() - .5) * r.width * .4, y: r.top + r.height * .45, vx: (Math.random() - .5) * 120, vy: -120 - Math.random() * 80, t: 0, d: .6}); }
 }
@@ -608,6 +609,21 @@ function drawFx(dt){
       f.x += f.vx * dt; f.y += f.vy * dt; f.vx += 4 * dt; const R = f.r * (1 + u * 1.6); ctx.globalAlpha = Math.min(1, u * 6) * (1 - u * u); const g = ctx.createRadialGradient(f.x - R * .3, f.y - R * .3, R * .1, f.x, f.y, R); g.addColorStop(0, '#ffffff'); g.addColorStop(.55, '#cfd4de'); g.addColorStop(1, 'rgba(120,130,150,.0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, R, 0, 7); ctx.fill();
     } else if (f.k === 'puff'){
       f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = (1 - u) * .85; ctx.fillStyle = '#fbf6ee'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + u * 1.3), 0, 7); ctx.fill();
+    } else if (f.k === 'chip'){                        // copeaux de la scierie, braises de la fonderie, paillettes…
+      f.vy += (f.g ?? 300) * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.a = (f.a || 0) + dt * 8; ctx.globalAlpha = 1 - u * u; ctx.fillStyle = f.c;
+      if (f.glow){ ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(GLOW, f.x - f.r * 2.5, f.y - f.r * 2.5, f.r * 5, f.r * 5); ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = u < .5 ? '#ffd24a' : '#ff7a1a'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * .55, 0, 7); ctx.fill(); }
+      else { ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a); ctx.fillRect(-f.r, -f.r * .5, f.r * 2, f.r); ctx.restore(); }
+    } else if (f.k === 'twinkle'){                     // étoile à 4 branches qui monte (cristaux, atelier, bibliothèque)
+      f.x += f.vx * dt; f.y += f.vy * dt; const sc = Math.sin(u * Math.PI) * f.r; ctx.globalAlpha = Math.sin(u * Math.PI); ctx.fillStyle = f.c;
+      ctx.beginPath(); ctx.moveTo(f.x, f.y - sc * 1.8); ctx.lineTo(f.x + sc * .45, f.y); ctx.lineTo(f.x, f.y + sc * 1.8); ctx.lineTo(f.x - sc * .45, f.y); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(f.x - sc * 1.8, f.y); ctx.lineTo(f.x, f.y + sc * .45); ctx.lineTo(f.x + sc * 1.8, f.y); ctx.lineTo(f.x, f.y - sc * .45); ctx.closePath(); ctx.fill();
+    } else if (f.k === 'env' || f.k === 'page' || f.k === 'note'){   // enveloppes du Bureau, pages de la Bibliothèque, notes du Théâtre
+      f.x += (f.vx + Math.sin(u * 9 + f.ph) * 14) * dt; f.y += f.vy * dt; const z = cam.z; ctx.globalAlpha = Math.min(1, u * 5) * (1 - u);
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(Math.sin(u * 7 + f.ph) * .4); ctx.lineWidth = 1.4 * z; ctx.strokeStyle = '#5a3a1e';
+      if (f.k === 'env'){ ctx.fillStyle = '#fffaf0'; ctx.fillRect(-7 * z, -5 * z, 14 * z, 10 * z); ctx.strokeRect(-7 * z, -5 * z, 14 * z, 10 * z); ctx.beginPath(); ctx.moveTo(-7 * z, -5 * z); ctx.lineTo(0, 1 * z); ctx.lineTo(7 * z, -5 * z); ctx.stroke(); ctx.fillStyle = '#d33'; ctx.beginPath(); ctx.arc(0, 1 * z, 1.8 * z, 0, 7); ctx.fill(); }
+      else if (f.k === 'page'){ ctx.fillStyle = '#fff8e0'; ctx.fillRect(-5 * z, -6 * z, 10 * z, 12 * z); ctx.strokeRect(-5 * z, -6 * z, 10 * z, 12 * z); ctx.fillStyle = '#c9b48a'; for (let l = 0; l < 3; l++) ctx.fillRect(-3 * z, (-3 + l * 3) * z, 6 * z, .9 * z); }
+      else { ctx.fillStyle = f.c; ctx.beginPath(); ctx.ellipse(-2 * z, 4 * z, 3.4 * z, 2.6 * z, -.4, 0, 7); ctx.fill(); ctx.fillRect(1 * z, -7 * z, 1.6 * z, 11 * z); ctx.fillRect(1 * z, -7 * z, 5 * z, 2 * z); }
+      ctx.restore();
     } else if (f.k === 'spark'){
       f.vy += 420 * dt; f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = 1 - u; ctx.drawImage(GLOW, f.x - 12, f.y - 12, 24, 24);
     }
@@ -1700,6 +1716,37 @@ const CHIMNEY = {
   bakery: [[.51, .24], [.56, .21], [.49, .22]], mill: [null, [.5, .15], [.55, .12]], letters: [null, [.49, .17], [.54, .14]],
   orders: [null, [.51, .16], [.56, .13]], storage: [[.46, .22], [.51, .14], null],
 };
+/* ---------- animations propres à chaque bâtiment (Township / Hay Day) ---------- */
+// lueurs : four du boulanger, forge de la fonderie, fenêtres de la bibliothèque (position relative à l'image, couleur, taille)
+const GLOWS = {bakery: [.5, .66, '255,140,40', .2], foundry: [.42, .62, '255,110,20', .32], library: [.47, .55, '255,220,120', .16], icewell: [.5, .55, '120,220,255', .2]};
+function bldGlow(o){
+  const g = GLOWS[o.type], r = objScreenRect(o), t = performance.now() / 1000, fl = .75 + .25 * Math.sin(t * 7 + o.x) * Math.sin(t * 3.1 + o.y), R = r.width * g[3] * (.9 + .15 * fl);
+  const x = r.left + r.width * g[0], y = r.top + r.height * g[1], gr = ctx.createRadialGradient(x, y, 0, x, y, R);
+  gr.addColorStop(0, `rgba(${g[2]},${.7 * fl})`); gr.addColorStop(1, `rgba(${g[2]},0)`);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gr; ctx.fillRect(x - R, y - R, R * 2, R * 2); ctx.restore();
+}
+let bfxT = 0;
+function bldFx(dt){
+  bfxT -= dt; if (bfxT > 0 || cam.z < .45) return; bfxT = .18;
+  if (FX.length > 160) return;
+  const z = cam.z, rnd = (a, b) => a + Math.random() * (b - a);
+  for (const o of S.objs){
+    if (o.wild || o.free || o.build || o.up) continue;
+    const ty = o.type, b = B(o); if (!['sawmill', 'letters', 'mill', 'icewell', 'foundry', 'library', 'workshop', 'theater', 'mine'].includes(ty)) continue;
+    const show = ty === 'theater' && S.show && S.show.end > now();
+    if (ty === 'theater' ? !show : !working(o)) continue;
+    const r = objScreenRect(o); if (r.cx < -60 || r.cx > W + 60 || r.top < -100 || r.top > H + 40) continue;
+    const X = (a) => r.left + r.width * a, Y = (a) => r.top + r.height * a;
+    if (ty === 'sawmill' && Math.random() < .7) FX.push({k: 'chip', x: X(rnd(.35, .6)), y: Y(.58), vx: rnd(-50, 50) * z, vy: rnd(-110, -60) * z, r: rnd(1.6, 2.8) * z, c: Math.random() < .5 ? '#c98a4b' : '#e8c48a', t: 0, d: .9});
+    else if (ty === 'foundry' && Math.random() < .8) FX.push({k: 'chip', glow: 1, x: X(rnd(.38, .5)), y: Y(.5), vx: rnd(-25, 25) * z, vy: rnd(-90, -50) * z, g: -10, r: rnd(2.6, 4.2) * z, t: 0, d: 1.3});
+    else if (ty === 'letters' && Math.random() < .14) FX.push({k: 'env', x: X(rnd(.4, .6)), y: Y(.35), vx: rnd(-6, 6), vy: -26 * z, ph: Math.random() * 6, t: 0, d: 2.6});
+    else if (ty === 'library' && Math.random() < .16) FX.push({k: 'page', x: X(rnd(.35, .6)), y: Y(.38), vx: rnd(-6, 6), vy: -22 * z, ph: Math.random() * 6, t: 0, d: 2.8});
+    else if (ty === 'theater' && Math.random() < .3) FX.push({k: 'note', x: X(rnd(.35, .65)), y: Y(.4), vx: rnd(-8, 8), vy: -30 * z, ph: Math.random() * 6, c: ['#d33', '#2a7de1', '#1f8a3a', '#8a3ad3'][Math.floor(Math.random() * 4)], t: 0, d: 2.2});
+    else if ((ty === 'icewell' || ty === 'mine') && Math.random() < .5) FX.push({k: 'twinkle', x: X(rnd(.3, .7)), y: Y(rnd(.45, .7)), vx: 0, vy: -14 * z, r: rnd(2.4, 4) * z, c: '#e8f8ff', t: 0, d: 1.1});
+    else if (ty === 'workshop' && Math.random() < .45) FX.push({k: 'twinkle', x: X(rnd(.3, .7)), y: Y(rnd(.35, .6)), vx: 0, vy: -12 * z, r: rnd(2.4, 4) * z, c: '#ffe27a', t: 0, d: 1});
+    else if (ty === 'mill' && Math.random() < .35) FX.push({k: 'chip', x: X(rnd(.35, .65)), y: Y(.55), vx: rnd(-20, 20) * z, vy: rnd(-40, -20) * z, g: -6, r: rnd(1.4, 2.2) * z, c: ['#e05a7a', '#4a9de0', '#f2c94c', '#6fcf97'][Math.floor(Math.random() * 4)], t: 0, d: 1.6});
+  }
+}
 function smoke(dt){
   smokeT -= dt; if (smokeT > 0 || cam.z < .45) return; smokeT = .22;
   if (FX.filter(f => f.k === 'smoke').length > 40) return;
@@ -1711,7 +1758,7 @@ function smoke(dt){
   }
 }
 function step(t, dt){
-  smoke(dt);
+  smoke(dt); bldFx(dt);
   if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); dropTick(); rsCheck(); if (!tuto.active()){ const had = !!S.visitor; T.visitorTick(S, now()); if (!had && S.visitor){ toast(`${S.visitor.who} arrive au village !`); sfx.pop(); } } }
   fxDt = dt;
   refreshOrders(); finishWorks(); moveElves(dt);

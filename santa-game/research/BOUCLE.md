@@ -170,5 +170,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Le niveau de la Bibliothèque plafonne les recherches (2 niveaux par niveau de bâtiment) et ouvre les domaines (niv. 1, 2, 3, 4, 5, 7).
 - « Mon village » signale une Bibliothèque inoccupée. Testé sur iPhone 13 et SE, tutoriel OK.
 
+## Tour 36 — Chaque bâtiment s'anime
+- Quand un bâtiment travaille, il a son animation : copeaux de bois qui sautent à la Scierie, lueur qui vacille au four du boulanger, forge et braises à la Fonderie, enveloppes qui s'envolent du Bureau des lettres, pages qui volent à la Bibliothèque, fils de couleur à la Filature, éclats de glace au Puits et à la Grotte, étoiles dorées à l'Atelier, notes de musique au Théâtre pendant un spectacle.
+- Les lueurs s'additionnent à la lumière (très visibles la nuit, discrètes le jour). Effets coupés quand on dézoome fort et limités en nombre pour garder la fluidité.
+- Testé jour et nuit sur iPhone 13 et SE, tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

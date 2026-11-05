@@ -14,4 +14,4 @@ Liste tenue à jour par la boucle. On traite du plus important au moins importan
 | 8 | Illustrations peintes | Oui | Modèles 3D gratuits | bloqué : jeton d'images |
 | 9 | Enchères contre des rivaux | Bid Master : lots à moitié cachés, rivaux IA qui bluffent, « une fois, deux fois, adjugé » | Salle des ventes au Marché : 3 lots (1 de plus toutes les 3 h), jumelles, 2 à 3 rivaux avec budget secret, révélation de la vraie valeur | fait (tour 34) |
 | 10 | Arbre de recherche | DoA (Science Center), Clash (Laboratoire) : bonus permanents longs à chercher | Bibliothèque des lutins (Maison niv. 6) : 10 domaines, 20 niveaux, une recherche à la fois, de 10 min à 5 jours | fait (tour 35) |
-| 11 | Animations des bâtiments | Roue qui tourne, fumée, flammes (Township, Hay Day) | Fumée des cheminées seulement | à faire |
+| 11 | Animations des bâtiments | Roue qui tourne, fumée, flammes (Township, Hay Day) | Fumée + effets propres : copeaux (scierie), lueur du four, braises et forge (fonderie), enveloppes (Bureau), pages (Bibliothèque), fils de couleur (Filature), éclats (Puits, Grotte, Atelier), notes (Théâtre) | fait (tour 36) |
