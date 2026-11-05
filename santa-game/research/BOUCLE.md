@@ -121,5 +121,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 ## Tour 27 — Vérification complète de la version en ligne
 - Tutoriel, tous les écrans et petit iPhone (SE) rejoués sur la version en ligne : aucune erreur. Boucle mise en pause pour recueillir l'avis du joueur.
 
+## Tour 28 — Catalogue de jouets
+- 10 nouveaux jouets du niveau 14 au 45 (pain d'épices, chocolat chaud, wagon, couronne, boule, lanterne, petit sapin, lance-boules, maison en pain d'épices, grand traîneau) ; cristaux et lingots dans les recettes du haut.
+- XP réglée pour garder la courbe (niv. 30 ≈ J20, niv. 40 ≈ J48).
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
