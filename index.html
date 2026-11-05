@@ -1165,6 +1165,22 @@ body.tutoring #sideL2,body.sheet-open #sideL2,body.placing #sideL2,body:not(.pla
 .card3.other{opacity:.7}
 .sackbtn{margin-top:8px}
 .mis.todo img{width:40px;height:40px;object-fit:contain;flex:none}
+
+/* beaucoup de récompenses : cartes plus petites, et la fenêtre défile au lieu de cacher le bouton OK */
+.rcards.many{gap:8px}
+.rcards.many .rcard{width:74px;height:84px}
+.rcards.many .rcard img,.rcards.many .rcard i.i{width:44px!important;height:44px!important}
+.rcards.many .rcard b{font-size:17px}
+#modal.bravo .mcard{max-height:calc(100vh - 40px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto}
+#modal{z-index:60}
+/* petits écrans (iPhone SE) : deuxième ligne du haut sur une seule ligne */
+#hud2 .row2 .chipx,#hud2 .row2 .title{white-space:nowrap}
+@media (max-width:380px){
+  #hud2 #xpbar{width:96px!important}
+  #hud2 .row2{gap:4px!important}
+  #hud2 .row2 .chipx{font-size:11px!important;padding:2px 6px!important}
+  #hud2 .row2 .title{font-size:11px!important;padding:2px 7px!important;max-width:96px;overflow:hidden;text-overflow:ellipsis}
+}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>

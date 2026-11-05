@@ -1252,7 +1252,7 @@ function story(i){
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
   const m = $('#modal'); m.className = 'cere bravo';
   const cards = Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<div class="rcard r-${k}">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : `<img src="${ICON[k]}" alt="">`}<b>${fmt(n)}</b></div>`).join('');
-  m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2${title.length > 9 ? ' class="long"' : ''}>${title}</h2><small>${sub}</small><div class="rcards">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
+  m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2${title.length > 9 ? ' class="long"' : ''}>${title}</h2><small>${sub}</small><div class="rcards ${Object.values(r).filter(Boolean).length > 4 ? 'many' : ''}">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
   m.hidden = false; sfx.level();
   m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; giveReward(r, m.querySelector('.rcards') || $('#quest2')); if (pendingStory >= 0){ const k = pendingStory; pendingStory = -1; setTimeout(() => story(k), 900); } };
 }
