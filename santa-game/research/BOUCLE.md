@@ -28,7 +28,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Dans les lettres, un interrupteur « Emballer » : 1 papier par jouet, +50 % de pièces et d'XP, 15 % de chances d'une étoile d'or.
 - La récompense affichée suit l'interrupteur.
 
+## Tour 6 — Jour et nuit à l'heure réelle
+- Jour de 7 h 30 à 16 h ; crépuscule rose orangé ; nuit bleutée de 18 h à 6 h.
+- La nuit, les lampadaires éclairent les allées et les fenêtres des maisons s'allument (halo chaud qui palpite).
+- Pour tester une heure : ajouter ?heure=21 à l'adresse.
+
 ## Idées pour la suite
 2. Mesurer les cheminées des autres bâtiments (four, chalets, atelier) pour leur donner aussi de la fumée.
-4. Fenêtres qui s'allument la nuit (ambiance selon l'heure réelle).
 5. Événement limité de Noël avec sa propre monnaie et sa boutique.

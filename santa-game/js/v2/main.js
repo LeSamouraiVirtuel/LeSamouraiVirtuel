@@ -310,6 +310,7 @@ function draw(){
   if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : T.isUpgradable(b) ? `b:${ghost.type}:1` : 'b:' + ghost.type, c.x, c.y, .85); }}); }
   items.sort((a, b) => a.d - b.d);
   for (const it of items) it.f();
+  ambiance();
   // noms des bâtiments, puis indicateurs au-dessus
   labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden]), #sideL2 > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width).map(r => ({left: r.left - 8, right: r.right + 8, top: r.top - 6, bottom: r.bottom + 16}));
   for (const o of S.objs) plate(o);
@@ -321,6 +322,38 @@ function draw(){
   // vignette : bords légèrement assombris, le regard va au centre
   ctx.drawImage(vignette(), 0, 0, W, H);
   drawFx(fxDt);
+}
+// Ambiance selon l'heure réelle : jour, crépuscule (16-18 h) rose orangé, nuit (18-7 h) bleu nuit,
+// avec les lampadaires et les fenêtres qui s'allument (comme les soirées d'hiver de Township). ?heure=21 pour tester.
+const HOUR_FORCE = +new URLSearchParams(location.search).get('heure') || null;
+function nightLevel(){
+  const d = new Date(), h = HOUR_FORCE ?? d.getHours() + d.getMinutes() / 60;
+  if (h >= 7.5 && h < 16) return {n: 0, dusk: 0};
+  if (h >= 16 && h < 17.5) return {n: (h - 16) / 1.5 * .5, dusk: 1 - Math.abs(h - 16.75) / .75};
+  if (h >= 17.5 && h < 18.5) return {n: .5 + (h - 17.5) * .5, dusk: .3};
+  if (h >= 6 && h < 7.5) return {n: 1 - (h - 6) / 1.5, dusk: .4};
+  return {n: 1, dusk: 0};
+}
+const WARM = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,214,140,.9)'); g.addColorStop(.4, 'rgba(255,170,70,.35)'); g.addColorStop(1, 'rgba(255,150,50,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c; })();
+// où sont les fenêtres sur l'image de chaque bâtiment (fractions largeur, hauteur) — mesuré sur les rendus
+const WINDOWS = {santa: [[.27, .55], [.47, .6], [.73, .5]], cabin: [[.32, .58], [.6, .62]], workshop: [[.35, .6], [.65, .55]], letters: [[.45, .6]], bakery: [[.42, .62]], mill: [[.4, .6]], orders: [[.45, .6]], stable: [[.4, .6]], storage: [[.45, .62]], theater: [[.45, .55]]};
+function ambiance(){
+  const {n, dusk} = nightLevel(); if (n <= 0 && dusk <= 0) return;
+  ctx.save();
+  if (dusk > 0){ ctx.globalAlpha = dusk * .22; ctx.fillStyle = '#ff8a5c'; ctx.fillRect(0, 0, W, H); }
+  if (n > 0){ ctx.globalAlpha = n * .5; ctx.fillStyle = '#0d1640'; ctx.fillRect(0, 0, W, H); }
+  if (n > .3){
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, (n - .3) / .4);
+    for (const o of S.objs){
+      if (o.wild) continue;
+      if (o.type === 'lantern'){ const c = toScreen(o.x + .5, o.y + .5), r = 34 * cam.z; ctx.drawImage(WARM, c.x - r, c.y - 34 * cam.z - r, r * 2, r * 2); ctx.drawImage(WARM, c.x - r * 1.6, c.y - r * .8, r * 3.2, r * 1.6); continue; }
+      const win = WINDOWS[o.type]; if (!win || o.build) continue;
+      const rc = objScreenRect(o); if (rc.cx < -80 || rc.cx > W + 80 || rc.top > H || rc.top + rc.height < 0) continue;
+      const r = 16 * cam.z;
+      for (const [fx, fy] of win){ const x = rc.left + rc.width * fx, y = rc.top + rc.height * fy, f = .85 + Math.sin(performance.now() / 700 + x) * .15; ctx.drawImage(WARM, x - r * f, y - r * f, r * 2 * f, r * 2 * f); }
+    }
+  }
+  ctx.restore();
 }
 let fxDt = 0;
 let vig = null, vigW = 0, vigH = 0;
