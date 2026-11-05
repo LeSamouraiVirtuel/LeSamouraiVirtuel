@@ -68,5 +68,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Chaque chalet peut envoyer ses lutins aider : -15 % sur tous les chantiers en cours (+2 % par niveau du chalet), contre des biscuits.
 - Une fois toutes les 2 h par chalet : plus on a de chalets, plus on peut accélérer.
 
+## Tour 15 — Grande commande du Nord (Entrepôt)
+- Toutes les 6 h, Gros Ours propose une grosse commande par ressource (bois, biscuits, tissu) ; on en livre une.
+- Récompense : beaucoup de pièces, de l'XP et des cristaux. Bon débouché pour le surplus ; plus l'entrepôt est haut, mieux il paie.
+- Désormais, chaque bâtiment du village a sa propre activité.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

@@ -763,3 +763,18 @@ export function helpGive(s, o, now = Date.now()){
   for (const x of sites){ const k = x.build ? 'build' : 'up'; x[k] = now + Math.round((x[k] - now) * (1 - HELP_CUT - .02 * ((o.lv || 1) - 1))); }
   o.helpAt = now + HELP_EVERY; return null;
 }
+
+/* ===================== GRANDE COMMANDE DU NORD (Entrepôt) ===================== */
+// Toutes les 6 h, Gros Ours propose 3 grosses commandes ; on en remplit une. Utile pour écouler le surplus.
+export const BULK_EVERY = 6 * 3600e3;
+export function bulkOffers(s, o){
+  const L = s.lvl, lv = o.lv || 1, f = 1 + (lv - 1) * .25, base = n => R5(n * (1 + L * .3));
+  const res = ['wood', 'cookies', 'fabric'].filter(k => k !== 'fabric' || s.objs.some(x => x.type === 'mill'));
+  return res.map(k => { const n = base(k === 'fabric' ? 250 : 500); return {k, want: {[k]: n}, give: {coins: R5(n * (k === 'fabric' ? 2.2 : 1.1) * f), xp: Math.round(8 + L * 2), ice: 2 + Math.floor(L / 3)}}; });
+}
+export const bulkReady = (o, now = Date.now()) => now >= (o.bulkAt || 0);
+export function bulkDo(s, o, k, now = Date.now()){
+  if (!bulkReady(o, now)) return 'Gros Ours prépare la prochaine commande';
+  const of = bulkOffers(s, o).find(x => x.k === k); if (!has(s, of.want)) return 'Ressources insuffisantes';
+  take(s, of.want); o.bulkAt = now + BULK_EVERY; return of.give;
+}
