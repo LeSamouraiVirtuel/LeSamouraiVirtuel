@@ -68,7 +68,8 @@ const DRESS = {
   cabin: [['snow-pile', 1.3, 1.3, .55], ['lantern_mini', 1.45, .3, .45, 0, 2], ['present_D_blue', .4, 1.45, .4, .3, 3]],
 };
 function dress(g, type, t){
-  for (const [name, x, z, s, ry = 0, from = 1] of DRESS[type] || []) if (t >= from) g.add(prop(name, {x, z, y: .36, s, ry}));
+  const BIG = new Set(['Wood_Log_Stack', 'fence', 'train_locomotive', 'sled', 'Pallet_Wood', 'Pallet_Wood_Covered_A', 'Containers_Pile_Medium', 'snow-pile']);
+  for (const [name, x, z, s, ry = 0, from = 1] of DRESS[type] || []) if (t >= from) g.add(prop(name, {x, z, y: .36, s: BIG.has(name) ? s * 1.15 : s * 1.6, ry}));
   // apparence 2 : lanterne au coin gauche ; apparence 3 : sucres d'orge de part et d'autre de l'entrée
   if (t >= 2 && type !== 'cabin') g.add(prop('lantern', {x: -1.45, z: 1.45, y: .36, s: .55}));
   if (t >= 3 && type !== 'cabin'){ g.add(prop('candy-cane-red', {x: 1.6, z: -1.2, y: .36, s: .55})); g.add(prop('candy-cane-green', {x: -1.2, z: 1.65, y: .36, s: .55})); }
