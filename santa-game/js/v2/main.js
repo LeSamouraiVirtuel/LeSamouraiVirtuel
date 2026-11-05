@@ -1147,7 +1147,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'gomine') return openPanel('mine', panelArg);
   if (a === 'golab') return openPanel('lab', panelArg);
   if (a === 'gotrain') return openPanel('train', panelArg);
-  if (a === 'tload'){ const i = +b.dataset.i, w = S.train?.wag[i], why = T.trainLoad(S, i); if (why){ sfx.err(); if (w && !T.has(S, w.want)) return showMissing(w.want, 'Charger le wagon', null); return toastOnce(why); } sfx.collect(); giveReward(w.rw, b); T.track(S, 'train'); save(); return renderPanel(); }
+  if (a === 'tload'){ const i = +b.dataset.i, w = S.train?.wag[i], why = T.trainLoad(S, i); if (why){ sfx.err(); if (w && !T.has(S, w.want)) return showMissing(w.want, 'Charger le wagon', () => { if (!T.trainLoad(S, i)){ giveReward(w.rw, $('#h-coins')); T.track(S, 'train'); save(); } renderPanel(); }); return toastOnce(why); } sfx.collect(); giveReward(w.rw, b); T.track(S, 'train'); save(); return renderPanel(); }
   if (a === 'tsend'){ const bon = T.trainSend(S); if (!bon) return; sfx.level(); if (Object.keys(bon).length) bravo(bon, 'Le train est parti plein !', 'TRAIN COMPLET'); else toast('Le train est parti. Il revient bientôt avec de nouveaux wagons.'); save(); return renderPanel(); }
   if (a === 'tspeed'){ const tr = S.train; if (!tr || tr.back <= now()) return; const st = T.speedStars(tr.back - now()); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; tr.back = now(); sfx.level(); save(); return renderPanel(); }
   if (a === 'rsgo'){ const why = T.rsStart(S, b.dataset.k); if (why){ sfx.err(); return toastOnce(why); } sfx.build(); T.track(S, 'research'); save(); return renderPanel(); }

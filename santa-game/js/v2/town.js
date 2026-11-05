@@ -626,7 +626,7 @@ export const missingStars = (s, req) => {  // acheter les ressources qui manquen
   let n = 0;
   for (const [k, q] of Object.entries(req)){
     const lack = Math.max(0, q - (RES.includes(k) ? s[k] || 0 : s.inv[k] || 0)); if (!lack) continue;
-    n += k === 'gold' ? lack * 6 : k === 'ice' ? lack * 1.5 : k === 'stars' ? Infinity : k === 'axe' || k === 'saw' ? lack * 15 : Math.pow(lack, .7) / 4;
+    n += k === 'gold' ? lack * 6 : k === 'ice' ? lack * 1.5 : k === 'stars' ? Infinity : k === 'axe' || k === 'saw' ? lack * 15 : TOYS[k] ? lack * Math.max(2, Math.ceil(TOYS[k].value / 120)) : Math.pow(lack, .7) / 4;
   }
   return Math.ceil(n);
 };

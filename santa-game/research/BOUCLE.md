@@ -175,5 +175,13 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Les lueurs s'additionnent à la lumière (très visibles la nuit, discrètes le jour). Effets coupés quand on dézoome fort et limités en nombre pour garder la fluidité.
 - Testé jour et nuit sur iPhone 13 et SE, tutoriel OK.
 
+## Tour 37 — Gare du Pôle
+- Nouvelle comparaison : il manquait le train de Township / le bateau de Hay Day, une campagne contre des ennemis (Clash, DoA) et un compagnon à élever (dragon de DoA). Ajoutés à MANQUES.md (12, 13, 14).
+- Gare du Pôle (Maison niv. 8), chef de gare Sifflet, modèle 3D avec rails, locomotive et wagons (pack régénéré).
+- Le train arrive avec 3 à 6 wagons (selon le niveau de la Gare). Chaque wagon demande bois, biscuits, tissu, jouets ou cristaux et donne tout de suite sa récompense (pièces, XP, parfois cristaux, lingot, outil ou colis). Train parti plein : bonus (étoiles, colis, pièces). Retour en 4 h au niv. 1, 1 h 30 au mieux ; accélérable.
+- « Mon village » et les rappels signalent les wagons chargeables et le retour du train.
+- Corrigé : compléter des jouets manquants coûtait trop peu d'étoiles (3 jouets = 1 étoile) ; maintenant au moins 2 étoiles par jouet.
+- Testé sur iPhone 13 et SE, tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
