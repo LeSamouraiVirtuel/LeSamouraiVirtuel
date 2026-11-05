@@ -98,6 +98,8 @@ export const BUILDINGS = {
              desc: 'Le minerai des aurores fondu en lingots d’or polaire. Rare, précieux, indispensable aux grands chantiers.'},
   mine:     {name: 'Grotte aux cristaux', kind: 'mine', w: 3, h: 3, unique: true, cost: {coins: 900, wood: 700, cookies: 250}, time: 60, hq: 5,
              desc: 'Creuse la glace étage par étage : cristaux, lingots et colis perdus t’attendent. Plus on descend, plus c’est riche.'},
+  library:  {name: 'Bibliothèque des lutins', kind: 'lab', w: 3, h: 3, unique: true, cost: {coins: 3000, wood: 2000, cookies: 800, ice: 15}, time: 180, hq: 6,
+             desc: 'Les lutins savants y cherchent des secrets : chaque recherche donne un bonus pour toujours.'},
   theater:  {name: 'Théâtre de marionnettes', kind: 'fun', w: 3, h: 3, unique: true, cost: {coins: 600, wood: 400, fabric: 100}, time: 60, hq: 5,
              desc: 'Des spectacles pour les lutins : le bonheur augmente toute la production.'},
   tree:     {name: 'Sapin décoré', kind: 'deco', w: 1, h: 1, cost: {coins: 40}, joy: 2, hq: 1, desc: '+2 bonheur'},
@@ -180,6 +182,7 @@ export function stats(s, o, lv = o.lv){
     case 'orders': return [L('Lettres en même temps', orderSlots), L('Récompenses', l => '+' + Math.round((orderBonus(l) - 1) * 100) + ' %')];
     case 'stable': return [L('Expéditions en même temps', expSlots), L('Destinations', l => EXP_DEST.filter(d => d.lv <= l).length), L('Tickets de jeu', ticketsMax)];
     case 'fun': return [L('Bonheur', l => '+' + theaterJoy(l))];
+    case 'lab': return [L('Niveau max des recherches', l => Math.min(RS_MAX, l * 2)), L('Domaines de recherche', l => RESEARCH.filter(r => r.lib <= l).length)];
     case 'mine': return [L('Pioches au maximum', minePicks), L('Une pioche toutes les', l => minePickMin(l) + ' min'), L('Trouvailles', l => '+' + Math.round((mineMult(l) - 1) * 100) + ' %')];
     case 'hq': return [L('Niveau max des bâtiments', l => l + 1), L('Stock de base', l => fmtN(hqStock(l))), L('Bâtiments débloqués', l => unlockCount(l))];
   }
@@ -283,7 +286,7 @@ export const workRatio = s => { const e = employed(s); return e ? Math.min(1, lu
 export const joy = s => s.objs.reduce((a, o) => a + (BUILDINGS[o.type].kind === 'deco' && !o.wild && !o.free ? BUILDINGS[o.type].joy || 0 : BUILDINGS[o.type].kind === 'fun' && built(o) ? theaterJoy(o.lv) : 0), 0);
 export const joyBonus = s => joy(s) / 100;              // +1 % de production par point de bonheur
 export const prodMult = s => workRatio(s) * (1 + joyBonus(s) + lightsBonus(s) + showBonus(s));
-export const cap = (s, r) => r === 'coins' ? Infinity : hqStock(hqLv(s)) + s.objs.reduce((a, o) => a + (o.type === 'storage' && built(o) ? storageAdd(o.lv) : 0), 0);
+export const cap = (s, r) => r === 'coins' ? Infinity : Math.round((hqStock(hqLv(s)) + s.objs.reduce((a, o) => a + (o.type === 'storage' && built(o) ? storageAdd(o.lv) : 0), 0)) * (1 + rsBonus(s, 'store')));
 /** Ce qu'un bâtiment de production a accumulé (plafonné à son stock interne). */
 export function stored(s, o, now = Date.now()){
   const b = BUILDINGS[o.type]; if (b.kind !== 'prod' || !built(o) || o.up) return 0;
@@ -572,7 +575,7 @@ export function zoneB(s, k, res){
   for (const key of s.chunks || []){ const z = ZONES[key]; if (!z || z.b.k !== k || (res && z.b.res !== res)) continue; v += z.b.p ?? z.b.n; }
   return v;
 }
-export const zoneProd = (s, res) => 1 + zoneB(s, 'res', res) + zoneB(s, 'all');
+export const zoneProd = (s, res) => 1 + zoneB(s, 'res', res) + zoneB(s, 'all') + rsBonus(s, RS_RES[res]);
 export function zoneBonusText(b){
   const pc = Math.round((b.p || 0) * 100);
   switch (b.k){
@@ -716,7 +719,7 @@ export function expBlock(s, k, now = Date.now()){
 export function expStart(s, k, now = Date.now()){
   const why = expBlock(s, k, now); if (why) return why;
   const d = EXP_DEST.find(d => d.k === k); take(s, expCost(s, d));
-  (s.exps ||= []).push({k, end: now + d.time * deerSpeed(s, now) * (1 - zoneB(s, 'exp')), start: now}); return null;
+  (s.exps ||= []).push({k, end: now + d.time * deerSpeed(s, now) * (1 - zoneB(s, 'exp')) * (1 - rsBonus(s, 'swift')), start: now}); return null;
 }
 /** Rentre les expéditions terminées : renvoie les colis rapportés (raretés). */
 export function expCollect(s, now = Date.now()){
@@ -925,4 +928,51 @@ export function upcoming(s, now = Date.now()){
   const st = s.objs.find(o => o.type === 'mine' && built(o));
   if (st && s.mine){ const max = minePicks(st.lv) + zoneB(s, 'picks'), every = minePickMin(st.lv) * 60e3; if (s.mine.picks < max) add(s.mine.t + (max - s.mine.picks) * every, 'Les pioches de la Grotte sont pleines'); }
   return L.sort((a, b) => a.at - b.at);
+}
+
+/* ===================== BIBLIOTHÈQUE DES LUTINS (recherche, comme le Science Center de DoA ou le Laboratoire de Clash) ===================== */
+// Une recherche à la fois. Chaque niveau donne un bonus permanent. Le niveau de la Bibliothèque plafonne le niveau des recherches
+// et débloque de nouvelles branches. Les niveaux coûtent de plus en plus (pièces, puis cristaux, puis lingots) et prennent de plus en plus de temps.
+export const RESEARCH = [
+  {k: 'saw',   name: 'Scies affûtées',        icon: 'wood',    p: .05, lib: 1, txt: p => `+${p} % de bois produit`},
+  {k: 'oven',  name: 'Recettes de grand-mère', icon: 'cookies', p: .05, lib: 1, txt: p => `+${p} % de biscuits produits`},
+  {k: 'post',  name: 'Tri du courrier',        icon: 'coins',   p: .05, lib: 1, txt: p => `+${p} % de pièces produites`},
+  {k: 'loom',  name: 'Métiers à tisser',       icon: 'fabric',  p: .05, lib: 2, txt: p => `+${p} % de tissu produit`},
+  {k: 'store', name: 'Rangement malin',        icon: 'storage', p: .04, lib: 2, txt: p => `+${p} % de place dans le stock`},
+  {k: 'craft', name: 'Doigts de fée',          icon: 'workshop', p: .04, lib: 3, txt: p => `Jouets fabriqués ${p} % plus vite`},
+  {k: 'swift', name: 'Rennes véloces',         icon: 'stable',  p: .04, lib: 3, txt: p => `Expéditions ${p} % plus rapides`},
+  {k: 'frost', name: 'Givre éternel',          icon: 'ice',     p: .06, lib: 4, txt: p => `+${p} % de cristaux produits`},
+  {k: 'plan',  name: 'Plans d’architecte',     icon: 'build',   p: .03, lib: 5, txt: p => `Chantiers ${p} % plus courts`},
+  {k: 'forge', name: 'Forge des aurores',      icon: 'gold',    p: .06, lib: 7, txt: p => `+${p} % de lingots produits`},
+];
+export const RS_RES = {wood: 'saw', cookies: 'oven', coins: 'post', fabric: 'loom', ice: 'frost', gold: 'forge'};
+export const RS_MAX = 20;
+export const rsLv = (s, k) => (s.rs && s.rs[k]) || 0;
+export const rsBonus = (s, k) => { if (!k) return 0; const r = RESEARCH.find(x => x.k === k); return r ? Math.min(.75, rsLv(s, k) * r.p) : 0; };
+export const libLv = s => { const o = s.objs.find(o => o.type === 'library' && built(o)); return o ? o.lv : 0; };
+export const rsCap = s => Math.min(RS_MAX, libLv(s) * 2);
+export function rsCost(s, k, lv){                      // lv = niveau visé
+  const i = RESEARCH.findIndex(x => x.k === k), base = 400 * (1 + i * .25) * Math.pow(1.55, lv - 1), c = {coins: R5(base)};
+  if (lv >= 3) c.ice = Math.round(4 * Math.pow(1.4, lv - 3) * (1 + i * .1));
+  if (lv >= 7) c.gold = Math.round(1 + Math.pow(1.35, lv - 7));
+  return c;
+}
+export const rsTime = (k, lv) => Math.round(Math.min(5 * 86400, 600 * Math.pow(1.85, lv - 1)));     // 10 min, 18 min, 34 min… jusqu'à 5 jours
+export function rsBlock(s, k, now = Date.now()){
+  const r = RESEARCH.find(x => x.k === k), L = libLv(s); if (!L) return 'Construis la Bibliothèque des lutins';
+  if (r.lib > L) return `Bibliothèque niv. ${r.lib}`;
+  if (s.rsRun && s.rsRun.end > now) return 'Une recherche est déjà en cours';
+  const n = rsLv(s, k) + 1; if (n > RS_MAX) return 'Niveau maximum';
+  if (n > rsCap(s)) return `Bibliothèque niv. ${Math.ceil(n / 2)} requise`;
+  if (!has(s, rsCost(s, k, n))) return 'Il manque des ressources';
+  return null;
+}
+export function rsStart(s, k, now = Date.now()){
+  const why = rsBlock(s, k, now); if (why) return why;
+  const n = rsLv(s, k) + 1; take(s, rsCost(s, k, n)); s.rsRun = {k, lv: n, start: now, end: now + rsTime(k, n) * 1000}; return null;
+}
+/** Termine la recherche si son temps est écoulé (renvoie la recherche finie). */
+export function rsTick(s, now = Date.now()){
+  const R = s.rsRun; if (!R || R.end > now) return null;
+  s.rs ||= {}; s.rs[R.k] = R.lv; s.rsRun = null; return R;
 }
