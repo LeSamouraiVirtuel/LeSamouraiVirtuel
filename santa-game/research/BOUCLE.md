@@ -60,5 +60,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Position de chaque cheminée mesurée automatiquement sur les images (3 apparences par bâtiment).
 - Fumée sur la Maison, les chalets, l'atelier, le four, la filature, les bureaux et l'entrepôt quand ils travaillent.
 
+## Tour 13 — Cadeaux tombés du traîneau (bonus à ramasser)
+- À partir du niveau 2, toutes les 6 à 12 min, un cadeau tombe du ciel sur une allée du village (halo doré qui pulse, anneau au sol).
+- On le touche pour le ramasser : pièces, bois, biscuits, outil, cristaux ou, rarement, une étoile d'or. Il disparaît au bout de 4 min.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
