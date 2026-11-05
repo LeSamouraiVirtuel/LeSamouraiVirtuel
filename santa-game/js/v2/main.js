@@ -184,6 +184,21 @@ function queueToy(o, k){
   const start = Math.max(now(), o.q.length ? o.q[o.q.length - 1].end : 0);
   o.q.push({item: k, end: start + t.time / T.craftSpeed(o.lv) * 1000}); sfx.pop(); tutoEv('craft'); save(); renderPanel();
 }
+// jouets qui manquent pour toutes les lettres (stock + file d'attente déduits)
+function lettersNeed(o){
+  const need = {}, have = k => (S.inv[k] || 0) + (o.q || []).filter(j => j.item === k).length;
+  for (const od of S.orders) for (const [k, q] of Object.entries(od.items || {})) need[k] = (need[k] || 0) + q;
+  const list = []; for (const [k, q] of Object.entries(need)) for (let i = have(k); i < q; i++) list.push(k);
+  return list;
+}
+function autoQueue(o){
+  let n = 0, poor = null;
+  for (const k of lettersNeed(o)){ if ((o.q || []).length >= T.craftSlots(o.lv)) break; if (!T.has(S, TOYS[k].cost)){ poor ||= k; continue; } T.take(S, TOYS[k].cost); o.q ||= []; const start = Math.max(now(), o.q.length ? o.q[o.q.length - 1].end : 0); o.q.push({item: k, end: start + TOYS[k].time / T.craftSpeed(o.lv) * 1000}); n++; }
+  if (n){ sfx.pop(); toast(`${n} jouet${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} à la file`); save(); }
+  else if (poor){ sfx.err(); return showMissing(TOYS[poor].cost, `Fabriquer : ${ITEMS[poor].name}`, () => autoQueue(o)); }
+  else toast((o.q || []).length >= T.craftSlots(o.lv) ? "La file de l'atelier est pleine" : 'Toutes les lettres ont leurs jouets !');
+  renderPanel();
+}
 /* ---------- lettres des enfants ---------- */
 function bureau(){ return findType('orders'); }
 const wrapOk = od => S.wrapOn && (S.inv.paper || 0) >= T.wrapNeed(od);
@@ -742,7 +757,7 @@ function renderPanel(){
     const o = panelArg, q = o.q || [], n = T.craftSlots(o.lv);
     const slots = Array.from({length: n}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
     h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + `<p class="help">Touche un jouet pour le mettre dans la file. Les jouets marqués <b>Demandé</b> sont attendus dans les lettres.</p><h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
-      ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}
+      ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}${lettersNeed(o).length ? `<button class="btn green wide" data-a="autoq">Fabriquer ce que demandent les lettres (${lettersNeed(o).length})</button>` : ''}
       <h3>Jouets</h3><div class="recipes">${Object.entries(TOYS).map(([k, t]) => { const lock = S.lvl < t.lvl, wanted = S.orders.some(od => od.items?.[k]);
         return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, t.cost) ? 'ok' : ''}" data-a="queue" data-k="${k}">${wanted && !lock ? '<span class="wanted">Demandé</span>' : ''}<img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
         ${lock ? `<span class="why">Niveau ${t.lvl}</span>` : `<span class="costs">${costChips(t.cost)}</span><span class="meta">${fmtTime(t.time / T.craftSpeed(o.lv))} · en stock : ${S.inv[k] || 0}</span>`}</button>`; }).join('')}</div>`;
@@ -949,6 +964,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'keeper'){ const o = panelArg, why = T.keeperBlock(S, o); if (why){ sfx.err(); return toast(why); } if (B(o).kind === 'prod') collectBld(o); T.take(S, T.keeperCost(o)); o.keeper = (o.keeper || 0) + 1; o.t = Math.min(o.t, now()); sfx.level(); toast(o.keeper === 1 ? `${(KEEPER[o.type] || KEEPER.cabin).name} est engagé !` : `Gardien ★${o.keeper} : +${Math.round((T.keeperMult(o) - 1) * 100)} % de production`); T.track(S, 'keeper'); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'games') return openPanel('games');
   if (a === 'goexp') return openPanel('exp', panelArg);
+  if (a === 'autoq') return autoQueue(panelArg);
   if (a === 'deerfeed'){ const why = T.deerFeed(S, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.deerCost(S), 'Nourrir les rennes', null) : toast(why); } T.track(S, 'deer'); sfx.level(); toast(`Miam ! Les rennes t’adorent (${T.deerHearts(S)} ❤)`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'todo'){ const x = todoList()[+b.dataset.i]; if (x) todoGo(x.go); return; }
   if (a === 'bulk'){ const o = panelArg, r = T.bulkDo(S, o, b.dataset.k, now()); if (typeof r === 'string'){ sfx.err(); return r === 'Ressources insuffisantes' ? showMissing(T.bulkOffers(S, o).find(x => x.k === b.dataset.k).want, 'Grande commande du Nord', null) : toast(r); } T.track(S, 'bulk'); closePanel(); return bravo(r, 'Grande commande du Nord'); }

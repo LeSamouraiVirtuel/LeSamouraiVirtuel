@@ -90,5 +90,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - À l'Écurie, nourrir les rennes avec des biscuits : expéditions 25 % plus rapides pendant 8 h.
 - Chaque repas donne un cœur d'affection (10 max), +2 % de vitesse par cœur, pour toujours.
 
+## Tour 20 — Confort de jeu
+- Atelier : bouton « Fabriquer ce que demandent les lettres » qui remplit la file en un toucher, lettre par lettre (stock et file déjà comptés).
+- Les petits messages s'affichent en bas quand une fenêtre est ouverte, pour ne plus cacher son contenu.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
