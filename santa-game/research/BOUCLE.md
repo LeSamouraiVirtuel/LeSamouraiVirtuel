@@ -198,5 +198,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Corrigé au passage : la carte « Les rennes ont faim » de l'Écurie s'écrasait sur iPhone SE (icône du prix géante et texte sur une colonne).
 - Testé sur iPhone 13 et SE, tutoriel OK.
 
+## Tour 40 — Pêche sur glace
+- Nouvelle comparaison : il manquait la pêche de Hay Day et le musée de Bid Master (ajoutés, 15 et 16).
+- Sur le lac du Lac Gelé (et du Port des Glaces), un trou dans la glace avec l'étiquette « Pêche » : on le touche pour pêcher.
+- On lance la ligne (appât en biscuits), le bouchon flotte, puis « ÇA MORD ! » : il faut ferrer à temps (1,2 s pour un commun, 0,45 s pour un légendaire). Trop tôt, le poisson a peur ; trop tard, il s'échappe.
+- 12 espèces en 4 raretés (de la Morue des glaces au Petit narval), avec une taille au hasard : pièces selon la taille, XP, cristaux et lingots pour les rares, étoiles pour chaque nouvelle espèce. Carnet de pêche avec nombre et record de taille.
+- Testé sur iPhone 13 et SE, tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

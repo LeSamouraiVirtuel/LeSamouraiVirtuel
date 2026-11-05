@@ -301,6 +301,8 @@ function zoneGround(cx, cy, z){
   if (z.feat === 'lake'){
     const lx = X + 5.5, ly = Y + 5.5;
     isoBlob(lx, ly, 3.1, 'rgba(255,255,255,.9)'); isoBlob(lx, ly, 2.8, '#9fd6f5'); isoBlob(lx - .4, ly - .4, 2.1, '#c4e8fb');
+    { const h = toScreen(lx + .6, ly + .6), z = cam.z; ctx.fillStyle = '#1f4a7a'; ctx.beginPath(); ctx.ellipse(h.x, h.y, 14 * z, 7 * z, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * z; ctx.stroke();
+      if (z > .5){ ctx.font = `600 ${Math.round(12 * Math.min(1.3, z))}px Fredoka, sans-serif`; const tw = ctx.measureText('Pêche').width + 14; ctx.fillStyle = 'rgba(18,22,44,.8)'; ctx.beginPath(); ctx.roundRect(h.x - tw / 2, h.y + 10 * z, tw, 18, 6); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Pêche', h.x, h.y + 10 * z + 9); ctx.textBaseline = 'alphabetic'; } }
     ctx.globalAlpha = .7; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * cam.z; for (let i = 0; i < 3; i++){ const a = toScreen(lx - 1.6 + i * .9, ly - .3 - i * .5), b = toScreen(lx - .9 + i * .9, ly - 1 - i * .5); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); } ctx.globalAlpha = 1;
   } else if (z.feat === 'gems' || z.feat === 'aurora' || z.feat === 'candy'){
     for (let i = 0; i < 12; i++){
@@ -748,6 +750,7 @@ function tap(o, at){
   if (!o){
     const t = toTile(at.x, at.y), cx = Math.floor(t.x / T.CHUNK), cy = Math.floor(t.y / T.CHUNK);
     if (cx >= 0 && cy >= 0 && cx < T.MAP / T.CHUNK && cy < T.MAP / T.CHUNK && !isOpen(cx, cy) && isNextToOpen(cx, cy)) return openPanel('expand', {cx, cy});
+    { const z = isOpen(cx, cy) && T.zoneOf(cx, cy); if (z && z.feat === 'lake' && Math.hypot(t.x - (cx * T.CHUNK + 5.5), t.y - (cy * T.CHUNK + 5.5)) < 3.2) return openPanel('fish'); }
     selObj = null; closePanel(); return;
   }
   selObj = o;
@@ -869,6 +872,13 @@ function renderPanel(){
     h = hd('', 'Mini-jeux') + `<div class="tix"><span>${'<i class="tk"></i>'.repeat(g.tickets)}${'<i class="tk off"></i>'.repeat(TMAX - g.tickets)}</span><small>${g.tickets < TMAX ? `+1 ticket dans <b data-until="${g.t + TEVERY}"></b>` : 'Tickets au maximum'}</small></div>
       ${campCard()}<div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
       <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
+  }
+  else if (panel === 'fish'){
+    const F = S.fish || {}, got = T.FISH.filter(f => F[f.k]).length, c = T.baitCost(S);
+    h = hd(`Carnet : ${got} / ${T.FISH.length} espèces`, 'Pêche sur glace') + `<div class="fishhole ${fishSt.mode}" data-a="fishtap"><div class="ice"></div><div class="hole"><span class="bob"></span></div>
+        <div class="fmsg">${fishSt.msg || 'Lance ta ligne dans le trou !'}</div>${fishSt.got ? `<div class="fgot">${fishSvg(fishSt.got.c, 70)}<b>${fishSt.got.name}</b><small>${fishSt.got.size} cm · ${T.RARITY[fishSt.got.r].name}${fishSt.first ? ' · <em>Nouvelle espèce !</em>' : fishSt.rec ? ' · <em>Record !</em>' : ''}</small></div>` : ''}</div>
+      ${fishSt.mode === 'wait' || fishSt.mode === 'bite' ? `<button class="btn red wide big" data-a="fishtap">${fishSt.mode === 'bite' ? 'FERRER !' : 'Attendre… (touche quand ça mord)'}</button>` : `<button class="btn green wide" data-a="fishcast"><span class="costs">${costChips(c)}</span>Lancer la ligne</button>`}
+      <h3>Carnet de pêche</h3><div class="fishbook">${T.FISH.map(f => { const x = F[f.k]; return `<div class="fb ${x ? '' : 'no'}" style="--rc:${T.RARITY[f.r].c}">${fishSvg(x ? f.c : '#c9bda4', 40)}<b>${x ? f.name : '???'}</b><small>${x ? `${x.n} pêché${x.n > 1 ? 's' : ''} · ${x.best} cm` : T.RARITY[f.r].name}</small></div>`; }).join('')}</div>`;
   }
   else if (panel === 'pet'){
     const p = T.petState(S);
@@ -1167,6 +1177,8 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'gotrain') return openPanel('train', panelArg);
   if (a === 'camp') return openPanel('camp');
   if (a === 'pet') return openPanel('pet');
+  if (a === 'fishcast') return fishCast();
+  if (a === 'fishtap') return fishTap();
   if (a === 'petfeed'){ const r = T.petFeed(S, b.dataset.k); if (r.why){ sfx.err(); return r.cost ? showMissing(r.cost, 'Nourrir Flocon', null) : toastOnce(r.why); } sfx.collect(); petUp(r.up, b); save(); return renderPanel(); }
   if (a === 'petpat'){ const r = T.petPat(S); if (!r) return; sfx.pop(); giveReward(r.gift, b); petUp(r.up, b); toast('Flocon est tout content !'); save(); return renderPanel(); }
   if (a === 'campgo') return campGo(+b.dataset.i);
@@ -1632,6 +1644,7 @@ function todoList(){
   { const ts = T.trainState(S); if (ts && !ts.away && ts.tr.wag.some(w => !w.done && T.has(S, w.want))) add(thumbs.station || buildIcon, 'Le train attend : des wagons à charger', {o: ts.o}); else if (ts && !ts.away && ts.tr.wag.every(w => w.done)) add(thumbs.station || buildIcon, 'Le train est plein : fais-le partir !', {o: ts.o}); }
   { const lb = S.objs.find(o => o.type === 'library' && !o.build); if (lb && !S.rsRun && T.RESEARCH.some(r => !T.rsBlock(S, r.k))) add(thumbs.library || buildIcon, 'La Bibliothèque peut lancer une recherche', {o: lb}); }
   if (T.hqLv(S) >= M.MARKET_HQ && M.auction(S).lots.length >= M.AUC_LOTS) add(thumbs.gifts, 'Salle des ventes : de nouveaux lots à saisir', 'auction');
+  if (T.canFish(S) && !S.fish) add(ICON.ice, 'Le Lac Gelé est ouvert : va pêcher !', 'fish');
   if (S.pet && T.petCanPat(S)) add(ICON.mg_deer, 'Flocon veut un câlin', 'pet');
   if (S.lvl >= 3 && M.eventClaimable(S)) add(ICON.ice, 'Récompense d’événement à prendre', 'event');
   return L;
@@ -1641,7 +1654,7 @@ function todoGo(g){
   if (g === 'daily') return openDaily(); if (g === 'sack') return openSack(); if (g === 'visitor') return openVisitor();
   if (g === 'drop'){ centerOn(S.drop.x, S.drop.y); return; } if (g === 'quest') return $('#quest2').click();
   if (g === 'parcels') return openParcel(); if (g === 'build') return openPanel('build', 'prod');
-  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'pet') return openPanel('pet'); if (g === 'orders' || g === 'event') return openPanel(g);
+  if (g === 'missions') return openPanel('missions', 'day'); if (g === 'auction') return openPanel('auction'); if (g === 'pet') return openPanel('pet'); if (g === 'fish') return openPanel('fish'); if (g === 'orders' || g === 'event') return openPanel(g);
   if (g.o && g.o.type === 'library') return openPanel('lab', g.o);
   if (g.o && g.o.type === 'station') return openPanel('train', g.o);
   if (g.o) return goTo(g.o.type === 'cabin' ? 'cabin' : g.o.type);
@@ -1679,6 +1692,26 @@ function playGame(k){
   });
 }
 
+/* ---------- pêche sur glace ---------- */
+const fishSt = {mode: 'idle', msg: '', got: null, t: 0};
+const fishSvg = (c, w) => `<svg viewBox="0 0 64 36" width="${w}" height="${w * .56}"><path d="M8 18 C18 2 44 2 52 18 C44 34 18 34 8 18 Z" fill="${c}" stroke="#2a1a0e" stroke-width="2.5"/><path d="M50 18 L63 6 L60 18 L63 30 Z" fill="${c}" stroke="#2a1a0e" stroke-width="2.5" stroke-linejoin="round"/><circle cx="20" cy="15" r="3" fill="#2a1a0e"/><path d="M28 10 Q32 18 28 26" stroke="#2a1a0e" stroke-width="2" fill="none" opacity=".5"/></svg>`;
+function fishCast(){
+  if (!T.canFish(S)) return toast('Ouvre le Lac Gelé pour pêcher.');
+  const c = T.baitCost(S); if (!T.has(S, c)){ sfx.err(); return showMissing(c, 'Appât pour la pêche', fishCast); }
+  T.take(S, c); sfx.pop(); clearTimeout(fishSt.t);
+  Object.assign(fishSt, {mode: 'wait', msg: 'Chut… on attend que ça morde.', got: null});
+  const f = T.fishRoll(S), wait = 1500 + Math.random() * 3500;
+  fishSt.t = setTimeout(() => { Object.assign(fishSt, {mode: 'bite', msg: 'ÇA MORD !', fish: f}); sfx.collect(); if (panel === 'fish') renderPanel();
+    fishSt.t = setTimeout(() => { Object.assign(fishSt, {mode: 'idle', msg: 'Trop tard… le poisson s’est échappé.'}); sfx.err(); if (panel === 'fish') renderPanel(); }, T.FISH_WIN[f.r] * 1000); }, wait);
+  renderPanel(); save();
+}
+function fishTap(){
+  if (fishSt.mode === 'wait'){ clearTimeout(fishSt.t); Object.assign(fishSt, {mode: 'idle', msg: 'Trop tôt ! Le poisson a eu peur.'}); sfx.err(); return renderPanel(); }
+  if (fishSt.mode !== 'bite') return;
+  clearTimeout(fishSt.t); const f = fishSt.fish, r = T.fishCatch(S, f);
+  Object.assign(fishSt, {mode: 'idle', msg: 'Bien ferré !', got: f, first: r.first, rec: r.rec});
+  sfx.level(); giveReward(r.rw, $('#sheet .fishhole')); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save(); renderPanel();
+}
 /* ---------- Flocon, le renne magique ---------- */
 function petEntry(){
   const p = T.petState(S); if (!p) return '';
