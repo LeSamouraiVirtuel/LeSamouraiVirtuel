@@ -190,5 +190,13 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Difficulté qui monte : plus de trolls, plus de coups par troll, attaques plus rapides. Corrigé après test : on perdait ses 3 cœurs en 5 s au 10ᵉ camp, rythme adouci.
 - Testé sur iPhone 13 et SE (liste, combat, victoire, défaite), tutoriel OK.
 
+## Tour 39 — Flocon, le renne magique
+- Comme le dragon de DoA : un compagnon qui vit à l'Écurie et grandit sans fin (Faon → Jeune renne → Renne des neiges → Renne étoilé → Renne des aurores → Renne légendaire, aux niveaux 5, 10, 15, 20, 30).
+- On le nourrit avec des biscuits, des cristaux, ou son jouet préféré du jour (le plus efficace, change chaque jour). Un câlin toutes les 4 h donne un petit cadeau (pièces, cristaux, outil, parfois une étoile).
+- Bonus : +1 % de production par niveau (jusqu'à +30 %), un cœur de plus dans la Campagne des Trolls aux niveaux 5 et 12. Halo coloré selon le stade.
+- « Mon village » et les rappels annoncent quand Flocon veut un câlin.
+- Corrigé au passage : la carte « Les rennes ont faim » de l'Écurie s'écrasait sur iPhone SE (icône du prix géante et texte sur une colonne).
+- Testé sur iPhone 13 et SE, tutoriel OK.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

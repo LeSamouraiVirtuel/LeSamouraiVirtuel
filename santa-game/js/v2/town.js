@@ -578,7 +578,7 @@ export function zoneB(s, k, res){
   for (const key of s.chunks || []){ const z = ZONES[key]; if (!z || z.b.k !== k || (res && z.b.res !== res)) continue; v += z.b.p ?? z.b.n; }
   return v;
 }
-export const zoneProd = (s, res) => 1 + zoneB(s, 'res', res) + zoneB(s, 'all') + rsBonus(s, RS_RES[res]);
+export const zoneProd = (s, res) => 1 + zoneB(s, 'res', res) + zoneB(s, 'all') + rsBonus(s, RS_RES[res]) + petProd(s);
 export function zoneBonusText(b){
   const pc = Math.round((b.p || 0) * 100);
   switch (b.k){
@@ -928,6 +928,7 @@ export function upcoming(s, now = Date.now()){
     for (const j of o.q || []) add(j.end, `Des jouets sont prêts à l'Atelier`);
   }
   for (const e of s.exps || []) add(e.end, 'Les rennes rentrent avec des colis mystère !');
+  if (s.pet && s.pet.pat && s.pet.pat + PET_PAT > now) add(s.pet.pat + PET_PAT, 'Flocon veut un câlin !');
   if (s.train && s.train.back > now) add(s.train.back, 'Le train est de retour à la Gare !');
   const st = s.objs.find(o => o.type === 'mine' && built(o));
   if (st && s.mine){ const max = minePicks(st.lv) + zoneB(s, 'picks'), every = minePickMin(st.lv) * 60e3; if (s.mine.picks < max) add(s.mine.t + (max - s.mine.picks) * every, 'Les pioches de la Grotte sont pleines'); }
@@ -1038,3 +1039,46 @@ export function campLoot(s, i, stars, first){
   return r;
 }
 export const campState = s => (s.camps ||= {at: 0, st: {}});
+
+/* ===================== FLOCON, LE RENNE MAGIQUE (le dragon à élever de DoA) ===================== */
+// Un compagnon qui grandit sans fin : on le nourrit (biscuits, cristaux, et son jouet préféré du jour, qui compte triple),
+// on le caresse toutes les 4 h. Chaque niveau donne +1 % de production (jusqu'à +30 %) ; aux niveaux 5 et 12 il donne
+// un cœur de plus dans la Campagne des Trolls.
+export const PET_STAGES = [[1, 'Faon'], [5, 'Jeune renne'], [10, 'Renne des neiges'], [15, 'Renne étoilé'], [20, 'Renne des aurores'], [30, 'Renne légendaire']];
+export const petNeed = lv => Math.round(100 * Math.pow(1.32, lv - 1));
+export const petStage = lv => PET_STAGES.filter(([l]) => lv >= l).length - 1;
+export const petProd = s => s.pet ? Math.min(.3, (s.pet.lv - 1) * .01) : 0;
+export const petHearts = s => s.pet ? (s.pet.lv >= 5 ? 1 : 0) + (s.pet.lv >= 12 ? 1 : 0) : 0;
+export const PET_PAT = 4 * 3600e3;
+export function petState(s, t = Date.now()){
+  if (!s.objs.some(o => o.type === 'stable' && built(o))) return null;
+  s.pet ||= {lv: 1, xp: 0, pat: 0};
+  const day = new Date(t).toDateString();
+  if (s.pet.favDay !== day){ const av = toysAvailable(s); s.pet.favDay = day; s.pet.fav = av[Math.floor(Math.random() * av.length)] || 'train'; }
+  return s.pet;
+}
+export function petFoods(s){
+  const p = petState(s), L = p.lv;
+  return [
+    {k: 'cookies', cost: {cookies: R5(150 * (1 + L * .3))}, xp: Math.round(petNeed(L) * .12)},
+    {k: 'ice', cost: {ice: 4 + L}, xp: Math.round(petNeed(L) * .3)},
+    {k: 'fav', cost: {[p.fav]: 1}, xp: Math.round(petNeed(L) * .5)},
+  ];
+}
+/** Donne de l'expérience ; renvoie le nombre de niveaux gagnés. */
+export function petGain(s, xp){
+  const p = s.pet; p.xp += xp; let up = 0;
+  while (p.xp >= petNeed(p.lv)){ p.xp -= petNeed(p.lv); p.lv++; up++; }
+  return up;
+}
+export function petFeed(s, k){
+  const f = petFoods(s).find(f => f.k === k); if (!f) return {why: 'Inconnu'};
+  if (!has(s, f.cost)) return {why: 'Ressources insuffisantes', cost: f.cost};
+  take(s, f.cost); return {xp: f.xp, up: petGain(s, f.xp)};
+}
+export const petCanPat = (s, t = Date.now()) => !!s.pet && t - (s.pet.pat || 0) >= PET_PAT;
+export function petPat(s, t = Date.now()){
+  if (!petCanPat(s, t)) return null;
+  s.pet.pat = t; const L = s.pet.lv, r = Math.random(), gift = r < .5 ? {coins: R5(100 * (1 + L * .4))} : r < .8 ? {ice: 2 + Math.floor(L / 3)} : r < .95 ? {[Math.random() < .5 ? 'axe' : 'saw']: 1} : {stars: 1};
+  const xp = Math.round(petNeed(L) * .08); return {gift, xp, up: petGain(s, xp)};
+}
