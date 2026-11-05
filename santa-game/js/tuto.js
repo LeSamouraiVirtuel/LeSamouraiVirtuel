@@ -47,6 +47,8 @@ export function createTuto({getState, save, focusPlot, portrait, sfx, steps = ST
     const el = step?.target?.();
     // la cible peut être un élément HTML ou un rectangle à l'écran (objet dessiné dans le canvas)
     let r = el && (el.getBoundingClientRect ? el.getBoundingClientRect() : el);
+    // une cible HTML à moitié hors de l'écran (bas d'une fiche) : on la fait défiler dans la vue
+    if (el?.scrollIntoView && r && (r.bottom > innerHeight - 8 || r.top < 0) && step.scrolled !== el){ step.scrolled = el; el.scrollIntoView({block: 'center', behavior: 'smooth'}); }
     if (!r || !r.width){
       // pas de cible (dialogue) ou cible pas encore à l'écran : tout est bloqué, pas de main
       for (const b of [bt, br, bb, bl]) Object.assign(b.style, {left: '0px', top: '0px', width: '0px', height: '0px'});

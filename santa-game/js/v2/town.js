@@ -36,7 +36,7 @@ export const RES = ['coins', 'wood', 'cookies', 'fabric'];
 // jouets : coût, temps de fabrication (s), XP, valeur, niveau joueur requis
 export const TOYS = {
   train: {cost: {wood: 30}, time: 30, xp: 4, value: 40, lvl: 1},
-  box:   {cost: {cookies: 30}, time: 45, xp: 5, value: 50, lvl: 2},
+  box:   {cost: {cookies: 30}, time: 45, xp: 5, value: 50, lvl: 1},
   sled:  {cost: {wood: 60}, time: 90, xp: 8, value: 80, lvl: 3},
   plush: {cost: {fabric: 25}, time: 120, xp: 10, value: 100, lvl: 4},
   nut:   {cost: {wood: 50, fabric: 25}, time: 240, xp: 16, value: 170, lvl: 6},
@@ -291,13 +291,20 @@ export function upBlock(s, o){
 
 /* ===================== LETTRES DES ENFANTS (commandes) ===================== */
 const KIDS = ['Léa', 'Hugo', 'Inès', 'Noah', 'Jade', 'Lucas', 'Chloé', 'Adam', 'Manon', 'Gabriel', 'Lina', 'Louis', 'Emma', 'Nathan', 'Zoé', 'Sacha', 'Alice', 'Rayan', 'Mia', 'Tom'];
+const CITIES = ['Lyon', 'Lille', 'Brest', 'Nice', 'Paris', 'Nantes', 'Annecy', 'Bordeaux', 'Colmar', 'Marseille', 'Rennes', 'Dijon', 'Québec', 'Bruxelles', 'Genève', 'Toulouse'];
+const HELLO = ['Cher Père Noël,', 'Coucou Père Noël !', 'Bonjour Père Noël,', 'Père Noël chéri,'];
+const WISHES = ['pour jouer avec ma petite sœur.', 'parce que j’ai été très sage cette année !', 'pour le montrer à mes copains.', 'pour jouer avec Papi.', 'pour mettre sous le sapin.', 'pour ma chambre toute neuve.', 'et un câlin pour les rennes !', 'pour jouer dans la neige.'];
+const ARTICLE = {train: 'un', box: 'une', sled: 'une', plush: 'un', nut: 'un', cane: 'un', sock: 'une', bell: 'une'};
 export const toysAvailable = s => Object.keys(TOYS).filter(k => TOYS[k].lvl <= s.lvl);
 export function makeOrder(s, bureauLv = 1){
   const av = toysAvailable(s), n = av.length > 1 && Math.random() < .4 ? 2 : 1, items = {};
   for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
   const value = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].value * q, 0), xp = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].xp * q, 0);
   const m = orderBonus(bureauLv);
-  const o = {kid: KIDS[Math.floor(Math.random() * KIDS.length)], items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const used = new Set((s.orders || []).map(o => o?.kid)), kid = pick(KIDS.filter(k => !used.has(k)).length ? KIDS.filter(k => !used.has(k)) : KIDS);
+  const first = Object.keys(items)[0], why = pick(WISHES);
+  const o = {kid, age: 4 + Math.floor(Math.random() * 7), city: pick(CITIES), msg: `${pick(HELLO)} je voudrais ${ARTICLE[first] || 'un'} ${ITEMS[first].name.toLowerCase()} ${why}`, items, coins: Math.round(value * 1.3 * m), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
   const r = Math.random();
   if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .23) o.stars = 1;   // étoiles d'or : rares
   return o;

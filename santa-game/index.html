@@ -960,6 +960,52 @@ i.pbox::after{content:"";position:absolute;top:38%;left:0;right:0;height:16%;bac
 .garland i.on:nth-child(4n+3){background:#4cd2ff;box-shadow:0 0 10px #4cd2ff}.garland i.on:nth-child(4n){background:#6cff7a;box-shadow:0 0 10px #6cff7a}
 .rcard.r-ice{background:linear-gradient(160deg,#9fe9ff,#2f8fd6);box-shadow:0 0 0 2px #0c4a75,0 6px 14px rgba(0,0,0,.4)}
 .rcard.r-gold{background:linear-gradient(160deg,#ffe58a,#d69b10);box-shadow:0 0 0 2px #7a4a05,0 6px 14px rgba(0,0,0,.4),0 0 24px rgba(255,220,120,.6)}
+
+/* ===== V5 : clarté ===== */
+#hud2 .res.pill,#hud2 #xpbar,#hud2 .chipx{cursor:pointer}
+#hud2 .res.pill .plus{animation:none!important;box-shadow:0 1px 0 #7a4a05!important;width:17px!important;height:17px!important;border-radius:5px!important}
+#hud2 .res.pill .plus::before,#hud2 .res.pill .plus::after{transform:none!important;left:50%!important;top:50%!important;width:9px!important;height:3px!important;margin:-1.5px 0 0 -4.5px!important;box-shadow:none!important;background:#fff!important;border-radius:2px!important}
+#hud2 .res.pill .plus::after{transform:rotate(90deg)!important}
+i.i.xp{display:inline-flex!important;align-items:center;justify-content:center;width:auto!important;min-width:2.15em;height:1.4em!important;padding:0 .32em!important;border-radius:.7em!important;background:linear-gradient(180deg,#8be3ff,#2a8ef0)!important;border:2px solid #0c3f75!important;color:#fff!important;font:400 .68em/1 var(--display)!important;letter-spacing:.02em;-webkit-text-stroke:0!important;text-shadow:0 1px 0 #0c3f75;vertical-align:middle}
+.rcard i.i.xp{font-size:24px!important}
+i.i.pop,i.i.joy{display:inline-block;width:1.4em;height:1.4em;vertical-align:middle;background:center/contain no-repeat}
+i.i.pop{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='8' cy='8' r='4' fill='%23ffd34a' stroke='%232e202c' stroke-width='1.5'/%3E%3Ccircle cx='16.5' cy='9' r='3.4' fill='%23ffd34a' stroke='%232e202c' stroke-width='1.5'/%3E%3Cpath d='M1.5 21c.5-5 3-7 6.5-7s6 2 6.5 7z' fill='%2342b65a' stroke='%232e202c' stroke-width='1.5'/%3E%3Cpath d='M13 20.5c.4-3.6 2-5.5 4.6-5.5s4.4 1.9 4.9 5.5z' fill='%23e5383b' stroke='%232e202c' stroke-width='1.5'/%3E%3C/svg%3E")}
+i.i.joy{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-8.5-5.3-8.5-11.2C3.5 6.6 5.8 4.5 8.5 4.5c1.6 0 2.8.8 3.5 2 .7-1.2 1.9-2 3.5-2 2.7 0 5 2.1 5 5.3C20.5 15.7 12 21 12 21z' fill='%23ff5b8a' stroke='%232e202c' stroke-width='1.6'/%3E%3C/svg%3E")}
+#modal.rinfo .mcard{gap:12px;text-align:left;max-width:min(92vw,420px)}
+.rhead{display:flex;align-items:center;gap:14px}
+.rhead img,.rhead i.i{width:64px!important;height:64px!important;flex:none;font-size:26px}
+.rhead h2{margin:0;font-size:28px}
+.rq{display:inline-block;margin-top:4px;background:#2b3a55;color:#fff;border-radius:10px;padding:3px 10px;font-weight:800;font-size:14px}
+.rrow{background:#fff6e6;border:2px solid #ead7b5;border-radius:14px;padding:9px 12px}
+.rrow small{display:block;text-transform:uppercase;font-weight:900;font-size:11px;letter-spacing:.06em;color:#9a6a2a;margin-bottom:2px}
+.rrow p{margin:0;font-size:15px;line-height:1.35}
+#modal.rinfo .acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.lacks{display:flex;flex-direction:column;gap:8px}
+.lack{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;background:#fff6e6;border:2px solid #f0b4a8;border-radius:14px;padding:8px 10px}
+.lack img,.lack i.i{width:44px!important;height:44px!important;font-size:16px}
+.lack b{display:block;color:#b3261e;font-size:16px}
+.lack small{display:block;font-size:12.5px;line-height:1.3;color:#6b5a48;text-transform:none;letter-spacing:0;font-weight:600}
+#sheet .acts.sticky{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) - 18px);z-index:3;margin:10px -12px 0;padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 12px);background:linear-gradient(180deg,rgba(243,230,203,0),#f3e6cb 30%)}
+
+/* fiche : le bâtiment en grand, le gardien sur le côté, sa phrase en dessous (plus rien ne cache le bâtiment) */
+.scene{height:220px!important}
+.scene .bimg{left:50%!important;right:auto!important;transform:translateX(-46%);bottom:4px!important;width:auto!important;height:92%!important;max-width:78%!important;object-fit:contain}
+.scene .keeper{width:86px!important;height:118px!important;left:2px!important}
+.scene .nextlook{display:flex!important;flex-direction:column;align-items:center;left:auto!important;right:8px!important;top:8px!important;background:rgba(255,253,246,.92);border:2px solid var(--ink);border-radius:12px;padding:4px 6px 3px}
+.scene .nextlook img{width:58px;height:46px;object-fit:contain}
+.scene .nextlook small{font:400 11px var(--display);color:var(--ink)}
+.say2{position:relative;margin:-2px 0 12px;padding:9px 12px 10px;border-radius:14px;background:#fffdf6;border:2.5px solid var(--ink);box-shadow:0 3px 0 rgba(42,26,14,.2);font-size:14px;line-height:1.35}
+.say2::before{content:"";position:absolute;left:34px;top:-9px;width:14px;height:14px;background:#fffdf6;border-left:2.5px solid var(--ink);border-top:2.5px solid var(--ink);transform:rotate(45deg)}
+.say2>b:first-child{display:block;font-family:var(--display);font-weight:400;font-size:13.5px;color:var(--blue-d);margin-bottom:1px}
+.say2 b{color:var(--red-d)}
+.help{margin:0 0 10px;padding:8px 11px;border-radius:12px;background:#e7f1ff;border:2px solid #b9d3f5;color:#23406e;font-size:13.5px;line-height:1.35}
+.help b{color:#0d2f66}
+
+.letter{position:relative;margin:0 0 10px;padding:12px 14px 10px 16px;border-radius:6px 16px 16px 6px;background:repeating-linear-gradient(180deg,#fffdf6 0,#fffdf6 23px,#dfe9f7 24px);border:2px solid #e2cfa6;box-shadow:inset 6px 0 0 #e5383b,0 3px 0 rgba(42,26,14,.12);transform:rotate(-.6deg)}
+.letter p{margin:0;font-size:15.5px;line-height:24px;color:#2c3a62;font-style:italic}
+.letter i{display:block;text-align:right;margin-top:2px;font-size:13px;color:#7a5a30;font-weight:700}
+.lnk{border:0;background:none;padding:0;margin-left:4px;color:#0d5bd6;font:inherit;font-weight:800;text-decoration:underline;cursor:pointer}
+.stock .st[data-a]{cursor:pointer}
 /* le guide s'efface pendant une popup (niveau, récompense) et revient ensuite */
 #modal:not([hidden]) ~ #tuto{visibility:hidden!important}
 </style>

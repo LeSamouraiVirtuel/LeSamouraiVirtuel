@@ -21,6 +21,23 @@ const save = async (expr, name) => {
   fs.writeFileSync(path.join(OUT, name), Buffer.from(data.split(',')[1], 'base64'));
   return name;
 };
+// Contour sombre autour des bâtiments, des lutins et des icônes : ils se détachent de la neige (comme Township / Hay Day).
+// Fait ici, une seule fois : le téléphone reçoit des images déjà détourées, sans calcul ni mémoire en plus.
+await p.evaluate(() => {
+  const outline = (src, r, color) => {
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const x = c.getContext('2d');
+    for (let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; x.drawImage(src, Math.round(Math.cos(t) * r), Math.round(Math.sin(t) * r)); }
+    x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
+    x.globalCompositeOperation = 'source-over'; x.drawImage(src, 0, 0);
+    return c;
+  };
+  for (const [k, s] of Object.entries(__export.SPR)){
+    if (/^forest|path/.test(k)) continue;
+    s.canvas = outline(s.canvas, /^elf/.test(k) ? 4 : /tree/.test(k) ? 3 : 5, 'rgba(46,32,44,.92)');
+  }
+  for (const k of Object.keys(__export.ICON)) __export.ICON[k] = outline(__export.ICON[k], 4, 'rgba(46,32,44,.95)');
+});
 const web = c => `(${c}).toDataURL('image/webp', .9)`;
 const keys = await p.evaluate(() => ({spr: Object.keys(__export.SPR), icon: Object.keys(__export.ICON), thumb: Object.keys(__export.thumbs)}));
 const pack = {v: Date.now().toString(36), spr: {}, icon: {}, thumb: {}};
