@@ -64,5 +64,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - À partir du niveau 2, toutes les 6 à 12 min, un cadeau tombe du ciel sur une allée du village (halo doré qui pulse, anneau au sol).
 - On le touche pour le ramasser : pièces, bois, biscuits, outil, cristaux ou, rarement, une étoile d'or. Il disparaît au bout de 4 min.
 
+## Tour 14 — Coup de main des lutins (chalets)
+- Chaque chalet peut envoyer ses lutins aider : -15 % sur tous les chantiers en cours (+2 % par niveau du chalet), contre des biscuits.
+- Une fois toutes les 2 h par chalet : plus on a de chalets, plus on peut accélérer.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
