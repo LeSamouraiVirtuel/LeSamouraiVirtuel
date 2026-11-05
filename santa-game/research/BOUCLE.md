@@ -110,5 +110,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Récolter plusieurs bâtiments à moins de 4 s d'écart : « Combo ×2, ×3… », +5 % par palier (jusqu'à +25 %), avec un son qui monte.
 - Récompense le geste de glisser le doigt sur tout le village.
 
+## Tour 25 — Échafaudages des chantiers (Township)
+- Pendant une amélioration : échafaudage en bois au coin du bâtiment et petite grue dont le crochet se balance.
+- Taille ajustée pour ne pas cacher le bâtiment.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
