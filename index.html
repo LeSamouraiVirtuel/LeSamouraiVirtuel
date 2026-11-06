@@ -1452,6 +1452,15 @@ body.cine #hud2,body.cine #sideR,body.cine #sideL2,body.cine #tabbar,body.cine #
 .accform{display:flex;flex-direction:column;gap:8px;margin:8px 0}.accform input{font:600 16px Fredoka,system-ui;padding:11px 12px;border-radius:12px;border:2px solid #e3cfa8;background:#fffaf0;color:#5a3a1e}
 .btn.gbtn{background:#fff!important;color:#3c4043!important;border:2px solid #dadce0!important;display:flex;align-items:center;justify-content:center;gap:10px;text-shadow:none!important;-webkit-text-stroke:0!important;font-family:Fredoka,system-ui!important}
 .gbtn .g{font:700 20px Arial,sans-serif;background:conic-gradient(from -45deg,#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0);-webkit-background-clip:text;background-clip:text;color:transparent}
+/* bataille 3D : Pépin */
+.mg-b3 canvas{touch-action:none}
+.b-stick{position:absolute;width:108px;height:108px;margin:-54px 0 0 -54px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid rgba(255,255,255,.6);opacity:0;pointer-events:none;transition:opacity .15s}
+.b-stick.on{opacity:1}.b-stick i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,#9fd0ff);border:3px solid #141a33}
+.b-hint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 110px);text-align:center;font:400 16px var(--display);color:#fff;text-shadow:0 2px 4px #000;pointer-events:none}
+.b-float{position:absolute;left:50%;top:32%;font:400 30px var(--display);-webkit-text-stroke:2px #141a33;paint-order:stroke fill;pointer-events:none;white-space:nowrap}
+.b-hearts{display:block;color:#e0405a;font-size:13px!important;letter-spacing:1px;text-transform:none!important}
+.b-load{position:absolute;inset:0;display:grid;place-items:center;font:400 22px var(--display);color:#fff;background:#2a3f7a}
+.d-pow.b3{justify-content:flex-end;padding-right:14px}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">
@@ -1518,4 +1527,4 @@ window.addEventListener('unhandledrejection', e => { const l = document.getEleme
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="js/v2/main.js?v=63"></script>
+<script type="module" src="js/v2/main.js?v=64"></script>
