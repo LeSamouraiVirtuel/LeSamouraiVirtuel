@@ -184,8 +184,9 @@ cam.z = startZoom(); centerOn(20, 20);
 
 // sol : texture de neige, motif répété
 const PAT = Math.round(320 * DPR);   // motif de neige, généré directement en pixels de l'écran
-const snowPat = (() => {
-  const c = document.createElement('canvas'); c.width = c.height = PAT; const x = c.getContext('2d'), k = DPR;
+let snowCv = null;
+let snowPat = (() => {
+  const c = snowCv = document.createElement('canvas'); c.width = c.height = PAT; const x = c.getContext('2d'), k = DPR;
   const g = x.createLinearGradient(0, 0, PAT, PAT); g.addColorStop(0, '#f3f7fd'); g.addColorStop(.5, '#e9f0fa'); g.addColorStop(1, '#f3f7fd');
   x.fillStyle = g; x.fillRect(0, 0, PAT, PAT);
   const wrap = f => { for (const dx of [-PAT, 0, PAT]) for (const dy of [-PAT, 0, PAT]){ x.save(); x.translate(dx, dy); f(); x.restore(); } };
@@ -199,6 +200,10 @@ const snowPat = (() => {
   for (let i = 0; i < 30; i++){ x.fillStyle = 'rgba(190,225,255,.9)'; x.fillRect(R(0, PAT), R(0, PAT), 1.2 * k, 1.2 * k); }
   return ctx.createPattern(c, 'repeat');
 })();
+// iPhone : la texture d'un motif tiré d'un canevas peut être « recyclée » par Safari et afficher n'importe quoi
+// (le village en grand et flou). On la fige en ImageBitmap, et on peut basculer sur un sol uni.
+let plainGround = false; try { plainGround = localStorage.getItem('vdp-plain') === '1'; } catch(e){}
+if (window.createImageBitmap) createImageBitmap(snowCv).then(b => { snowPat = ctx.createPattern(b, 'repeat'); snowCv.width = snowCv.height = 1; }).catch(() => {});
 
 /* =====================================================================
    RÈGLES APPLIQUÉES (actions du joueur)
@@ -416,7 +421,7 @@ function draw(){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.imageSmoothingQuality = 'medium';
   // sol
   // sol : motif en pixels réels (transformation identité), qui suit la caméra
-  { const o0 = toScreen(0, 0), ox = Math.round(o0.x * DPR) % PAT, oy = Math.round(o0.y * DPR) % PAT; ctx.save(); ctx.setTransform(1, 0, 0, 1, ox, oy); ctx.fillStyle = snowPat; ctx.fillRect(-ox - PAT, -oy - PAT, cv.width + PAT * 2, cv.height + PAT * 2); ctx.restore(); }
+  if (plainGround){ ctx.fillStyle = '#eef3fa'; ctx.fillRect(0, 0, W, H); } else { const o0 = toScreen(0, 0), ox = Math.round(o0.x * DPR) % PAT, oy = Math.round(o0.y * DPR) % PAT; ctx.save(); ctx.setTransform(1, 0, 0, 1, ox, oy); ctx.fillStyle = snowPat; ctx.fillRect(-ox - PAT, -oy - PAT, cv.width + PAT * 2, cv.height + PAT * 2); ctx.restore(); }
   // terrain ouvert : léger liseré pour marquer la limite
   for (const k of S.chunks){ const [cx, cy] = k.split(',').map(Number); const z = T.zoneOf(cx, cy); if (z) zoneGround(cx, cy, z); diamond(cx * T.CHUNK, cy * T.CHUNK, T.CHUNK, T.CHUNK, 'rgba(255,255,255,.35)', null); }
   // forêts : zones verrouillées + bordure de carte
@@ -1683,7 +1688,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 67;
+const GAME_V = 68;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1714,8 +1719,9 @@ function diagText(){
 }
 function showDiag(){
   let d = $('#diag'); if (!d){ d = document.createElement('div'); d.id = 'diag'; document.body.appendChild(d); }
-  d.innerHTML = `<pre>${diagText().replace(/</g, '&lt;')}</pre><div><button class="btn green sm" data-d="fix">Réparer l'affichage</button> <button class="btn blue sm" data-d="close">Fermer</button></div>`;
-  d.onclick = ev => { const b = ev.target.closest('[data-d]'); if (!b) return; if (b.dataset.d === 'fix'){ try { localStorage.setItem('vdp-lasterr', 'réparation demandée · ' + diagText().split('\n').slice(3, 5).join(' / ')); } catch(_){} save(); saveLock = true; location.reload(); return; } d.remove(); };
+  d.innerHTML = `<pre>${diagText().replace(/</g, '&lt;')}</pre><div><button class="btn green sm" data-d="fix">Réparer l'affichage</button> <button class="btn blue sm" data-d="plain">${plainGround ? 'Sol texturé' : 'Sol simple'}</button> <button class="btn blue sm" data-d="close">Fermer</button></div>`;
+  d.onclick = ev => { const b = ev.target.closest('[data-d]'); if (!b) return; if (b.dataset.d === 'plain'){ plainGround = !plainGround; try { localStorage.setItem('vdp-plain', plainGround ? '1' : '0'); } catch(_){} toast(plainGround ? 'Sol simple activé' : 'Sol texturé'); d.remove(); return; }
+    if (b.dataset.d === 'fix'){ try { localStorage.setItem('vdp-lasterr', 'réparation demandée · ' + diagText().split('\n').slice(3, 5).join(' / ')); } catch(_){} save(); saveLock = true; location.reload(); return; } d.remove(); };
 }
 // garde-fou au démarrage : rien ne doit rester par-dessus le village une fois le jeu lancé
 setTimeout(() => { const i = $('#intro'); if (i){ i.remove(); try { localStorage.setItem('vdp-lasterr', 'intro restée affichée'); } catch(_){} } }, 6000);
