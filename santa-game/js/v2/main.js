@@ -340,8 +340,19 @@ function fits(type, x, y, ignore){
     if (tx < 0 || ty < 0 || tx >= T.MAP || ty >= T.MAP) return false;
     if (!S.chunks.includes(`${Math.floor(tx / T.CHUNK)},${Math.floor(ty / T.CHUNK)}`)) return false;
   }
-  for (const o of S.objs){ if (o === ignore) continue; const ob = B(o); if (x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y) return false; }
+  const big = !['deco', 'path'].includes(b.kind);
+  for (const o of S.objs){ if (o === ignore) continue; const ob = B(o); if (x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y && !(big && clearable(o))) return false; }
   return T.spotFree(S, type, x, y, ignore);
+}
+// un bâtiment peut se poser sur une allée, un sapin sauvage ou une déco : ils sont rangés automatiquement (déco achetée remboursée)
+const clearable = o => o.wild || ['deco', 'path'].includes(B(o).kind);
+const under = (type, x, y, ignore) => { const b = BUILDINGS[type]; return S.objs.filter(o => o !== ignore && clearable(o) && (() => { const ob = B(o); return x < o.x + ob.w && x + b.w > o.x && y < o.y + ob.h && y + b.h > o.y; })()); };
+const refund = o => o.wild || o.free ? 0 : Math.round((BUILDINGS[o.type].cost?.coins || 0) / 2);
+function clearUnder(type, x, y, ignore){
+  if (['deco', 'path'].includes(BUILDINGS[type].kind)) return;
+  const L = under(type, x, y, ignore); if (!L.length) return;
+  const c = L.reduce((a, o) => a + refund(o), 0); S.objs = S.objs.filter(o => !L.includes(o)); if (c) S.coins += c;
+  toast(`${L.length} élément${L.length > 1 ? 's' : ''} du décor rangé${L.length > 1 ? 's' : ''}${c ? ` (+${c} pièces)` : ''}`);
 }
 // ambiance d'une zone ouverte : teinte du sol et motif propre (lac gelé, cristaux, aurore…)
 function isoBlob(tx, ty, r, fill){
@@ -754,11 +765,11 @@ function hitSprite(o, sx, sy, pad = 0){
 function objAt(sx, sy){
   const order = [...S.objs].sort((a, b) => (b.x + b.y + B(b).w) - (a.x + a.y + B(a).w));
   const main = o => !o.wild && B(o).kind !== 'path';
-  for (const o of order) if (main(o) && B(o).kind !== 'deco' && hitSprite(o, sx, sy)) return o;        // bâtiments
-  for (const o of order) if (main(o) && B(o).kind === 'deco' && hitSprite(o, sx, sy)) return o;        // décorations
+  for (const o of order) if (main(o) && hitSprite(o, sx, sy)) return o;        // le plus en avant sous le doigt (déco devant un bâtiment comprise)
   const t = toTile(sx, sy);
   for (const o of order){ const b = B(o); if (main(o) && t.x >= o.x && t.x < o.x + b.w && t.y >= o.y && t.y < o.y + b.h) return o; }
   for (const o of order) if (o.wild && hitSprite(o, sx, sy)) return o;                                  // sapins sauvages
+  for (const o of order) if (B(o).kind === 'path' && Math.floor(t.x) === o.x && Math.floor(t.y) === o.y) return o;   // allées
   return null;
 }
 cv.addEventListener('pointerdown', e => {
@@ -1245,7 +1256,7 @@ function renderPanel(){
   }
   else if (panel === 'info'){
     const o = panelArg, b = B(o);
-    h = hd(b.kind === 'deco' && !o.wild ? `+${b.joy} bonheur` : '', o.wild ? 'Sapin enneigé' : b.name) + `<p>${o.wild ? 'Un sapin de la forêt. Coupe-le pour faire de la place.' : b.desc}</p><div class="acts">${o.wild ? '' : '<button class="btn blue" data-a="move">Déplacer</button>'}<button class="btn red" data-a="sell">${o.wild ? 'Couper' : 'Vendre'}</button></div>`;
+    h = hd(b.kind === 'deco' && !o.wild ? `+${b.joy} bonheur` : '', o.wild ? 'Sapin enneigé' : b.name) + `<p>${o.wild ? 'Un sapin de la forêt. Coupe-le pour faire de la place.' : b.kind === 'path' ? 'Une allée du village. Retire-la pour libérer la place.' : b.desc.startsWith('+') ? 'Une décoration rend les lutins plus heureux. Tu peux la déplacer ou la retirer pour faire de la place (un bâtiment posé dessus la range tout seul).' : b.desc}</p><div class="acts">${o.wild ? '' : '<button class="btn blue" data-a="move">Déplacer</button>'}<button class="btn red" data-a="sellobj">${o.wild ? 'Couper' : refund(o) ? `Vendre +${refund(o)} 🪙` : 'Retirer'}</button></div>`;
   }
   if (h !== panelHtml){ panelHtml = h; $('#sheet').innerHTML = h; }
   for (const n of $('#sheet').querySelectorAll('[data-until]')) n.textContent = fmtTime((+n.dataset.until - now()) / 1000);
@@ -1356,7 +1367,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); if (!T.has(S, c) || T.zoneLock(S, cx, cy)) return; T.take(S, c); const z = T.openZone(S, cx, cy); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); closePanel(); save(); if (z) zoneWelcome(z, T.zoneName(cx, cy)); else toast('Nouveau terrain !'); return; }
   if (a === 'speed'){ const o = panelArg; if (!workEnd(o)) return closePanel(); const st = speedCost(o); if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; if (o.build) o.build = now(); else o.up = now(); closePanel(); tutoEv('speed'); return; }
   if (a === 'move'){ const o = panelArg; closePanel(); ghost = {type: o.type, x: o.x, y: o.y, move: o}; showGhostUI(); return; }
-  if (a === 'sell'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (o.wild) gainXp(1, null); else if (!o.free) S.coins += Math.round((BUILDINGS[o.type].cost.coins || 0) / 2); closePanel(); save(); return; }
+  if (a === 'sellobj'){ const o = panelArg; S.objs = S.objs.filter(x => x !== o); if (o.wild) gainXp(1, null); else S.coins += refund(o); sfx.collect(); toast(o.wild ? 'Sapin coupé' : refund(o) ? `Vendu +${refund(o)} pièces` : 'Retiré'); selObj = null; closePanel(); save(); return; }
 });
 
 /* ---------- placement d'un nouveau bâtiment ---------- */
@@ -1377,11 +1388,11 @@ function showGhostUI(){ document.body.classList.add('placing'); $('#placebar').h
 function updateGhostUI(){ const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); $('#pb-ok').disabled = !ok; }
 $('#pb-ok').addEventListener('click', () => {
   if (!ghost || !fits(ghost.type, ghost.x, ghost.y, ghost.move)) return;
-  if (ghost.move){ ghost.move.x = ghost.x; ghost.move.y = ghost.y; }
+  if (ghost.move){ clearUnder(ghost.type, ghost.x, ghost.y, ghost.move); ghost.move.x = ghost.x; ghost.move.y = ghost.y; }
   else {
     const b = BUILDINGS[ghost.type], tok = S.tokens?.[ghost.type] > 0, cost = tok ? {} : T.upCost(ghost.type, 1), why = T.buildBlock(S, ghost.type);
     if (why){ sfx.err(); return toast(why); }
-    T.take(S, cost); if (tok) S.tokens[ghost.type]--;
+    T.take(S, cost); if (tok) S.tokens[ghost.type]--; clearUnder(ghost.type, ghost.x, ghost.y);
     const o = {id: 'o' + now() + Math.random().toString(36).slice(2, 5), type: ghost.type, x: ghost.x, y: ghost.y, lv: 1, t: now()};
     const ms = T.upTime(ghost.type, 1) * 1000 * (1 - T.rsBonus(S, 'plan')); if (ms){ o.build = now() + ms; o.btotal = ms; }
     if (b.kind === 'craft') o.q = [];
@@ -1708,7 +1719,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 71;
+const GAME_V = 72;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2270,7 +2281,7 @@ function welcomeBack(){
 setTimeout(welcomeBack, 1400);
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__v2 = {get S(){ return S; }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
+window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier
 document.addEventListener('change', e => { if (e.target.id !== 'loadfile' || !e.target.files?.[0]) return; e.target.files[0].text().then(saveLoad); });
 window.__pan = (x, y) => panTo(x, y);
