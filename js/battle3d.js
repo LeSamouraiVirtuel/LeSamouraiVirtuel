@@ -31,7 +31,7 @@ export async function openBattle(ctx){
   const C = ctx.camp, root = document.createElement('div'); root.id = 'mg'; root.className = 'mg-b3';
   root.innerHTML = `<canvas></canvas>
     <div class="mg-hud"><div class="mg-pill"><small>Monstres</small><b class="b-left">0</b></div><div class="mg-pill wide"><small>Palissade</small><span class="d-hp gate"><i></i></span><small class="b-hearts"></small></div><button class="mg-quit" aria-label="Quitter"></button></div>
-    <div class="b-hint">Garde le doigt sur l'écran et <b>vise</b> : Pépin tire en rafale !</div><div class="b-wave"></div><div class="b-cards" hidden></div>
+    <div class="b-hint">Garde le doigt sur l'écran et <b>vise</b> : Pépin tire en rafale !</div><div class="b-wave"></div><div class="b-count"><b>0</b><small>boules en l'air</small></div><div class="b-cards" hidden></div>
     <div class="d-pow b3"><button data-p="ava"><span class="pi">🌨</span><small>Avalanche</small><i></i></button><button data-p="gel"><span class="pi">❄</span><small>Grand Gel</small><i></i></button>${ctx.pet ? '<button data-p="pet"><span class="pi">🦌</span><small>Flocon</small><i></i></button>' : ''}</div>
     <div class="b-load">Les monstres arrivent…</div>
     <div class="mg-card" hidden><small>Campagne des Trolls</small><h2>${C.name}</h2><p>Pépin tient le canon à neige du haut de la tour. <b>Garde le doigt sur l'écran pour viser</b> : il tire en rafale. Fais passer tes boules dans les <b>portails ×2</b> pour les multiplier, et choisis un bonus entre chaque vague !${C.boss ? ' <b>Un chef les accompagne…</b>' : ''}</p><span class="mg-best">${C.n} monstres${C.boss ? ' + le chef' : ''}</span><button class="btn green mg-go">À l'attaque !</button></div>`;
@@ -104,7 +104,7 @@ export async function openBattle(ctx){
 
   // monstres
   const total = queue.length, foes = [], balls = [], shots = [], puffs = [];
-  let killed = 0, spawnT = 1.2, gateHp = 100, hearts = 3 + (ctx.extraHearts || 0), heartsMax = hearts, invul = 0, cd = 0, combo = 0, freeze = 0, state = 'intro', last = performance.now(), raf = 0, shake = 0;
+  let gained = 0, cntEl = null, cntShown = -1, killed = 0, spawnT = 1.2, gateHp = 100, hearts = 3 + (ctx.extraHearts || 0), heartsMax = hearts, invul = 0, cd = 0, combo = 0, freeze = 0, state = 'intro', last = performance.now(), raf = 0, shake = 0;
   const charge = {ava: 0, gel: 0, pet: 0}, NEED = {ava: 18, gel: 12, pet: 14};
   // tir façon jeux d'arcade : rafale tant qu'on vise, portails multiplicateurs, bonus entre les vagues
   const up = {multi: 1, dmg: 1, rate: .34, splash: 1.1, gates: 1};
@@ -116,23 +116,24 @@ export async function openBattle(ctx){
   const dots = []; for (let i = 0; i < 14; i++){ const d = new THREE.Mesh(new THREE.SphereGeometry(.07, 6, 5), new THREE.MeshBasicMaterial({color: '#ffffff', transparent: true, opacity: .85})); d.visible = false; scene.add(d); dots.push(d); }
   const reticle = new THREE.Mesh(new THREE.RingGeometry(.5, .7, 28), new THREE.MeshBasicMaterial({color: '#ffd23a', transparent: true, opacity: .9})); reticle.rotation.x = -Math.PI / 2; ring.visible = false; reticle.position.y = .05; reticle.visible = false; scene.add(reticle);
   const gates = [];
-  function addGate(mult){ const g = new THREE.Group(), w = 2.4, c = mult >= 3 ? '#ff9a2a' : '#3fb6ff';
+  function addGate(mult){ if (gates.length >= 4) return; const g = new THREE.Group(), w = 2.4, c = mult >= 10 ? '#ffd23a' : mult >= 5 ? '#b06aff' : mult >= 3 ? '#ff9a2a' : '#3fb6ff';
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.6), new THREE.MeshBasicMaterial({color: c, transparent: true, opacity: .35, side: THREE.DoubleSide, depthWrite: false})); panel.position.y = 1.6; g.add(panel);
     for (const sx of [-w / 2, w / 2]){ const post = new THREE.Mesh(new THREE.BoxGeometry(.14, 2.6, .14), new THREE.MeshStandardMaterial({color: c, emissive: c, emissiveIntensity: .5})); post.position.set(sx, 1.3, 0); g.add(post); }
     const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 128; const x = cvs.getContext('2d'); x.font = 'bold 96px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineWidth = 12; x.strokeStyle = '#141a33'; x.strokeText('×' + mult, 128, 68); x.fillStyle = '#fff'; x.fillText('×' + mult, 128, 68);
     const lab = new THREE.Mesh(new THREE.PlaneGeometry(1.4, .7), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(cvs), transparent: true, side: THREE.DoubleSide})); lab.position.set(0, 1.6, .05); lab.scale.setScalar(1.4); lab.renderOrder = 5; lab.material.depthTest = false; g.add(lab);
     g.position.set(0, 0, -3 - gates.length * 2.5); g.userData = {mult, w, ph: Math.random() * 6, sp: .5 + Math.random() * .4}; scene.add(g); gates.push(g); }
-  addGate(2);
+  addGate(2); addGate(3);
   const CARDS = [
     ['multi', '🎯', 'Tir double', 'Une boule de plus à chaque tir', () => up.multi++],
     ['dmg', '💥', 'Boules de glace', '+1 dégât par boule', () => up.dmg++],
     ['rate', '⚡', 'Canon rapide', 'Tire 25 % plus vite', () => up.rate *= .75],
     ['splash', '❄', 'Grosse explosion', 'Zone de dégâts plus grande', () => up.splash *= 1.4],
-    ['gate', '✨', 'Portail ×3', 'Un portail multiplicateur en plus', () => addGate(3)],
+    ['gate', '✨', 'Portail ×5', 'Un portail multiplicateur en plus', () => addGate(5)],
+    ['gatebig', '🌟', 'Portail ×10', 'Le plus gros portail : une avalanche de boules !', () => addGate(10)],
     ['heal', '🪵', 'Réparer', '+35 à la palissade', () => gateHp = Math.min(100, gateHp + 35)],
   ];
   function showCards(){
-    state = 'pick'; aiming = false; const box = root.querySelector('.b-cards'), pick = [...CARDS].sort(() => Math.random() - .5).slice(0, 3);
+    state = 'pick'; aiming = false; const box = root.querySelector('.b-cards'), pick = CARDS.filter(c => !(c[0].startsWith('gate') && gates.length >= 4) && !(c[0] === 'gatebig' && wave < 1)).sort(() => Math.random() - .5).slice(0, 3);
     box.innerHTML = `<h3>Vague ${wave} repoussée !</h3><p>Choisis un bonus</p><div class="cards">${pick.map(([k, ic, t, d]) => `<button data-c="${k}"><span>${ic}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`;
     box.hidden = false; ctx.sfx.level();
     box.onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; CARDS.find(c => c[0] === b.dataset.c)[4](); box.hidden = true; say(b.querySelector('b').textContent + ' !', '#ffd84a');
@@ -203,15 +204,17 @@ export async function openBattle(ctx){
       for (let k = 0; k < up.multi; k++){ const off = (k - (up.multi - 1) / 2) * .9; shoot(from, aim.clone().add(new THREE.Vector3(off, 0, Math.abs(off) * .3)), 0); }
       ctx.sfx.tap(); }
     // boules : arc vers la cible, passage dans les portails = multiplication, explosion à l'arrivée
+    gained = 0;
     for (const b of [...balls]){ const u = b.userData; u.t += dt * 1.6; const t = Math.min(1, u.t), prev = b.position.clone();
       b.position.lerpVectors(u.from, u.to, t); b.position.y += Math.sin(t * Math.PI) * u.h;
       for (const g of gates){ if (u.through.has(g)) continue; const gz = g.position.z; if ((prev.z - gz) * (b.position.z - gz) <= 0 && Math.abs(b.position.x - g.position.x) < g.userData.w / 2 && b.position.y < 3){
-        u.through.add(g); g.userData.flash = .15; for (let k = 1; k < g.userData.mult; k++){ const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * .8; shoot(b.position.clone(), u.to.clone().add(new THREE.Vector3(off, 0, -.3 * k)), t, u.through); } } }
+        u.through.add(g); g.userData.flash = .15; gained += g.userData.mult - 1; if (balls.length > 240){ u.pow = (u.pow || 1) * g.userData.mult; continue; } for (let k = 1; k < g.userData.mult; k++){ const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * .8; shoot(b.position.clone(), u.to.clone().add(new THREE.Vector3(off, 0, -.3 * k)), t, u.through); } } }
       if (u.t >= 1){ scene.remove(b); balls.splice(balls.indexOf(b), 1); puff(u.to, .55 * up.splash, '#ffffff', 5);
-        let hit = false; for (const f of foes){ if (f.dead) continue; if (Math.hypot(f.o.position.x - u.to.x, f.o.position.z - u.to.z) < .9 * up.splash + f.D.h * .2){ hurt(f, up.dmg); hit = true; } }
+        let hit = false; for (const f of foes){ if (f.dead) continue; if (Math.hypot(f.o.position.x - u.to.x, f.o.position.z - u.to.z) < .9 * up.splash + f.D.h * .2){ hurt(f, up.dmg * (u.pow || 1)); hit = true; } }
         // une boule peut aussi détruire un tir ennemi
         for (const sh of shots){ if (sh.position.distanceTo(b.position) < 1.2){ sh.userData.t = 9; sh.userData.parried = 1; } }
         if (hit){ combo++; addCharge(1); if (combo % 15 === 0) say(`Combo ×${combo} !`, '#ffd84a'); } } }
+    cntEl ||= root.querySelector('.b-count'); if (cntEl && cntShown !== balls.length){ cntShown = balls.length; cntEl.querySelector('b').textContent = balls.length; cntEl.classList.toggle('on', balls.length > 0); if (gained){ cntEl.classList.remove('pop'); void cntEl.offsetWidth; cntEl.classList.add('pop'); } }
     for (const g of gates){ g.userData.ph += dt * g.userData.sp; g.position.x = Math.sin(g.userData.ph) * 3.6; if (g.userData.flash > 0){ g.userData.flash -= dt; g.children[0].material.opacity = .8; } else g.children[0].material.opacity = .35; }
     // apparition
     spawnT -= dt; if (queue.length && spawnT <= 0 && (!FOES[queue[0]].boss || foes.filter(f => !f.dead).length < 3)){ spawn(); spawnT = Math.max(.6, 1.8 - C.i * .03) * (.7 + Math.random() * .6); }

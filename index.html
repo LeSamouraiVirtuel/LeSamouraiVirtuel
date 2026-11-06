@@ -1307,6 +1307,8 @@ body.sheet-open #upban,body.tutoring #upban{display:none!important}
 
 .tabs .ts{display:none}@media (max-width:360px){.tabs .tl{display:none}.tabs .ts{display:inline}}
 @media (max-width:360px){.tabs button{font-size:10px!important;letter-spacing:-.02em!important;padding-left:2px!important;padding-right:2px!important}}
+.bi{position:relative}.bi .loupe{position:absolute;top:-6px;right:-6px;width:28px;height:28px;border-radius:50%;border:2px solid #2a1a0e;background:#fff;font-size:14px;line-height:1;display:grid;place-items:center;box-shadow:0 2px 0 #2a1a0e;padding:0}
+.recipe.want{outline:3px solid #ff8a1c;outline-offset:2px;animation:wantp 1.2s ease-in-out 3}@keyframes wantp{50%{outline-color:#ffd34a}}.backord{margin:4px 0 8px}
 .petevo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.petevo .pe{display:flex;flex-direction:column;align-items:center;background:#fffaf0;border:2px solid #e3cfa8;border-radius:12px;padding:6px 4px;text-align:center}
 .petevo .pe img{width:56px;height:56px;filter:grayscale(1) brightness(1.15) opacity(.45)}.petevo .pe.on img{filter:none}.petevo .pe b{font-size:12px;color:#5a3a1e;line-height:1.1}.petevo .pe small{font-size:11px;color:#8a6a4a}
 .petevo .pe.cur{border-color:#ff8a1c;box-shadow:0 0 0 2px #ff8a1c55;background:#fff3df}
@@ -1495,7 +1497,11 @@ body.cine #hud2,body.cine #sideR,body.cine #sideL2,body.cine #tabbar,body.cine #
 #sheet{background:linear-gradient(180deg,#fff1d0,#f6dfb0)!important}
 #sheet h3{color:#b0402a!important}
 .b-wave{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 74px);text-align:center;font:400 18px var(--display);color:#fff;-webkit-text-stroke:1.5px #141a33;paint-order:stroke fill;pointer-events:none}
+.b-count{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 112px);transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;opacity:0;transition:opacity .2s}
+.b-count.on{opacity:1}.b-count b{font:400 44px var(--display);color:#fff;-webkit-text-stroke:3px #141a33;paint-order:stroke fill;line-height:1;text-shadow:0 3px 0 #141a33}.b-count small{font-weight:800;font-size:12px;color:#fff;text-shadow:0 1px 2px #000}
+.b-count.pop b{animation:bpop .25s ease-out}@keyframes bpop{0%{transform:scale(1.45);color:#ffd34a}100%{transform:none}}
 .b-cards[hidden]{display:none!important}
+#mg .b-cards{z-index:8}#mg .mg-card{z-index:9}#mg:has(.b-cards:not([hidden])) .d-pow,#mg:has(.mg-card:not([hidden])) .d-pow,#mg:has(.b-cards:not([hidden])) .b-count{visibility:hidden}
 .b-cards{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,16,40,.6);padding:20px;text-align:center}
 .b-cards h3{font:400 30px var(--display);color:#ffd34a;-webkit-text-stroke:2px #141a33;paint-order:stroke fill;margin:0}.b-cards p{color:#fff;font-weight:700;margin:4px 0 14px}
 .b-cards .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:440px}
@@ -1516,6 +1522,8 @@ body.wide #sheet .hd{border-radius:21px 21px 0 0!important;padding-top:12px!impo
 body.wide #veil{background:rgba(10,14,30,.5)!important}
 body.wide.short #sideR,body.wide.short #sideL2{top:calc(env(safe-area-inset-top,0px) + 84px)!important;gap:8px!important}
 body.wide.short #sheet .scene{max-height:150px;overflow:hidden}
+body:not(.wide) #hud2,body:not(.wide) #sideR,body:not(.wide) #sideL2,body:not(.wide) #quest2,body:not(.wide) #modal .mcard{zoom:var(--uis,1)}body:not(.wide) #sheet{font-size:calc(100% * var(--uis,1))}
+.segs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.segs .btn.sm{padding:4px 8px;font-size:11.5px}
 body.wide #mg{left:0;right:0;margin:0 auto;width:min(100vw,520px);box-shadow:0 0 0 100vmax #10173a}
 </style>
 <canvas id="c"></canvas>
@@ -1583,4 +1591,4 @@ window.addEventListener('unhandledrejection', e => { const l = document.getEleme
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="js/v2/main.js?v=75"></script>
+<script type="module" src="js/v2/main.js?v=76"></script>
