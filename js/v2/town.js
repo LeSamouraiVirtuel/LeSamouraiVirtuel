@@ -276,7 +276,7 @@ export function loadTown(){
       s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
       for (const o of s.objs) delete o.bounce;
       thinTrees(s);   // ancien rebond sauvegardé par erreur : il déformait les bâtiments
-      spaceOut(s);
+      spaceOut(s); clearUnder(s);
       return s;
     }
   } catch(e){}
@@ -548,6 +548,11 @@ export function spotFree(s, type, x, y, ignore){
   return true;
 }
 /** Ancien village trop serré : on écarte les bâtiments depuis la Maison et on garde une case libre autour de chacun. */
+/** Allées, décorations ou sapins coincés sous un bâtiment (anciens villages) : on les retire. */
+export function clearUnder(s){
+  const blds = s.objs.filter(isBld);
+  s.objs = s.objs.filter(o => isBld(o) || !blds.some(p => { const pb = BUILDINGS[p.type], ob = BUILDINGS[o.type]; return o.x < p.x + pb.w && o.x + ob.w > p.x && o.y < p.y + pb.h && o.y + ob.h > p.y; }));
+}
 export function spaceOut(s){
   if (s.spaced >= 2) return false; s.spaced = 2;
   const blds = s.objs.filter(isBld); if (!blds.length) return false;

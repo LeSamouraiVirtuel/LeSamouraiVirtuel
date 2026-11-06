@@ -76,7 +76,8 @@ const packed = !EXPORT && await loadPack().catch(() => false);
 if (!packed){
   // secours (ou fabrication du pack) : pré-rendu sur l'appareil à partir des modèles 3D
   $('#loadtxt').textContent = 'Préparation du village…';
-  const {bakeAll, bakeWalk} = await import('./baker.js');
+  const {bakeAll, bakeWalk, bakePets} = await import('./baker.js');
+  if (Q.get('export') === 'pet'){ window.__export = {SPR: {}, ICON: await bakePets({DPR, base: ROOT + 'assets/'}), thumbs: {}}; throw new Error('export prêt'); }
   if (Q.get('export') === 'walk'){ window.__export = {SPR: await bakeWalk({BD, base: ROOT + 'assets/'}), ICON: {}, thumbs: {}}; throw new Error('export prêt'); }
   const out = await bakeAll({DPR, BD, bar, base: ROOT + 'assets/', extras: EXPORT});
   const url = c => c.toDataURL('image/png');
@@ -868,12 +869,8 @@ function tap(o, at){
   const b = B(o);
   if (workEnd(o)) return openPanel('site', o);
   if (b.kind === 'prod'){ if (o.job && o.job.end <= now()) return openPanel('bld', o); if (!collectBld(o)) openPanel('bld', o); return; }
-  if (b.kind === 'craft'){ if (!collectToys(o, at)) openPanel('craft', o); return; }
-  if (b.kind === 'orders') return openPanel('orders');
-  if (b.kind === 'stable') return openPanel('exp', o);
-  if (b.kind === 'mine') return openPanel('mine', o);
-  if (b.kind === 'lab') return openPanel('lab', o);
-  if (b.kind === 'train') return openPanel('train', o);
+  // d'abord la fiche du bâtiment (ce qu'il fait, son niveau), puis un bouton pour entrer dans son activité
+  if (b.kind === 'craft'){ if (!collectToys(o, at)) openPanel('bld', o); return; }
   if (T.isUpgradable(b)) return openPanel('bld', o);
   openPanel('info', o);
 }
@@ -995,11 +992,15 @@ function renderPanel(){
     const p = T.petState(S);
     if (!p) h = hd('', 'Flocon, le renne magique') + '<p class="help">Construis l’Écurie des rennes : Flocon viendra y vivre.</p>';
     else { const st = T.PET_STAGES[T.petStage(p.lv)], nx = T.PET_STAGES[T.petStage(p.lv) + 1], need = T.petNeed(p.lv), pat = T.petCanPat(S), hh = T.petHearts(S);
-      h = hd(`${st[1]} · niveau ${p.lv}`, 'Flocon, le renne magique') + `<div class="petbox stage${T.petStage(p.lv)}"><div class="petimg"><img src="${ICON.mg_deer}" alt="" style="--sz:${Math.min(1, .55 + p.lv * .03)}"></div>
+      h = hd(`${st[1]} · niveau ${p.lv}`, 'Flocon, le renne magique') + `<div class="petbox stage${T.petStage(p.lv)}"><div class="petimg"><img src="${petImg()}" alt="" style="--sz:${Math.min(1, .55 + p.lv * .03)}"></div>
         <div class="xpbar2"><i style="width:${p.xp / need * 100}%"></i><em>${fmt(p.xp)} / ${fmt(need)}</em></div>${nx ? `<small class="meta">Au niveau ${nx[0]}, Flocon devient « ${nx[1]} »</small>` : ''}</div>
         <div class="petbon"><div><b>+${Math.round(T.petProd(S) * 100)} %</b><small>sur toute la production</small></div><div><b>+${hh} cœur${hh > 1 ? 's' : ''}</b><small>dans la Campagne${hh < 2 ? ` (niv. ${p.lv < 5 ? 5 : 12})` : ''}</small></div></div>
         <button class="btn ${pat ? 'gold' : 'blue'} wide" data-a="petpat" ${pat ? '' : 'disabled'}>${pat ? 'Caresser Flocon (petit cadeau)' : `Flocon se repose · <b data-until="${p.pat + T.PET_PAT}"></b>`}</button>
-        <h3>Le nourrir</h3><div class="petfood">${T.petFoods(S).map(f => `<button class="pf ${f.k === 'fav' ? 'fav' : ''}" data-a="petfeed" data-k="${f.k}">${f.k === 'fav' ? `<span class="tag">Préféré du jour</span>` : ''}<span class="costs">${costChips(f.cost)}</span><b>+${fmt(f.xp)} XP</b></button>`).join('')}</div>`; }
+        <h3>Le nourrir</h3><div class="petfood">${T.petFoods(S).map(f => `<button class="pf ${f.k === 'fav' ? 'fav' : ''}" data-a="petfeed" data-k="${f.k}">${f.k === 'fav' ? `<span class="tag">Préféré du jour</span>` : ''}<span class="costs">${costChips(f.cost)}</span><b>+${fmt(f.xp)} XP</b></button>`).join('')}</div>
+        <h3>Évolution</h3><div class="petevo">${T.PET_STAGES.map(([l, n], k) => `<div class="pe ${p.lv >= l ? 'on' : ''} ${T.petStage(p.lv) === k ? 'cur' : ''}"><img src="${petImg(k)}" alt=""><b>${n}</b><small>${p.lv >= l ? (T.petStage(p.lv) === k ? 'Maintenant' : '✓') : `Niv. ${l}`}</small></div>`).join('')}</div>
+        <h3>Apparence</h3><div class="petskins">${M.PET_SKIN_LIST.map(d => { const own = M.hasSkin(S, d.k), wear = M.skinState(S).pet === d.k;
+          return `<div class="ps ${wear ? 'wear' : ''} ${own ? '' : 'lockd'}"><img src="${petImg(undefined, d.k)}" alt=""><b>${d.name}</b>${wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-k="${d.k}">Porter</button>` : d.event ? `<small class="ev">❄ Événement</small>` : `<button class="btn gold sm" data-a="skinbuy" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`}</div>`; }).join('')}</div>
+        <p class="meta">Les skins Doré et Aurore se gagnent dans la boutique de l’événement de la semaine.</p>`; }
   }
   else if (panel === 'lore'){
     const ch = T.chapterOf(S.quest.i);
@@ -1123,7 +1124,7 @@ function renderPanel(){
       <div class="mlist">${M.EV_STEPS.map((p, i) => { const ok = E.pts >= p, got = E.got[i];
         return `<div class="mis ${got ? 'done' : ''}"><div><b>Palier ${i + 1} · ❄ ${fmt(p)}</b><span class="costs">${rewardChips(M.eventReward(S, i))}</span></div>${got ? '<span class="ok">✓</span>' : ok ? `<button class="btn green sm" data-a="evclaim" data-i="${i}">Prendre</button>` : `<span class="pts">${Math.round(E.pts / p * 100)} %</span>`}</div>`; }).join('')}</div>
       <h3>Boutique de l'événement <small class="meta">· ❄ ${fmt(M.evSpendable(S))} à dépenser</small></h3>
-      <div class="deals">${M.EV_SHOP.map(it => `<div class="deal"><b>${it.name}</b>${it.deco ? `<img class="evimg" src="${thumbs[it.deco]}" alt=""><small class="meta">à poser gratuitement</small>` : `<span class="costs">${rewardChips(it.give)}</span>`}<button class="btn blue sm" data-a="evbuy" data-k="${it.k}" ${M.evSpendable(S) >= it.price ? '' : 'disabled'}>❄ ${it.price}</button></div>`).join('')}</div>
+      <div class="deals">${M.EV_SHOP.map(it => `<div class="deal"><b>${it.name}</b>${it.skin ? `<img class="evimg" src="${petImg(3, it.skin)}" alt="">${M.hasSkin(S, it.skin) ? '<small class="meta">déjà à toi</small>' : '<small class="meta">pelage pour Flocon</small>'}` : it.deco ? `<img class="evimg" src="${thumbs[it.deco]}" alt=""><small class="meta">à poser gratuitement</small>` : `<span class="costs">${rewardChips(it.give)}</span>`}<button class="btn blue sm" data-a="evbuy" data-k="${it.k}" ${M.evSpendable(S) >= it.price ? '' : 'disabled'}>❄ ${it.price}</button></div>`).join('')}</div>
       <p class="meta">Dépenser des flocons ne fait pas reculer les paliers.</p>
       <p class="meta">Les flocons tombent à chaque action : récolter, livrer une lettre (10), envoyer une expédition (8), un visiteur (12), une amélioration (6)… Un nouvel événement commence chaque lundi.</p>`;
   }
@@ -1238,7 +1239,7 @@ function renderPanel(){
     const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n);
     const z = T.zoneOf(cx, cy), lock = T.zoneLock(S, cx, cy);
     h = hd('Nouvelle zone à explorer', T.zoneName(cx, cy)) + (z ? `<div class="zonecard" style="--zt:${z.tint}"><p>${z.txt}</p><div class="zb"><span>Bonus de la zone</span><b>${T.zoneBonusText(z.b)}</b></div><div class="zb"><span>Cadeau d'arrivée</span><span class="costs">${rewardChips(z.gift)}</span></div></div>` : '') + `<p class="meta">Dégage la forêt pour agrandir ton village de 121 cases.</p><div class="lines">${need(c)}</div>
-      ${lock ? `<button class="btn wide" disabled>Niveau ${lock} requis</button>` : `<button class="btn green wide" data-a="expand" ${T.has(S, c) ? '' : 'disabled'}>Agrandir</button>`}<p class="meta">Les haches et les scies s'obtiennent avec les lettres, le cadeau du jour et les mini-jeux.</p>`;
+      ${lock ? `<button class="btn wide" disabled>Niveau ${lock} requis</button>` : `<button class="btn green wide" data-a="expand" ${T.has(S, c) ? '' : 'disabled'}>Agrandir</button>`}${toolBox(c, n)}`;
   }
   else if (panel === 'site'){
     const o = panelArg, end = workEnd(o), total = o.build ? o.btotal : o.utotal, left = Math.max(0, end - now()), st = speedCost(o);
@@ -1260,7 +1261,9 @@ function renderPanel(){
         return `<div class="job"><div class="jt"><b>${RINFO[of.k].name} pour le Grand Nord</b></div><div class="jr"><span class="costs">${rewardChips(of.give)}</span></div><button class="btn ${ok ? 'green' : 'blue'} sm" data-a="bulk" data-k="${of.k}"><span class="costs">${costChips(of.want)}</span>Livrer</button></div>`; }).join('')}</div>` : `<p class="meta">Gros Ours prépare la prochaine commande : <b data-until="${o.bulkAt}"></b></p>`); }
     if (b.kind === 'house'){ const busy = S.objs.filter(x => (x.build && x.build > now()) || (x.up && x.up > now())).length, ready = T.helpReady(o, now());
       extra += `<h3>Coup de main des lutins</h3><div class="job"><div class="jt"><b>Accélérer tous les chantiers</b><span class="boostp">-${Math.round((T.HELP_CUT + .02 * (o.lv - 1)) * 100)} %</span></div><div class="jr"><small class="meta">${busy ? `${busy} chantier${busy > 1 ? 's' : ''} en cours` : 'Aucun chantier en cours'} · une fois toutes les 2 h par chalet</small></div>${ready ? `<button class="btn ${busy ? 'green' : 'blue'} sm" data-a="help" ${busy ? '' : 'disabled'}><span class="costs">${costChips(T.helpCost(o))}</span>Aider</button>` : `<span class="meta">Repos : <b data-until="${o.helpAt}"></b></span>`}</div>`; }
-    if (b.kind === 'stable') extra = '<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>';
+    if (b.kind === 'stable') extra = `${petEntry()}<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>`;
+    if (b.kind === 'craft') extra = '<button class="btn green wide" data-a="gocraft">Fabriquer des jouets</button>';
+    if (b.kind === 'orders') extra = '<button class="btn green wide" data-a="goorders">Voir les lettres à livrer</button>';
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
     if (b.kind === 'train') extra = '<button class="btn green wide" data-a="gotrain">Voir le train</button>';
     if (b.kind === 'lab') extra = '<button class="btn green wide" data-a="golab">Recherches</button>';
@@ -1308,7 +1311,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'bulk'){ const o = panelArg, r = T.bulkDo(S, o, b.dataset.k, now()); if (typeof r === 'string'){ sfx.err(); return r === 'Ressources insuffisantes' ? showMissing(T.bulkOffers(S, o).find(x => x.k === b.dataset.k).want, 'Grande commande du Nord', null) : toast(r); } T.track(S, 'bulk'); closePanel(); return bravo(r, 'Grande commande du Nord'); }
   if (a === 'help'){ const o = panelArg, why = T.helpGive(S, o, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.helpCost(o), 'Coup de main des lutins', null) : toast(why); } T.track(S, 'help'); sfx.build(); toast('Les lutins accourent : chantiers accélérés !'); for (const x of S.objs) if ((x.build || x.up) > now()) bounceAt.set(x, performance.now()); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'sack'){ closePanel(); return openSack(); }
-  if (a === 'evbuy'){ const r = M.evBuy(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } save(); if (r.deco){ sfx.level(); toast(`${BUILDINGS[r.deco].name} : à poser gratuitement`); return startPlace(r.deco); } closePanel(); return bravo(r.give, 'Boutique de l’événement'); }
+  if (a === 'evbuy'){ const r = M.evBuy(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r.skin){ M.skinState(S).pet = r.skin; save(); sfx.level(); toast('Nouveau skin pour Flocon !'); return openPanel('pet'); } save(); if (r.deco){ sfx.level(); toast(`${BUILDINGS[r.deco].name} : à poser gratuitement`); return startPlace(r.deco); } closePanel(); return bravo(r.give, 'Boutique de l’événement'); }
   if (a === 'showgo'){ const o = panelArg, sh = T.SHOWS.find(x => x.k === b.dataset.k), why = T.showStart(S, sh.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.showCost(sh, o.lv), sh.name, null) : toast(why); } T.track(S, 'show'); sfx.level(); toast(`Lever de rideau ! Production +${Math.round(S.show.pct * 100)} %`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'evclaim'){ const i = +b.dataset.i, E = M.eventState(S); if (E.pts < M.EV_STEPS[i] || E.got[i]) return; S.ev.got[i] = 1; closePanel(); return bravo(M.eventReward(S, i), `${E.name} · palier ${i + 1}`); }
   if (a === 'wrap'){ S.wrapOn = !S.wrapOn; if (S.wrapOn && !(S.inv.paper > 0)) toast('Fabrique du papier cadeau à l’Atelier des jouets'); sfx.tap(); save(); return renderPanel(); }
@@ -1343,12 +1346,18 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'goshop') return openPanel('shop', 'res');
   if (a === 'gocraft'){ const w = workshopOf(); return w ? goTo('workshop') : null; }
   if (a === 'gomine') return openPanel('mine', panelArg);
+  if (a === 'buytools'){ const n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n), miss = toolMissing(c), cnt = miss.reduce((x, [, m]) => x + m, 0), pay = b.dataset.p === 'stars' ? {stars: cnt * 5} : {coins: cnt * toolCoins(n)};
+    if (!T.has(S, pay)){ sfx.err(); return showMissing(pay, 'Haches et scies', null); } T.take(S, pay); for (const [k, m] of miss) T.give(S, k, m); sfx.collect(); toast('Outils achetés : tu peux agrandir !'); save(); return renderPanel(); }
+  if (a === 'gocraft') return openPanel('craft', panelArg);
+  if (a === 'goorders') return openPanel('orders');
   if (a === 'golab') return openPanel('lab', panelArg);
   if (a === 'gotrain') return openPanel('train', panelArg);
   if (a === 'camp') return openPanel('camp');
   if (a === 'lore') return openPanel('lore');
   if (a === 'replay'){ closePanel(); return setTimeout(() => chapterCine(+b.dataset.i), 250); }
   if (a === 'pet') return openPanel('pet');
+  if (a === 'skinwear'){ M.skinState(S).pet = b.dataset.k; sfx.pop(); save(); return renderPanel(); }
+  if (a === 'skinbuy'){ const r = M.buySkin(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r){ sfx.err(); return showMissing(r, 'Skin de Flocon', null); } sfx.level(); toast('Flocon a un nouveau pelage !'); save(); return renderPanel(); }
   if (a === 'fishcast') return fishCast();
   if (a === 'museum') return openPanel('museum');
   if (a === 'savepanel') return openPanel('save');
@@ -1735,7 +1744,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 73;
+const GAME_V = 74;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2015,9 +2024,20 @@ function fishTap(){
   sfx.level(); if (f.r >= 2 && Math.random() < (f.r === 3 ? .5 : .12)) relicFound(f.r); giveReward(r.rw, $('#sheet .fishhole')); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save(); renderPanel();
 }
 /* ---------- Flocon, le renne magique ---------- */
+const petImg = (st = T.petStage(S.pet?.lv || 1), sk = M.skinState(S).pet) => ICON[`pet_${st}_${sk}`] || ICON.mg_deer;
+// haches et scies qui manquent pour agrandir : on peut les acheter tout de suite (pièces ou étoiles), ou les gagner en jouant
+const toolMissing = c => ['axe', 'saw'].map(k => [k, Math.max(0, (c[k] || 0) - (S.inv[k] || 0))]).filter(([, m]) => m > 0);
+const toolCoins = n => 300 + 120 * n;
+function toolBox(c, n){
+  const miss = toolMissing(c); if (!miss.length) return '';
+  const cnt = miss.reduce((a, [, m]) => a + m, 0), coins = cnt * toolCoins(n), stars = cnt * 5;
+  return `<div class="toolbox"><b>Il te manque ${miss.map(([k, m]) => `${m} ${ITEMS[k].name.toLowerCase()}${m > 1 ? 's' : ''}`).join(' et ')}</b>
+    <div class="acts"><button class="btn green" data-a="buytools" data-p="coins" ${S.coins >= coins ? '' : 'disabled'}><span class="costs">${costChips({coins})}</span>Acheter</button><button class="btn gold" data-a="buytools" data-p="stars"><i class="i star"></i>${stars}</button></div>
+    <small class="meta">On en gagne aussi : cadeau du jour, lettres livrées, mini-jeux, caresser Flocon.</small></div>`;
+}
 function petEntry(){
   const p = T.petState(S); if (!p) return '';
-  return `<div class="petentry" role="button" data-a="pet"><img src="${ICON.mg_deer}" alt=""><div><b>Flocon · niveau ${p.lv}</b><small>${T.PET_STAGES[T.petStage(p.lv)][1]} · +${Math.round(T.petProd(S) * 100)} % de production</small></div><span class="btn gold sm">${T.petCanPat(S) ? 'Caresser' : 'Voir'}</span></div>`;
+  return `<div class="petentry" role="button" data-a="pet"><img src="${petImg()}" alt=""><div><b>Flocon · niveau ${p.lv}</b><small>${T.PET_STAGES[T.petStage(p.lv)][1]} · +${Math.round(T.petProd(S) * 100)} % de production</small></div><span class="btn gold sm">${T.petCanPat(S) ? 'Caresser' : 'Voir'}</span></div>`;
 }
 function petUp(up, el){
   if (!up) return; const p = S.pet, st = T.PET_STAGES[T.petStage(p.lv)];

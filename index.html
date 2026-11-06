@@ -1171,7 +1171,7 @@ body.tutoring #sideL2,body.sheet-open #sideL2,body.placing #sideL2,body:not(.pla
 .rcards.many .rcard{width:74px;height:84px}
 .rcards.many .rcard img,.rcards.many .rcard i.i{width:44px!important;height:44px!important}
 .rcards.many .rcard b{font-size:17px}
-#modal.bravo .mcard{max-height:calc(100vh - 40px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto}
+#modal.bravo .mcard{max-height:none;overflow:visible}
 #modal{z-index:60}
 /* petits écrans (iPhone SE) : deuxième ligne du haut sur une seule ligne */
 #hud2 .row2 .chipx,#hud2 .row2 .title{white-space:nowrap}
@@ -1292,6 +1292,13 @@ body.sheet-open #upban,body.tutoring #upban{display:none!important}
 /* Flocon, le renne magique */
 .petentry{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:linear-gradient(180deg,#e8f4ff,#cfe6ff);border:2px solid #5a9ee0;border-radius:14px;padding:6px 10px;margin:0 0 10px;font:inherit;color:#1f3a5a}
 .petentry img{width:46px;height:46px;object-fit:contain}.petentry div{flex:1;min-width:0}.petentry b{display:block;font-size:15px}.petentry small{font-size:12px;color:#4a6a8a}
+.toolbox{background:#fff3df;border:2px solid #e3b878;border-radius:14px;padding:10px 12px;margin:10px 0;display:flex;flex-direction:column;gap:6px}.toolbox b{color:#7a3a10;font-size:15px}.toolbox .acts{display:flex;gap:8px;flex-wrap:wrap}.toolbox .acts .btn{flex:1 1 120px}
+.petevo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.petevo .pe{display:flex;flex-direction:column;align-items:center;background:#fffaf0;border:2px solid #e3cfa8;border-radius:12px;padding:6px 4px;text-align:center}
+.petevo .pe img{width:56px;height:56px;filter:grayscale(1) brightness(1.15) opacity(.45)}.petevo .pe.on img{filter:none}.petevo .pe b{font-size:12px;color:#5a3a1e;line-height:1.1}.petevo .pe small{font-size:11px;color:#8a6a4a}
+.petevo .pe.cur{border-color:#ff8a1c;box-shadow:0 0 0 2px #ff8a1c55;background:#fff3df}
+.petskins{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.petskins .ps{display:flex;flex-direction:column;align-items:center;gap:3px;background:#fffaf0;border:2px solid #e3cfa8;border-radius:12px;padding:6px 4px 8px;text-align:center}
+.petskins .ps img{width:76px;height:76px;margin:-6px 0 -4px}.petskins .ps b{font-size:12.5px;color:#5a3a1e}.petskins .ps.wear{border-color:#2fae48;background:#effbea}.petskins .ps.lockd img{opacity:.85}
+.petskins .tagw{font-size:11px;font-weight:700;color:#fff;background:#2fae48;border-radius:8px;padding:2px 8px}.petskins .ev{font-size:11px;color:#6a4ab0;font-weight:700}.petskins .btn.sm{padding:4px 10px;font-size:12px}
 .petbox{display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 0 10px}
 .petimg{width:170px;height:170px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#fff 0,#dbeeff 60%,#b8d8f8 100%);border:4px solid #fff;box-shadow:0 0 0 3px #8ac0f0,0 6px 18px rgba(40,90,160,.3)}
 .petimg img{width:calc(150px * var(--sz));animation:petbob 2.4s ease-in-out infinite}
@@ -1546,4 +1553,4 @@ window.addEventListener('unhandledrejection', e => { const l = document.getEleme
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="js/v2/main.js?v=73"></script>
+<script type="module" src="js/v2/main.js?v=74"></script>
