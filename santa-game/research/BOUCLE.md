@@ -318,3 +318,12 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Réparation automatique des bâtiments superposés au chargement (fixOverlaps) ; audit automatique des textes (coupés, débordants, chevauchés) sur toutes les fenêtres : 0 problème restant sur iPhone SE.
 - Skins : Maison ×4 (pain d'épices, bois, glace, royal) × 3 apparences, tenues des lutins ×4 (avec marche), onglet Skins de la boutique, 3 packs exclusifs + pack de la semaine, tenue givrée en événement (tools/export-skins.mjs).
 - Étude des 20 jeux : research/jeux/*.md + SYNTHESE.md.
+
+## Tour 58 (v76) — les 7 chantiers de la synthèse
+1. Réglage « Taille de l'interface » (Profil → Réglages), plafonnée sur iPhone SE.
+2. Fenêtres de récompense en file d'attente (plus jamais deux l'une sur l'autre, rien pendant une cinématique).
+3. Confirmation pour toute dépense ≥ 20 étoiles (« Dépenser 250 ⭐ ? Il t'en restera… »).
+4. Bataille : 2 portails dès le départ, portails ×5 et ×10 en bonus, compteur géant de boules, plafond 240 boules (au-delà la boule devient plus puissante), boutons de pouvoirs masqués sous les cartes.
+5. Lettres : loupe 🔍 sur chaque jouet manquant → Atelier avec le jouet en surbrillance → « Retour à la lettre ».
+6. Scierie : établi à outils (une hache ou une scie toutes les 3 h).
+7. Monnaies : non modifié (risque de casser l'économie des villages existants) — à reprendre avec un plan de migration.

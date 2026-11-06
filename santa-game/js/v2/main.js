@@ -252,6 +252,7 @@ function collectBld(o){
 }
 const combo = {n: 0, t: 0};
 /* ---------- Atelier : file de fabrication des jouets ---------- */
+let fromOrder = false, wantToy = '';
 function workshopOf(){ return findType('workshop'); }
 function craftDone(o){ return (o.q || []).filter(j => j.end <= now()); }
 function collectToys(o, at){
@@ -479,8 +480,10 @@ function draw(){
 // Ambiance selon l'heure réelle : jour, crépuscule (16-18 h) rose orangé, nuit (18-7 h) bleu nuit,
 // avec les lampadaires et les fenêtres qui s'allument (comme les soirées d'hiver de Township). ?heure=21 pour tester.
 // grands écrans (tablette, PC) : interface à taille de téléphone agrandie, fenêtres centrées (voir body.wide dans index.html)
+let uiSize = 1; try { uiSize = +localStorage.getItem('vdp-uisize') || 1; } catch(e){}
 function applyWide(){
-  const w = innerWidth, h = innerHeight, wide = w >= 700, z = wide ? Math.max(.62, Math.min(1.6, w / 700, h / 760)) : 1, r = document.documentElement.style;
+  const w = innerWidth, h = innerHeight, wide = w >= 700, us = !wide && w < 380 ? Math.min(uiSize, 1.04) : uiSize, z = (wide ? Math.max(.62, Math.min(1.6, w / 700, h / 760)) : 1) * us, r = document.documentElement.style;
+  r.setProperty('--uis', us);
   document.body.classList.toggle('short', wide && h < 560);
   document.body.classList.toggle('wide', wide); r.setProperty('--uiz', z.toFixed(3)); r.setProperty('--sheeth', Math.round(Math.min(h / z - 36, 880)) + 'px'); r.setProperty('--hudw', Math.round(Math.min(w / z - 120, 720)) + 'px');
 }
@@ -953,7 +956,7 @@ function closeSeeds(){}
 
 /* ---------- panneaux ---------- */
 let panel = null, panelArg = null, panelHtml = '', selOrder = 0;
-function openPanel(name, arg){ closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
+function openPanel(name, arg){ if (name !== 'craft'){ fromOrder = false; wantToy = ''; } closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
 function closePanel(){ const was = panel; panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
 const hd = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
 const need = req => Object.entries(req).map(([k, n]) => `<span class="need ${haveOf(k) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${fmt(haveOf(k))}/${fmt(n)}</b></span>`).join('');
@@ -971,7 +974,7 @@ function renderPanel(){
     const detail = od?.items ? `<div class="od">
         <div class="letter"><p>${od.msg || 'Cher Père Noël, voici ma liste !'}</p><i>— ${od.kid}${od.age ? `, ${od.age} ans, ${od.city}` : ''}</i></div>
         <div class="odh"><small>Récompense${wrapOk(od) ? ' · emballée' : ''}</small><span class="rw"><span>${icon('coins')}${Math.round(od.coins * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span><span><i class="i xp">XP</i>${Math.round(od.xp * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
-        <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : ''}<b>${Math.min(h, n)}/${n}</b>${h > n ? `<small class="inst">${h} en stock</small>` : ''}</div>`; }).join('')}</div>
+        <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : `<button class="loupe" data-a="findtoy" data-k="${k}" aria-label="Où le fabriquer ?">🔍</button>`}<b>${Math.min(h, n)}/${n}</b>${h > n ? `<small class="inst">${h} en stock</small>` : ''}</div>`; }).join('')}</div>
         ${S.lvl >= TOYS.paper.lvl ? `<button class="wrapbtn ${S.wrapOn ? 'on' : ''}" data-a="wrap"><img src="${ICON.paper}" alt=""><span><b>Emballer · ${T.wrapNeed(od)} papier${T.wrapNeed(od) > 1 ? 's' : ''} cadeau</b><small>${S.inv.paper || 0} en stock · +50 % pièces et XP, parfois une étoile</small></span><i class="tog"></i></button>` : ''}
         <div class="oacts"><button class="trash" data-a="trash" data-i="${selOrder}" aria-label="Remplacer cette commande"></button><button class="btn green" data-a="deliver" data-i="${selOrder}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button></div>
       </div>` : '<p class="meta">De nouvelles commandes arrivent…</p>';
@@ -980,10 +983,10 @@ function renderPanel(){
   else if (panel === 'craft'){
     const o = panelArg, q = o.q || [], n = T.craftSlots(o.lv);
     const slots = Array.from({length: n}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
-    h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + `<p class="help">Touche un jouet pour le mettre dans la file. Les jouets marqués <b>Demandé</b> sont attendus dans les lettres.</p><h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
+    h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + (fromOrder ? `<button class="btn blue wide backord" data-a="backorder">‹ Retour à la lettre</button>` : '') + `<p class="help">Touche un jouet pour le mettre dans la file. Les jouets marqués <b>Demandé</b> sont attendus dans les lettres.</p><h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
       ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}${lettersNeed(o).length ? `<button class="btn green wide" data-a="autoq">Fabriquer pour les lettres (${lettersNeed(o).length})</button>` : ''}
       <h3>Jouets</h3><div class="recipes">${Object.entries(TOYS).map(([k, t]) => { const lock = S.lvl < t.lvl, wanted = S.orders.some(od => od.items?.[k]);
-        return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, t.cost) ? 'ok' : ''}" data-a="queue" data-k="${k}">${wanted && !lock ? '<span class="wanted">Demandé</span>' : ''}<img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
+        return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, t.cost) ? 'ok' : ''} ${wantToy === k ? 'want' : ''}" data-a="queue" data-k="${k}">${wanted && !lock ? '<span class="wanted">Demandé</span>' : ''}<img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
         ${lock ? `<span class="why">Niveau ${t.lvl}</span>` : `<span class="costs">${costChips(t.cost)}</span><span class="meta">${fmtTime(t.time / T.craftSpeed(o.lv))} · en stock : ${S.inv[k] || 0}</span>`}</button>`; }).join('')}</div>`;
   }
   else if (panel === 'games'){
@@ -1216,6 +1219,7 @@ function renderPanel(){
       <div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div>
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
+      <div class="mis"><div><b>Taille de l'interface</b><small>Boutons et textes plus petits ou plus grands</small></div><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><div><b>Mon compte</b><small>${ACC.current() ? 'Connecté : ' + (ACC.current().email || '') : 'Google ou e-mail : ton village en sécurité'}</small></div><button class="btn green sm" data-a="account">${ACC.current() ? 'Gérer' : 'Se connecter'}</button></div>
       <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
@@ -1269,6 +1273,7 @@ function renderPanel(){
     let extra = '';
     if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); extra = `<div class="work"><div class="bar"><i style="width:${n / buf * 100}%"></i></div><span>${fmt(n)} / ${fmt(buf)} ${ITEMS[b.res].name.toLowerCase()} dans le bâtiment${T.workRatio(S) < 1 ? ' · <b class="bad">pas assez de lutins !</b>' : ''}</span></div>${ripe(o) ? '<button class="btn gold wide" data-a="collect">Récolter</button>' : ''}`; }
     if (T.JOBS[o.type]) extra += jobsBox(o);
+    if (o.type === 'sawmill') extra += toolsBox(o);
     if (b.kind === 'fun') extra += showsBox(o);
     if (b.kind === 'storage'){ const ready = T.bulkReady(o, now());
       extra += `<h3>Grande commande du Nord <small class="meta">· une toutes les 6 h</small></h3>` + (ready ? `<div class="jobs">${T.bulkOffers(S, o).map(of => { const ok = T.has(S, of.want);
@@ -1306,6 +1311,10 @@ $('#sheet').addEventListener('click', e => {
   const b = e.target.closest('[data-a]'); if (!b) return;
   const a = b.dataset.a;
   if (a === 'close') return closePanel();
+  // dépense d'étoiles d'or à partir de 20 : on demande d'abord (les achats par erreur sont la plainte n°1 des jeux étudiés)
+  if (b.querySelector('.i.star') && !b.dataset.ok && !b.disabled){ const n = parseInt((b.textContent.match(/\d[\d\s]*/) || ['0'])[0].replace(/\s/g, ''), 10);
+    if (n >= 20 && S.stars >= n){ e.stopImmediatePropagation(); return confirmStars(n, b); } }
+  delete b.dataset.ok;
   if (a === 'play') return playGame(b.dataset.k);
   if (a === 'deliver') return deliver(+b.dataset.i, b);
   if (a === 'osel'){ selOrder = +b.dataset.i; sfx.tap(); return renderPanel(); }
@@ -1372,8 +1381,12 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'pet') return openPanel('pet');
   if (a === 'skinwear'){ M.skinState(S)[b.dataset.c || 'pet'] = b.dataset.k; sfx.pop(); save(); toast('Nouvelle apparence !'); return renderPanel(); }
   if (a === 'pack') return buyPack(b.dataset.k);
+  if (a === 'mktool'){ const o = panelArg, k = b.dataset.k, c = toolCost(o, k); if (now() - (o.toolT || 0) < TOOL_CD) return; if (!T.has(S, c)){ sfx.err(); return showMissing(c, ITEMS[k].name, null); } T.take(S, c); T.give(S, k, 1); o.toolT = now(); sfx.collect(); fly(k, 1, b); toast(`${ITEMS[k].name} fabriquée !`); save(); return renderPanel(); }
+  if (a === 'findtoy'){ const w = workshopOf(); if (!w){ sfx.err(); return toast("Construis d'abord l'Atelier des jouets"); } fromOrder = true; wantToy = b.dataset.k; return openPanel('craft', w); }
+  if (a === 'backorder'){ fromOrder = false; wantToy = ''; return openPanel('orders'); }
+  if (a === 'uisize'){ uiSize = +b.dataset.k; try { localStorage.setItem('vdp-uisize', uiSize); } catch(e){} applyWide(); sfx.pop(); return renderPanel(); }
   if (a === 'shopskins') return openPanel('shop', 'skins');
-  if (a === 'skinbuy'){ const r = M.buySkin(S, b.dataset.k, b.dataset.c || 'pet'); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r){ sfx.err(); return showMissing(r, 'Skin de Flocon', null); } sfx.level(); toast('Flocon a un nouveau pelage !'); save(); return renderPanel(); }
+  if (a === 'skinbuy'){ const r = M.buySkin(S, b.dataset.k, b.dataset.c || 'pet'); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r){ sfx.err(); return showMissing(r, 'Skin de Flocon', null); } sfx.level(); toast({house: 'La Maison change de style !', elves: 'Nouvelle tenue pour les lutins !'}[b.dataset.c] || 'Flocon a un nouveau pelage !'); save(); return renderPanel(); }
   if (a === 'fishcast') return fishCast();
   if (a === 'museum') return openPanel('museum');
   if (a === 'savepanel') return openPanel('save');
@@ -1704,7 +1717,19 @@ function zoneWelcome(z, name){
   m.querySelector('.mcard').innerHTML = `<small>Nouvelle zone</small><h2 class="stroke">${name}</h2><div class="storyrow"><img src="${elfImg()}" alt=""><p>${z.txt}</p></div><div class="zonecard" style="--zt:${z.tint}"><div class="zb"><span>Bonus de la zone, pour toujours</span><b>${T.zoneBonusText(z.b)}</b></div></div><button class="btn green" data-m="ok">Ouvrir le cadeau</button>`;
   m.hidden = false; m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; setTimeout(() => bravo(z.gift, "Cadeau d'arrivée", 'BIENVENUE !'), 250); };
 }
+function confirmStars(n, btn){
+  const m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Étoiles d'or</small><h2 class="stroke">Dépenser ${n} <i class="i star"></i> ?</h2><p>Il t'en restera ${fmt(S.stars - n)}.</p><div class="acts"><button class="btn gold" data-m="yes">Oui, dépenser</button><button class="btn blue" data-m="no">Annuler</button></div>`;
+  m.hidden = false;
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'yes') return; let t = btn; if (!t.isConnected){ const sel = '[data-a="' + btn.dataset.a + '"]' + (btn.dataset.k ? '[data-k="' + btn.dataset.k + '"]' : '') + (btn.dataset.c ? '[data-c="' + btn.dataset.c + '"]' : '') + (btn.dataset.p ? '[data-p="' + btn.dataset.p + '"]' : ''); t = $('#sheet').querySelector(sel); }
+    if (t){ t.dataset.ok = '1'; t.click(); } };
+}
+// une seule fenêtre à la fois : les suivantes attendent leur tour (au démarrage : retour d'absence, succès, histoire…)
+const modalQ = [];
+function modalBusy(){ return !$('#modal').hidden || document.body.classList.contains('cine') || !!$('#intro'); }
+setInterval(() => { if (modalQ.length && !modalBusy()) modalQ.shift()(); }, 450);
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
+  if (modalBusy()) return void modalQ.push(() => bravo(r, sub, title));
   const m = $('#modal'); m.className = 'cere bravo';
   const cards = Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<div class="rcard r-${k}">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : `<img src="${ICON[k]}" alt="">`}<b>${fmt(n)}</b></div>`).join('');
   m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2${title.length > 9 ? ' class="long"' : ''}>${title}</h2><small>${sub}</small><div class="rcards ${Object.values(r).filter(Boolean).length > 4 ? 'many' : ''}">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
@@ -1789,7 +1814,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 75;
+const GAME_V = 76;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2079,6 +2104,14 @@ function toolBox(c, n){
   return `<div class="toolbox"><b>Il te manque ${miss.map(([k, m]) => `${m} ${ITEMS[k].name.toLowerCase()}${m > 1 ? 's' : ''}`).join(' et ')}</b>
     <div class="acts"><button class="btn green" data-a="buytools" data-p="coins" ${S.coins >= coins ? '' : 'disabled'}><span class="costs">${costChips({coins})}</span>Acheter</button><button class="btn gold" data-a="buytools" data-p="stars"><i class="i star"></i>${stars}</button></div>
     <small class="meta">On en gagne aussi : cadeau du jour, lettres livrées, mini-jeux, caresser Flocon.</small></div>`;
+}
+// la Scierie fabrique une hache ou une scie toutes les 3 h (source régulière d'outils d'agrandissement)
+const TOOL_CD = 3 * 3600e3, toolCost = (o, k) => ({wood: R5(250 * (1 + (S.chunks.length - T.START_CHUNKS.length) * .4)) * (k === 'saw' ? 2 : 1), coins: 100 * o.lv});
+const R5 = n => Math.round(n / 5) * 5;
+function toolsBox(o){
+  const ready = now() - (o.toolT || 0) >= TOOL_CD;
+  return `<h3>Établi à outils <small class="meta">· une fois toutes les 3 h</small></h3><div class="jobs">${['axe', 'saw'].map(k => `<div class="job"><div class="jt"><img class="i" src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b><small class="meta">tu en as ${S.inv[k] || 0}</small></div>
+    ${ready ? `<button class="btn ${T.has(S, toolCost(o, k)) ? 'green' : 'blue'} sm" data-a="mktool" data-k="${k}"><span class="costs">${costChips(toolCost(o, k))}</span>Fabriquer</button>` : `<span class="meta">Prêt dans <b data-until="${(o.toolT || 0) + TOOL_CD}"></b></span>`}</div>`).join('')}</div>`;
 }
 function petEntry(){
   const p = T.petState(S); if (!p) return '';
