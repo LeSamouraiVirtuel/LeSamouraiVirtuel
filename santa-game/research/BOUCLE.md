@@ -278,5 +278,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Décor : champ de neige, montagnes, sapins, lanternes, sucres d'orge, palissade ; Pépin a des cœurs, la palissade a des points de vie. Pouvoirs Avalanche, Grand Gel, Flocon.
 - Les portraits du bestiaire et des cinématiques utilisent maintenant les modèles 3D.
 
+## Tour 52 — Le fond qui « bave » : trouvé
+- Cause : l'instant du rebond d'un bâtiment touché (performance.now()) était enregistré dans la sauvegarde. Après un rechargement, performance.now() repart de zéro : l'âge du rebond devenait très négatif, et l'effet « écrasé-étiré » multipliait la taille du bâtiment par des centaines, en oscillant à chaque image (la Maison géante et floue qui bougeait en continu, surtout après verrouillage et retour).
+- Trouvé grâce à la vidéo du joueur (images successives : Maison énorme, puis fine, puis plate). Reproduit sur la version en ligne avec une sauvegarde contenant ce rebond.
+- Correction : le rebond n'est plus jamais sauvegardé (mémoire à part), un âge négatif est ignoré, et les anciennes sauvegardes sont nettoyées au chargement.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

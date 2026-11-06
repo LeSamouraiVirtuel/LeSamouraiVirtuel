@@ -581,13 +581,14 @@ function scaffold(o){
   ctx.fillStyle = '#ffd34a'; ctx.strokeStyle = '#2e202c'; ctx.lineWidth = 2 * z; ctx.beginPath(); ctx.rect(hx - 5 * z, top + 22 * z, 10 * z, 7 * z); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
+const bounceAt = new WeakMap();   // instant du rebond : jamais sauvegardé (performance.now() repart de 0 à chaque lancement)
 function drawObj(o){
   const b = B(o), c = toScreen(o.x + b.w / 2, o.y + b.h / 2);
   if (selObj === o) diamond(o.x, o.y, b.w, b.h, 'rgba(255,214,90,.35)', '#ffc83a');
   // rebond quand on le touche (écrasé puis étiré, comme Township), petit balancement quand il travaille
-  const t = performance.now(), age = (t - (o.bounce || 0)) / 1000;
+  const t = performance.now(), age = (t - (bounceAt.get(o) || -1e9)) / 1000;
   let sx = 1, sy = 1;
-  if (age < .45){ const k = Math.sin(age / .45 * Math.PI * 2.5) * (1 - age / .45); sx = 1 + k * .07; sy = 1 - k * .09; }
+  if (age >= 0 && age < .45){ const k = Math.sin(age / .45 * Math.PI * 2.5) * (1 - age / .45); sx = 1 + k * .07; sy = 1 - k * .09; }
   else if (o.job || (B(o).kind === 'craft' && (o.q || []).some(j => j.end > now()))){ const k = Math.sin(t / 260 + o.x) * .012; sx = 1 - k; sy = 1 + k; }
   if (sx !== 1 || sy !== 1){ ctx.save(); ctx.translate(c.x, c.y); ctx.scale(sx, sy); ctx.translate(-c.x, -c.y); drawSprite(spriteKey(o), c.x, c.y); ctx.restore(); }
   else drawSprite(spriteKey(o), c.x, c.y);
@@ -804,7 +805,7 @@ function pickDrop(){
 }
 function tap(o, at){
   if (S.drop && dropRect && at.x > dropRect.left - 10 && at.x < dropRect.right + 10 && at.y > dropRect.top - 10 && at.y < dropRect.bottom) return pickDrop();
-  if (o) o.bounce = performance.now();
+  if (o) bounceAt.set(o, performance.now());
   if (S.visitor && visitorRect && at.x > visitorRect.left && at.x < visitorRect.right && at.y > visitorRect.top && at.y < visitorRect.bottom) return openVisitor();
   sfx.tap();
   if (!o || o.wild){
@@ -1259,7 +1260,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'deerfeed'){ const why = T.deerFeed(S, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.deerCost(S), 'Nourrir les rennes', null) : toast(why); } T.track(S, 'deer'); sfx.level(); toast(`Miam ! Les rennes t’adorent (${T.deerHearts(S)} ❤)`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'todo'){ const x = todoList()[+b.dataset.i]; if (x) todoGo(x.go); return; }
   if (a === 'bulk'){ const o = panelArg, r = T.bulkDo(S, o, b.dataset.k, now()); if (typeof r === 'string'){ sfx.err(); return r === 'Ressources insuffisantes' ? showMissing(T.bulkOffers(S, o).find(x => x.k === b.dataset.k).want, 'Grande commande du Nord', null) : toast(r); } T.track(S, 'bulk'); closePanel(); return bravo(r, 'Grande commande du Nord'); }
-  if (a === 'help'){ const o = panelArg, why = T.helpGive(S, o, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.helpCost(o), 'Coup de main des lutins', null) : toast(why); } T.track(S, 'help'); sfx.build(); toast('Les lutins accourent : chantiers accélérés !'); for (const x of S.objs) if ((x.build || x.up) > now()) x.bounce = performance.now(); save(); panelHtml = ''; return renderPanel(); }
+  if (a === 'help'){ const o = panelArg, why = T.helpGive(S, o, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.helpCost(o), 'Coup de main des lutins', null) : toast(why); } T.track(S, 'help'); sfx.build(); toast('Les lutins accourent : chantiers accélérés !'); for (const x of S.objs) if ((x.build || x.up) > now()) bounceAt.set(x, performance.now()); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'sack'){ closePanel(); return openSack(); }
   if (a === 'evbuy'){ const r = M.evBuy(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } save(); if (r.deco){ sfx.level(); toast(`${BUILDINGS[r.deco].name} : à poser gratuitement`); return startPlace(r.deco); } closePanel(); return bravo(r.give, 'Boutique de l’événement'); }
   if (a === 'showgo'){ const o = panelArg, sh = T.SHOWS.find(x => x.k === b.dataset.k), why = T.showStart(S, sh.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.showCost(sh, o.lv), sh.name, null) : toast(why); } T.track(S, 'show'); sfx.level(); toast(`Lever de rideau ! Production +${Math.round(S.show.pct * 100)} %`); save(); panelHtml = ''; return renderPanel(); }
@@ -1688,7 +1689,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 68;
+const GAME_V = 69;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2219,7 +2220,6 @@ function probe(on){
     return rawDraw.call(this, im, ...a); };
 }
 function step(t, dt){
-  if (++probeN % 30 === 0){ probe(true); try { step1(t, dt); } finally { probe(false); } return; }
   step1(t, dt);
 }
 function step1(t, dt){

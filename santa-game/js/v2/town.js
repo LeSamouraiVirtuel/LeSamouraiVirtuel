@@ -274,6 +274,7 @@ export function loadTown(){
       for (const k of [...RES, 'stars', 'xp']) s[k] = +s[k] || 0;
       clearLots(s);
       s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
+      for (const o of s.objs) delete o.bounce;   // ancien rebond sauvegardé par erreur : il déformait les bâtiments
       spaceOut(s);
       return s;
     }
