@@ -993,8 +993,8 @@ function renderPanel(){
       [13, 'La Citadelle de Glace', "Tout au nord, derrière les Pics du Krampus. Le dernier éclat de l'Étoile y bat comme un cœur."],
       [16, 'Le renne né de la lumière', "Flocon est né la nuit où le premier cristal est remonté. Le grimoire de Mademoiselle Plume dit que lui seul peut atteindre la Citadelle."],
     ];
-    h = hd(`Chapitre ${Math.min(ch + 1, T.CHAPTERS.length)} · ${BEST.filter(b => ch >= b[3]).length} / ${BEST.length} fiches`, 'Légendes du Grand Nord') + `<h3>Les ennemis</h3><div class="best">${BEST.map(([k, n, d, at]) => ch >= at ? `<div class="bst"><img src="${vp(k)}" alt=""><div><b>${n}</b><small>${d}</small></div></div>` : `<div class="bst lock"><span>?</span><div><b>???</b><small>Chapitre ${at + 1}</small></div></div>`).join('')}</div>
-      <h3>Les légendes</h3><div class="mlist">${LORE.map(([at, t, d]) => ch >= at ? `<div class="mis lore"><div><b>${t}</b><small>${d}</small></div></div>` : `<div class="mis lore lock"><div><b>Page déchirée</b><small>Chapitre ${at + 1}</small></div></div>`).join('')}</div>
+    h = hd(`Chapitre ${Math.min(ch + 1, T.CHAPTERS.length)} · ${BEST.filter(b => ch >= b[3]).length} / ${BEST.length} fiches`, 'Légendes du Grand Nord') + `<h3>Les ennemis</h3><div class="best">${BEST.map(([k, n, d, at]) => ch >= at ? `<div class="bst"><img src="${vp(k)}" alt=""><div><b>${n}</b><small>${d}</small></div></div>` : `<div class="bst bst-lock"><span>?</span><div><b>???</b><small>Chapitre ${at + 1}</small></div></div>`).join('')}</div>
+      <h3>Les légendes</h3><div class="mlist">${LORE.map(([at, t, d]) => ch >= at ? `<div class="mis lore"><div><b>${t}</b><small>${d}</small></div></div>` : `<div class="mis lore lore-lock"><div><b>Page déchirée</b><small>Chapitre ${at + 1}</small></div></div>`).join('')}</div>
       <h3>Revoir les cinématiques</h3><div class="replays">${T.CHAPTERS.slice(0, ch + 1).map((c, k) => `<button class="btn blue sm" data-a="replay" data-i="${k}">${k + 1}. ${c.title}</button>`).join('')}</div>`;
   }
   else if (panel === 'camp'){
@@ -1708,7 +1708,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 70;
+const GAME_V = 71;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
