@@ -200,6 +200,7 @@ export const EV_SHOP = [
   {k: 'snowman', name: 'Bonhomme de neige', price: 60, deco: 'snowman'},
   {k: 'skin_gold', name: 'Flocon doré (skin)', price: 400, skin: 'gold'},
   {k: 'skin_aurora', name: 'Flocon des aurores (skin)', price: 700, skin: 'aurora'},
+  {k: 'skin_elves_frost', name: 'Tenue givrée des lutins', price: 600, skin: 'frost', cat: 'elves'},
   {k: 'parcel', name: 'Colis rare', price: 200, give: {parcel: 1}},
   {k: 'stars', name: '5 étoiles d’or', price: 300, give: {stars: 5}},
 ];
@@ -207,9 +208,9 @@ export const evSpendable = s => { eventState(s); return s.ev.pts - (s.ev.spent |
 export function evBuy(s, k){
   const it = EV_SHOP.find(x => x.k === k); if (!it) return null;
   if (evSpendable(s) < it.price) return 'Pas assez de flocons';
-  if (it.skin && hasSkin(s, it.skin)) return 'Tu as déjà ce skin';
+  if (it.skin && hasSkin(s, it.skin, it.cat)) return 'Tu as déjà ce skin';
   s.ev.spent = (s.ev.spent || 0) + it.price;
-  if (it.skin){ skinState(s).own[it.skin] = 1; return {skin: it.skin}; }
+  if (it.skin){ ownSkin(s, it.cat || 'pet', it.skin); return {skin: it.skin, cat: it.cat || 'pet'}; }
   if (it.deco){ s.tokens ||= {}; s.tokens[it.deco] = (s.tokens[it.deco] || 0) + 1; return {deco: it.deco}; }
   return {give: it.give};
 }
@@ -281,10 +282,41 @@ export const PET_SKIN_LIST = [
   {k: 'gold', name: 'Doré', event: 'Boutique de l’événement (❄ 400)'},
   {k: 'aurora', name: 'Aurore', event: 'Boutique de l’événement (❄ 700)'},
 ];
-export const skinState = s => (s.skins ||= {pet: 'classic', own: {classic: 1}});
-export const hasSkin = (s, k) => !!skinState(s).own[k];
-export function buySkin(s, k){
-  const d = PET_SKIN_LIST.find(x => x.k === k); if (!d || d.event) return 'Ce skin se gagne en événement';
-  if (hasSkin(s, k)) return null; if ((s.stars || 0) < d.stars) return {stars: d.stars};
-  s.stars -= d.stars; skinState(s).own[k] = 1; skinState(s).pet = k; return null;
+export const skinState = s => { const k = (s.skins ||= {pet: 'classic', own: {classic: 1}}); k.house ||= 'classic'; k.elves ||= 'classic'; return k; };
+const skKey = (cat, k) => !cat || cat === 'pet' ? k : cat + ':' + k;
+export const hasSkin = (s, k, cat = 'pet') => k === 'classic' || !!skinState(s).own[skKey(cat, k)];
+export function ownSkin(s, cat, k, wear = true){ const st = skinState(s); st.own[skKey(cat, k)] = 1; if (wear) st[cat] = k; }
+// Maison du Père Noël et tenues des lutins : en étoiles, en événement, ou seulement dans un pack exclusif
+export const HOUSE_SKIN_LIST = [
+  {k: 'classic', name: 'Chalet classique'},
+  {k: 'ginger', name: 'Maison en pain d’épices', stars: 250},
+  {k: 'forest', name: 'Chalet des bois', stars: 300},
+  {k: 'ice', name: 'Palais de glace', pack: 'pk_ice'},
+  {k: 'royal', name: 'Chalet royal', pack: 'pk_royal'},
+];
+export const ELF_OUTFIT_LIST = [
+  {k: 'classic', name: 'Capuches du village'},
+  {k: 'ginger', name: 'Tenue pain d’épices', stars: 200},
+  {k: 'night', name: 'Tenue nuit étoilée', stars: 250},
+  {k: 'frost', name: 'Tenue givrée', event: 'Boutique de l’événement (❄ 600)'},
+  {k: 'royal', name: 'Tenue royale', pack: 'pk_royal'},
+];
+export const SKIN_LISTS = {house: HOUSE_SKIN_LIST, elves: ELF_OUTFIT_LIST};
+SKIN_LISTS.pet = PET_SKIN_LIST;
+export function buySkin(s, k, cat = 'pet'){
+  const d = SKIN_LISTS[cat].find(x => x.k === k); if (!d) return 'Skin inconnu';
+  if (d.event) return 'Ce skin se gagne en événement'; if (d.pack) return 'Ce skin est dans un pack exclusif';
+  if (hasSkin(s, k, cat)) return null; if ((s.stars || 0) < d.stars) return {stars: d.stars};
+  s.stars -= d.stars; ownSkin(s, cat, k); return null;
 }
+/* Packs exclusifs (achats intégrés) : apparences introuvables ailleurs + gros bonus. Un pack « vedette » change chaque semaine. */
+export const PACKS = {
+  pk_ginger: {name: 'Pack Pain d’épices', price: '7,99 €', skins: [['house', 'ginger'], ['elves', 'ginger']], give: {stars: 300, cookies: 5000}, tag: 'Gourmand'},
+  pk_ice: {name: 'Pack Palais de glace', price: '14,99 €', skins: [['house', 'ice'], ['elves', 'frost'], ['pet', 'frost']], give: {stars: 800, ice: 60}, tag: 'Exclusif'},
+  pk_royal: {name: 'Pack Royal de Noël', price: '24,99 €', skins: [['house', 'royal'], ['elves', 'royal'], ['pet', 'gold']], give: {stars: 1500, gold: 10, parcel: 2}, tag: 'Légendaire'},
+};
+export function featuredPack(t = Date.now()){
+  const id = Math.floor((t - Date.UTC(2026, 0, 5)) / (7 * 864e5)), ks = ['pk_ice', 'pk_royal', 'pk_ginger'];
+  return {k: ks[((id % 3) + 3) % 3], end: Date.UTC(2026, 0, 5) + (id + 1) * 7 * 864e5};
+}
+export const packOwned = (s, k) => PACKS[k].skins.every(([c, sk]) => hasSkin(s, sk, c));
