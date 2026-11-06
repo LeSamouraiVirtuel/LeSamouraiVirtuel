@@ -326,4 +326,4 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 4. Bataille : 2 portails dès le départ, portails ×5 et ×10 en bonus, compteur géant de boules, plafond 240 boules (au-delà la boule devient plus puissante), boutons de pouvoirs masqués sous les cartes.
 5. Lettres : loupe 🔍 sur chaque jouet manquant → Atelier avec le jouet en surbrillance → « Retour à la lettre ».
 6. Scierie : établi à outils (une hache ou une scie toutes les 3 h).
-7. Monnaies : non modifié (risque de casser l'économie des villages existants) — à reprendre avec un plan de migration.
+7. Monnaies : vérifié — 2 vraies monnaies (pièces, étoiles d’or) + flocons d’événement temporaires ; bois, biscuits, tissu sont des ressources produites, cristaux et lingots des matériaux rares. Déjà dans la règle « 3 monnaies max » : rien à regrouper.
