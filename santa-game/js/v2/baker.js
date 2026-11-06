@@ -180,6 +180,45 @@ export async function bakeWalk({BD, base}){
   return SPR;
 }
 
+
+/* ---------- Skins de la Maison du Père Noël (bois et liserés recolorés) et tenues des lutins ---------- */
+export const HOUSE_SKINS = {ginger: {wall: [.07, .78, .82, 0], trim: [.93, .6, 1.15, .18]}, ice: {wall: [.55, .5, 1.25, .28], trim: [.58, .35, 1.2, .3]},
+  royal: {wall: [.11, .3, 1.15, .32], trim: [.13, .95, 1.05, .06]}, forest: {wall: [.06, .5, .72, 0], trim: [.36, .65, .85, .03]}};
+export const ELF_OUTFITS = {frost: [['#cfefff', '#5aa8e0'], ['#ffffff', '#8fb8e0'], ['#7fd0ff', '#2f7fc0']], royal: [['#ffd34a', '#b8800c'], ['#a35cff', '#5a1fa8'], ['#ff5a6e', '#a8182f']],
+  ginger: [['#c8783a', '#7a4418'], ['#ff9ad0', '#c0508a'], ['#fff4e6', '#c8b090']], night: [['#3b4fb8', '#17235e'], ['#6a3bb8', '#2e1462'], ['#2a8a98', '#0f4048']]};
+const houseCache = new Map();
+function houseRemap(r, g, b, sk){
+  const col = new THREE.Color(r, g, b), hsl = {}; col.getHSL(hsl); const S2 = HOUSE_SKINS[sk];
+  let t = null; if (hsl.s > .2 && hsl.h > .02 && hsl.h < .13 && hsl.l > .06 && hsl.l < .85) t = S2.wall; else if (hsl.s > .45 && (hsl.h <= .02 || hsl.h >= .94) && hsl.l > .12) t = S2.trim;
+  if (!t) return null; col.setHSL(t[0], Math.min(1, t[1]), Math.min(.94, hsl.l * t[2] + t[3])); return col;
+}
+export function houseSkin(root, sk){
+  if (!HOUSE_SKINS[sk]) return root;
+  root.traverse(o => { if (!o.isMesh) return; const mats = Array.isArray(o.material) ? o.material : [o.material];
+    const nm = mats.map(m => { const k = m.uuid + sk; if (houseCache.has(k)) return houseCache.get(k); const c = m.clone();
+      if (m.map && m.map.image){ const img = m.map.image, cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const x = cv.getContext('2d'); x.drawImage(img, 0, 0);
+        const d = x.getImageData(0, 0, cv.width, cv.height), p = d.data; for (let i = 0; i < p.length; i += 4){ const n = houseRemap(p[i] / 255, p[i + 1] / 255, p[i + 2] / 255, sk); if (n){ p[i] = n.r * 255; p[i + 1] = n.g * 255; p[i + 2] = n.b * 255; } }
+        x.putImageData(d, 0, 0); const t = m.map.clone(); t.source = new THREE.Source(cv); t.needsUpdate = true; c.map = t; }
+      else if (m.color){ const n = houseRemap(m.color.r, m.color.g, m.color.b, sk); if (n) c.color.copy(n); }
+      houseCache.set(k, c); return c; });
+    o.material = Array.isArray(o.material) ? nm : nm[0]; });
+  return root;
+}
+export async function bakeSkins({DPR, BD, base, only = ''}){
+  await loadAssets(base, () => {}); const SPR = {}, thumbs = {};
+  if (only !== 'elves') for (const sk of Object.keys(HOUSE_SKINS)) for (const t of [1, 2, 3]){
+    SPR[`b:santa:${t}@${sk}`] = bake(houseSkin(modelFor('santa', t), sk), {density: BD});
+    thumbs[(t === 1 ? 'santa' : 'santa:' + t) + '@' + sk] = bakeIcon(houseSkin(modelFor('santa', t), sk), 96, DPR);
+  }
+  if (only !== 'house') for (const [ok, hoods] of Object.entries(ELF_OUTFITS)) for (let v = 0; v < 3; v++){
+    const c = character('elf', elfLook(v, {hoods})); c.root.scale.setScalar(.38); c.mixer.update(.5); SPR[`elf:${v}@${ok}`] = bake(c.root, {density: BD});
+    const w = character('elf', elfLook(v, {hoods})); w.root.scale.setScalar(.38); w.play('Walking_A', 0);
+    const clip = w.actions.Walking_A.getClip(), g = new THREE.Group(); g.add(w.root);
+    [Math.PI / 2, 0, -Math.PI / 2, Math.PI].forEach((rot, d) => { w.root.rotation.y = rot;
+      for (let i = 0; i < WALK_N; i++){ w.mixer.setTime(clip.duration * i / WALK_N); g.updateMatrixWorld(true); SPR[`elfw:${v}:${d}:${i}@${ok}`] = bake(g, {density: BD}); } });
+  }
+  return {SPR, thumbs};
+}
 /* ---------- Flocon : un modèle par stade d'évolution (accessoires) et par skin (pelage recoloré) ---------- */
 export const PET_SKINS = {classic: null, frost: [.56, .45, 1.55, .2], mint: [.42, .5, 1.25, .1], ruby: [.98, .62, 1.05, .02], gold: [.125, .95, 1.12, .06], aurora: [.76, .55, 1.25, .1], choco: [.06, .45, .7, 0]};
 const furCache = new Map();

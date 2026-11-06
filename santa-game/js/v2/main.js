@@ -41,7 +41,7 @@ let tipI = Math.floor(Math.random() * TIPS.length);
 const tip = () => { const e = $('#tip'); if (e) e.textContent = TIPS[tipI++ % TIPS.length]; };
 tip(); const tipTimer = setInterval(tip, 3200);
 const bar = p => { const i = $('#loadbar i'); if (i) i.style.width = Math.max(3, Math.round(p * 100)) + '%'; };
-const SPR = {}, ICON = {}, thumbs = {};
+const SPR = {}, ICON = {}, thumbs = {}, SPRURL = {};
 let portrait = '', buildIcon = '';
 
 /** Charge le pack pré-rendu : un JSON + des images WebP. Renvoie false s'il manque. */
@@ -55,7 +55,8 @@ async function loadPack(){
   // et les bâtiments du village ; le reste se charge la première fois qu'il apparaît à l'écran.
   let saved0 = null; try { saved0 = JSON.parse(localStorage.getItem('village-du-pole-v5')); } catch(e){}
   const used = new Set((saved0?.objs || []).map(o => o.type));
-  const eager = k => !k.startsWith('b:') || used.has(k.slice(2).split(':')[0]) || /^b:(santa|sawmill|letters|orders|cabin|path|wildtree|tree|lantern|bench|gifts|reindeer|snowman|candy)/.test(k);
+  for (const k of keys) SPRURL[k] = dir + P.spr[k].f + q;
+  const eager = k => !k.includes('@') && (!k.startsWith('b:') || used.has(k.slice(2).split(':')[0]) || /^b:(santa|sawmill|letters|orders|cabin|path|wildtree|tree|lantern|bench|gifts|reindeer|snowman|candy)/.test(k));
   // Décodage en ImageBitmap (blob → createImageBitmap) : l'image est décodée une fois en pleine résolution et
   // n'est plus gérée par le cache d'images de Safari, qui « sous-échantillonne » les grandes images sur iPhone (flou).
   const bitmap = async src => { const r = await fetch(src); if (!r.ok) throw new Error('image ' + src); const bl = await r.blob();
@@ -76,7 +77,8 @@ const packed = !EXPORT && await loadPack().catch(() => false);
 if (!packed){
   // secours (ou fabrication du pack) : pré-rendu sur l'appareil à partir des modèles 3D
   $('#loadtxt').textContent = 'Préparation du village…';
-  const {bakeAll, bakeWalk, bakePets} = await import('./baker.js');
+  const {bakeAll, bakeWalk, bakePets, bakeSkins} = await import('./baker.js');
+  if (Q.get('export') === 'skins'){ const r = await bakeSkins({DPR, BD, base: ROOT + 'assets/', only: Q.get('only') || ''}); window.__export = {SPR: r.SPR, ICON: {}, thumbs: r.thumbs}; throw new Error('export prêt'); }
   if (Q.get('export') === 'pet'){ window.__export = {SPR: {}, ICON: await bakePets({DPR, base: ROOT + 'assets/'}), thumbs: {}}; throw new Error('export prêt'); }
   if (Q.get('export') === 'walk'){ window.__export = {SPR: await bakeWalk({BD, base: ROOT + 'assets/'}), ICON: {}, thumbs: {}}; throw new Error('export prêt'); }
   const out = await bakeAll({DPR, BD, bar, base: ROOT + 'assets/', extras: EXPORT});
@@ -217,6 +219,7 @@ function spriteKey(o){
   if (o.build) return 'site:' + Math.min(4, B(o).w);
   if (o.type === 'path') return ['b:path', 'b:path2', 'b:path3'][(o.x * 7 + o.y * 13) % 3];
   if (o.wild) return (o.x + o.y) % 3 ? 'b:wildtree' : 'b:wildtree2';
+  if (o.type === 'santa'){ const k = `b:santa:${tierOf(o.lv || 1)}`, sk = M.skinState(S).house, kk = k + '@' + sk; if (sk !== 'classic' && SPR[kk] && SPR[kk].canvas && SPR[kk].canvas.complete !== false) return kk; return k; }
   if (T.isUpgradable(B(o))) return `b:${o.type}:${tierOf(o.lv || 1)}`;
   return 'b:' + o.type;
 }
@@ -442,7 +445,7 @@ function draw(){
   const n = T.MAP / T.CHUNK;
   for (let cx = -1; cx <= n; cx++) for (let cy = -1; cy <= n; cy++){
     if (S.chunks.includes(`${cx},${cy}`)) continue;
-    items.push({d: (cx + cy + 1) * T.CHUNK, f: () => { const c = toScreen((cx + .5) * T.CHUNK, (cy + .5) * T.CHUNK); drawSprite('forest:' + Math.abs((cx * 7 + cy * 3) % 3), c.x, c.y); if (cx >= 0 && cy >= 0 && cx < n && cy < n && isNextToOpen(cx, cy)) sign(c.x, c.y, cx, cy); }});
+    items.push({d: (cx + cy + 1) * T.CHUNK, f: () => { const c = toScreen((cx + .5) * T.CHUNK, (cy + .5) * T.CHUNK); drawSprite('forest:' + Math.abs((cx * 7 + cy * 3) % 3), c.x, c.y); if (cx >= 0 && cy >= 0 && cx < n && cy < n && isNextToOpen(cx, cy) && !document.body.classList.contains('cine')) sign(c.x, c.y, cx, cy); }});
   }
   // allées : posées au sol, avant tout le reste
   for (const o of S.objs) if (o.type === 'path' && ghost?.move !== o) drawObj(o);
@@ -475,6 +478,13 @@ function draw(){
 }
 // Ambiance selon l'heure réelle : jour, crépuscule (16-18 h) rose orangé, nuit (18-7 h) bleu nuit,
 // avec les lampadaires et les fenêtres qui s'allument (comme les soirées d'hiver de Township). ?heure=21 pour tester.
+// grands écrans (tablette, PC) : interface à taille de téléphone agrandie, fenêtres centrées (voir body.wide dans index.html)
+function applyWide(){
+  const w = innerWidth, h = innerHeight, wide = w >= 700, z = wide ? Math.max(.62, Math.min(1.6, w / 700, h / 760)) : 1, r = document.documentElement.style;
+  document.body.classList.toggle('short', wide && h < 560);
+  document.body.classList.toggle('wide', wide); r.setProperty('--uiz', z.toFixed(3)); r.setProperty('--sheeth', Math.round(Math.min(h / z - 36, 880)) + 'px'); r.setProperty('--hudw', Math.round(Math.min(w / z - 120, 720)) + 'px');
+}
+applyWide(); addEventListener('resize', applyWide);
 const HOUR_FORCE = +new URLSearchParams(location.search).get('heure') || null;
 function nightLevel(){
   const d = new Date(), h = HOUR_FORCE ?? d.getHours() + d.getMinutes() / 60;
@@ -749,8 +759,9 @@ function drawVisitor(x, y){
   bubble(c.x, top, k, '?');
   visitorRect = {left: c.x - 36, right: c.x + 36, top: top - 64, bottom: c.y + 10};
 }
-function drawElf(e){ const c = toScreen(e.x, e.y); let s = elfSprites[e.v], bob = 0;
-  if (e.walk){ const f = SPR[`elfw:${e.v}:${e.dir || 0}:${Math.floor(e.phase * 9) % 8}`]; if (f && f.canvas && f.canvas.complete !== false) s = f; else bob = Math.abs(Math.sin(performance.now() / 120)) * 3; }
+const ready = k => { const x = SPR[k]; return x && x.canvas && x.canvas.complete !== false ? x : null; };
+function drawElf(e){ const c = toScreen(e.x, e.y), ot = M.skinState(S).elves, suf = ot === 'classic' ? '' : '@' + ot; let s = (suf && ready(`elf:${e.v}${suf}`)) || elfSprites[e.v], bob = 0;
+  if (e.walk){ const kf = `elfw:${e.v}:${e.dir || 0}:${Math.floor(e.phase * 9) % 8}`, f = (suf && ready(kf + suf)) || SPR[kf]; if (f && f.canvas && f.canvas.complete !== false) s = f; else bob = Math.abs(Math.sin(performance.now() / 120)) * 3; }
   ctx.drawImage(s.canvas, c.x - s.ax * cam.z, c.y - s.ay * cam.z - bob, s.w * cam.z, s.h * cam.z);
   // certains lutins portent une caisse au-dessus de la tête quand ils marchent
   if (e.carry && e.walk && ICON[e.carry]){ const im = img(ICON[e.carry]); if (im.complete){ const z = 22 * Math.max(.7, cam.z); ctx.drawImage(im, c.x - z / 2, c.y - 29 * cam.z - bob - z * .8, z, z); } } }
@@ -1097,20 +1108,23 @@ function renderPanel(){
       return `<div class="dest ${lock ? 'locked' : ''}"><div class="dt"><b>${d.name}</b><small>${fmtTime(d.time * T.deerSpeed(S, now()) / 1000)} · ${d.n} colis</small></div><div class="odds">${d.odds.map((p, r) => p ? `<i style="flex:${p};background:${T.RARITY[r].c}" title="${T.RARITY[r].name} ${p} %"></i>` : '').join('')}</div><div class="oddl">${d.odds.map((p, r) => p ? `<span style="color:${T.RARITY[r].c}">${T.RARITY[r].name} ${p} %</span>` : '').join('')}</div>
         ${lock ? `<span class="why">Écurie niv. ${d.lv}</span>` : `<div class="acts"><span class="costs">${costChips(T.expCost(S, d))}</span><button class="btn green sm" data-a="expgo" data-k="${d.k}" ${why && why !== 'Pas assez de biscuits pour les rennes' ? 'disabled' : ''}>Partir</button></div>`}</div>`; }).join('')}</div>
       <p class="meta">Les rennes rapportent des <b>colis mystère</b> : plus la destination est lointaine, plus les colis rares sont fréquents.</p>
-      <div class="acts"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Améliorer l'écurie (niv. ${o.lv})</button></div>`;
+      <div class="acts wrap2"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Fiche de l'écurie</button></div>`;
   }
   else if (panel === 'shop'){
-    const tab = panelArg || 'offers', tabs = [['offers', 'Offres'], ['stars', 'Étoiles'], ['res', 'Ressources'], ['chests', 'Coffres']];
+    const tab = panelArg || 'offers', tabs = [['offers', 'Offres'], ['skins', 'Skins'], ['stars', 'Étoiles'], ['res', '<span class="tl">Ressources</span><span class="ts">Ress.</span>'], ['chests', 'Coffres']];
     h = hd(`Tu as ${fmt(S.stars)} étoiles d'or`, 'Boutique') + `<div class="tabs">${tabs.map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" data-a="stab" data-k="${k}">${l}</button>`).join('')}</div>`;
     if (tab === 'offers'){
       const st = M.IAP.starter, deals = M.dailyDeals(S), P = M.pass(S);
-      h += `${S.iap?.starter ? '' : `<div class="offer big"><span class="ptag">${st.tag}</span><div><b>${st.name}</b><small>Une seule fois</small><span class="costs">${rewardChips(st.give)}</span></div><button class="btn green" data-a="iap" data-k="starter">${st.price}</button></div>`}
+      h += packCard(M.featuredPack().k, true) + `${S.iap?.starter ? '' : `<div class="offer big"><span class="ptag">${st.tag}</span><div><b>${st.name}</b><small>Une seule fois</small><span class="costs">${rewardChips(st.give)}</span></div><button class="btn green" data-a="iap" data-k="starter">${st.price}</button></div>`}
         ${P.premium ? '' : `<div class="offer gold"><div><b>Pass de Noël Or</b><small>Saison ${P.n} · ${M.SEASONS[(P.n - 1) % M.SEASONS.length]}</small><span class="meta">Double récompense à chaque palier : étoiles, lingots, colis légendaires.</span></div><button class="btn green" data-a="iap" data-k="pass">${M.IAP.pass.price}</button></div>`}
         <h3>Offres du jour <small class="meta">· nouvelles offres dans <b data-until="${new Date(new Date().setHours(24, 0, 0, 0)).getTime()}"></b></small></h3>
         <div class="deals">${deals.map(d => `<div class="deal ${d.done ? 'done' : ''}"><b>${d.name}</b><span class="costs">${rewardChips(d.give)}</span>${d.done ? '<span class="meta">Acheté ✓</span>' : `<button class="btn ${d.cost.stars ? 'gold' : 'blue'} sm" data-a="deal" data-k="${d.k}">${d.cost.stars ? `<i class="i star"></i>${d.cost.stars}` : `${icon('coins')}${fmt(d.cost.coins)}`}</button>`}</div>`).join('')}</div>
         <h3>Bâtisseurs</h3><div class="builders">${T.BUILDER_PRICE.map((p, i) => { const own = (S.extraBuilders || 0) > i, can = (S.extraBuilders || 0) === i;
           return `<div class="bcard ${own ? 'own' : ''}"><img src="${elfImg()}" alt=""><b>Bâtisseur ${i + 3}</b>${own ? '<span class="meta">Engagé</span>' : `<button class="btn ${can ? 'gold' : 'blue'} sm" data-a="builder" ${can ? '' : 'disabled'}><i class="i star"></i>${p}</button>`}</div>`; }).join('')}</div>`;
     }
+    if (tab === 'skins') h += `<p class="help">Change le look de ton village. Les apparences des packs exclusifs ne s'obtiennent nulle part ailleurs.</p>
+      ${[['house', 'Maison du Père Noël'], ['elves', 'Tenues des lutins'], ['pet', 'Flocon le renne']].map(([cat, t]) => `<h3>${t}</h3><div class="skingrid">${M.SKIN_LISTS[cat].map(d => skinCard(cat, d)).join('')}</div>`).join('')}
+      <h3>Packs exclusifs</h3>${Object.keys(M.PACKS).map(k => packCard(k)).join('')}`;
     if (tab === 'stars') h += `<p class="help">Les étoiles d'or terminent un chantier tout de suite, engagent des bâtisseurs, achètent des ressources et des coffres.</p><div class="packs">${['p1', 'p2', 'p3', 'p4', 'p5'].map(k => { const p = M.IAP[k]; return `<button class="pack" data-a="iap" data-k="${k}">${p.tag ? `<span class="ptag">${p.tag}</span>` : ''}<i class="i star"></i><b>${fmt(p.give.stars)}</b><small>${p.name}</small><span class="btn green sm">${p.price}</span></button>`; }).join('')}</div>`;
     if (tab === 'res') h += `<p class="help">Il te manque quelque chose ? Achète-le en étoiles d'or. Plus le paquet est gros, moins c'est cher à l'unité.</p>${['wood', 'cookies', 'fabric', 'coins', 'ice', 'gold'].map(k => `<div class="rshop"><div class="rsh">${resImg(k)}<b>${RINFO[k].name}</b><small>${qty(k)}</small></div><div class="rpacks">${M.resPacks(S, k).map((p, i) => `<button class="rpack" data-a="rbuy" data-k="${k}" data-i="${i}" ${p.n ? '' : 'disabled'}><small>${p.name}</small><b>${p.n ? '+' + fmt(p.n) : 'Stock plein'}</b>${p.n ? `<span><i class="i star"></i>${p.stars}</span>` : ''}</button>`).join('')}</div></div>`).join('')}`;
     if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture.</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
@@ -1250,7 +1264,7 @@ function renderPanel(){
   else if (panel === 'bld'){
     // fiche d'un bâtiment, comme Dragons of Atlantis : ce qu'il fait, ce que change le prochain niveau, le coût
     const o = panelArg, b = B(o), max = b.kind === 'hq' ? b.max : T.maxLv(S), next = o.lv + 1, c = T.upCost(o.type, next), why = T.upBlock(S, o);
-    const t0 = tierOf(o.lv), t1 = tierOf(next), img0 = t0 > 1 ? thumbs[o.type + ':' + t0] : thumbs[o.type], img1 = t1 > 1 ? thumbs[o.type + ':' + t1] : thumbs[o.type];
+    const t0 = tierOf(o.lv), t1 = tierOf(next), hs = o.type === 'santa' && M.skinState(S).house !== 'classic' ? '@' + M.skinState(S).house : '', th = k => thumbs[k + hs] || thumbs[k], img0 = th(t0 > 1 ? o.type + ':' + t0 : o.type), img1 = th(t1 > 1 ? o.type + ':' + t1 : o.type);
     const rows = T.stats(S, o).map(r => `<div class="srow"><span>${r.label}</span><b>${r.now}</b>${o.lv < max ? `<i class="arrow"></i><em>${r.next}</em>` : ''}</div>`).join('');
     let extra = '';
     if (b.kind === 'prod'){ const n = T.stored(S, o), buf = T.buffer(o.type, o.lv); extra = `<div class="work"><div class="bar"><i style="width:${n / buf * 100}%"></i></div><span>${fmt(n)} / ${fmt(buf)} ${ITEMS[b.res].name.toLowerCase()} dans le bâtiment${T.workRatio(S) < 1 ? ' · <b class="bad">pas assez de lutins !</b>' : ''}</span></div>${ripe(o) ? '<button class="btn gold wide" data-a="collect">Récolter</button>' : ''}`; }
@@ -1267,7 +1281,7 @@ function renderPanel(){
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
     if (b.kind === 'train') extra = '<button class="btn green wide" data-a="gotrain">Voir le train</button>';
     if (b.kind === 'lab') extra = '<button class="btn green wide" data-a="golab">Recherches</button>';
-    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
+    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn blue wide" data-a="shopskins">🎨 Changer l'apparence de la Maison</button>` + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
     h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt="">${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Au niv. ${next}</small></div>` : ''}</div><div class="say2"><b>${K.name}</b><span>${said}</span></div>
       ${extra}${b.kind === 'prod' ? keeperBox(o) : ''}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
@@ -1311,7 +1325,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'bulk'){ const o = panelArg, r = T.bulkDo(S, o, b.dataset.k, now()); if (typeof r === 'string'){ sfx.err(); return r === 'Ressources insuffisantes' ? showMissing(T.bulkOffers(S, o).find(x => x.k === b.dataset.k).want, 'Grande commande du Nord', null) : toast(r); } T.track(S, 'bulk'); closePanel(); return bravo(r, 'Grande commande du Nord'); }
   if (a === 'help'){ const o = panelArg, why = T.helpGive(S, o, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.helpCost(o), 'Coup de main des lutins', null) : toast(why); } T.track(S, 'help'); sfx.build(); toast('Les lutins accourent : chantiers accélérés !'); for (const x of S.objs) if ((x.build || x.up) > now()) bounceAt.set(x, performance.now()); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'sack'){ closePanel(); return openSack(); }
-  if (a === 'evbuy'){ const r = M.evBuy(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r.skin){ M.skinState(S).pet = r.skin; save(); sfx.level(); toast('Nouveau skin pour Flocon !'); return openPanel('pet'); } save(); if (r.deco){ sfx.level(); toast(`${BUILDINGS[r.deco].name} : à poser gratuitement`); return startPlace(r.deco); } closePanel(); return bravo(r.give, 'Boutique de l’événement'); }
+  if (a === 'evbuy'){ const r = M.evBuy(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r.skin){ save(); sfx.level(); toast(r.cat === 'elves' ? 'Nouvelle tenue pour les lutins !' : 'Nouveau skin pour Flocon !'); return r.cat === 'elves' ? openPanel('shop', 'skins') : openPanel('pet'); } save(); if (r.deco){ sfx.level(); toast(`${BUILDINGS[r.deco].name} : à poser gratuitement`); return startPlace(r.deco); } closePanel(); return bravo(r.give, 'Boutique de l’événement'); }
   if (a === 'showgo'){ const o = panelArg, sh = T.SHOWS.find(x => x.k === b.dataset.k), why = T.showStart(S, sh.k, now()); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.showCost(sh, o.lv), sh.name, null) : toast(why); } T.track(S, 'show'); sfx.level(); toast(`Lever de rideau ! Production +${Math.round(S.show.pct * 100)} %`); save(); panelHtml = ''; return renderPanel(); }
   if (a === 'evclaim'){ const i = +b.dataset.i, E = M.eventState(S); if (E.pts < M.EV_STEPS[i] || E.got[i]) return; S.ev.got[i] = 1; closePanel(); return bravo(M.eventReward(S, i), `${E.name} · palier ${i + 1}`); }
   if (a === 'wrap'){ S.wrapOn = !S.wrapOn; if (S.wrapOn && !(S.inv.paper > 0)) toast('Fabrique du papier cadeau à l’Atelier des jouets'); sfx.tap(); save(); return renderPanel(); }
@@ -1356,8 +1370,10 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'lore') return openPanel('lore');
   if (a === 'replay'){ closePanel(); return setTimeout(() => chapterCine(+b.dataset.i), 250); }
   if (a === 'pet') return openPanel('pet');
-  if (a === 'skinwear'){ M.skinState(S).pet = b.dataset.k; sfx.pop(); save(); return renderPanel(); }
-  if (a === 'skinbuy'){ const r = M.buySkin(S, b.dataset.k); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r){ sfx.err(); return showMissing(r, 'Skin de Flocon', null); } sfx.level(); toast('Flocon a un nouveau pelage !'); save(); return renderPanel(); }
+  if (a === 'skinwear'){ M.skinState(S)[b.dataset.c || 'pet'] = b.dataset.k; sfx.pop(); save(); toast('Nouvelle apparence !'); return renderPanel(); }
+  if (a === 'pack') return buyPack(b.dataset.k);
+  if (a === 'shopskins') return openPanel('shop', 'skins');
+  if (a === 'skinbuy'){ const r = M.buySkin(S, b.dataset.k, b.dataset.c || 'pet'); if (typeof r === 'string'){ sfx.err(); return toast(r); } if (r){ sfx.err(); return showMissing(r, 'Skin de Flocon', null); } sfx.level(); toast('Flocon a un nouveau pelage !'); save(); return renderPanel(); }
   if (a === 'fishcast') return fishCast();
   if (a === 'museum') return openPanel('museum');
   if (a === 'savepanel') return openPanel('save');
@@ -1597,6 +1613,35 @@ function whyHelp(o, why){
 }
 
 /* ---------- achats intégrés (simulés dans la version web) ---------- */
+function skinImg(cat, k){
+  if (cat === 'pet') return petImg(3, k);
+  if (cat === 'house') return k === 'classic' ? thumbs.santa : thumbs['santa@' + k] || thumbs.santa;
+  return k === 'classic' ? SPRURL['elf:0'] || elfImg() : SPRURL['elf:0@' + k] || elfImg();
+}
+function skinCard(cat, d){
+  const own = M.hasSkin(S, d.k, cat), wear = M.skinState(S)[cat] === d.k;
+  const act = wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-c="${cat}" data-k="${d.k}">Porter</button>`
+    : d.event ? '<small class="ev">❄ Événement</small>' : d.pack ? `<button class="btn green sm" data-a="pack" data-k="${d.pack}">Pack ${M.PACKS[d.pack].price}</button>`
+    : `<button class="btn gold sm" data-a="skinbuy" data-c="${cat}" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`;
+  return `<div class="ps ${wear ? 'wear' : ''} ${cat === 'elves' ? 'elf' : ''}">${d.pack && !own ? '<span class="excl">Exclusif</span>' : ''}<img src="${skinImg(cat, d.k)}" alt=""><b>${d.name}</b>${act}</div>`;
+}
+function packCard(k, featured = false){
+  const P = M.PACKS[k], owned = M.packOwned(S, k), F = M.featuredPack();
+  if (featured && owned) return '';
+  return `<div class="xpack ${featured ? 'feat' : ''}"><span class="ptag">${featured ? 'Cette semaine' : P.tag}</span><div class="xpimgs">${P.skins.map(([c, s2]) => `<img src="${skinImg(c, s2)}" alt="">`).join('')}</div>
+    <div class="xpinfo"><b>${P.name}</b><small>${P.skins.map(([c, s2]) => M.SKIN_LISTS[c].find(x => x.k === s2).name).join(' · ')}</small><span class="costs">${rewardChips(P.give)}</span>${featured ? `<small class="meta">Disponible encore <b data-until="${F.end}"></b></small>` : ''}</div>
+    ${owned ? '<span class="tagw">Acheté ✓</span>' : `<button class="btn green" data-a="pack" data-k="${k}">${P.price}</button>`}</div>`;
+}
+function buyPack(k){
+  const P = M.PACKS[k]; if (!P || M.packOwned(S, k)){ sfx.err(); return toast('Déjà à toi'); }
+  const m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Pack exclusif</small><h2 class="stroke">${P.name}</h2><div class="xpimgs big">${P.skins.map(([c, s2]) => `<img src="${skinImg(c, s2)}" alt="">`).join('')}</div><div class="costs" style="justify-content:center">${rewardChips(P.give)}</div>
+    <div class="rrow"><small>Version de test</small><p>Ici l'achat est <b>simulé et gratuit</b>. Dans la version App Store, le paiement de <b>${P.price}</b> passera par Apple.</p></div>
+    <div class="acts"><button class="btn green" data-m="buy">Acheter · ${P.price}</button><button class="btn blue" data-m="ok">Annuler</button></div>`;
+  m.hidden = false;
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'buy') return;
+    S.iap ||= {}; S.iap[k] = (S.iap[k] || 0) + 1; for (const [c, s2] of P.skins) M.ownSkin(S, c, s2); closePanel(); save(); bravo(P.give, P.name + ' : apparences débloquées', 'MERCI !'); };
+}
 function buyIap(k){
   const p = M.IAP[k]; if (!p) return; S.iap ||= {};
   if (p.once && S.iap[k]){ sfx.err(); return toast('Déjà acheté'); }
@@ -1744,7 +1789,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 74;
+const GAME_V = 75;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();

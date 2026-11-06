@@ -276,7 +276,7 @@ export function loadTown(){
       s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
       for (const o of s.objs) delete o.bounce;
       thinTrees(s);   // ancien rebond sauvegardé par erreur : il déformait les bâtiments
-      spaceOut(s); clearUnder(s);
+      spaceOut(s); fixOverlaps(s); clearUnder(s);
       return s;
     }
   } catch(e){}
@@ -549,6 +549,23 @@ export function spotFree(s, type, x, y, ignore){
 }
 /** Ancien village trop serré : on écarte les bâtiments depuis la Maison et on garde une case libre autour de chacun. */
 /** Allées, décorations ou sapins coincés sous un bâtiment (anciens villages) : on les retire. */
+/** Deux bâtiments qui se chevauchent (ou collés sans l'espace minimum) : le second part à la place libre la plus proche. */
+export function fixOverlaps(s){
+  const blds = s.objs.filter(isBld), placed = []; let moved = 0;
+  const okTile = (x, y) => x >= 0 && y >= 0 && x < MAP && y < MAP && s.chunks.includes(`${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`);
+  const fitsAt = (o, x, y) => { const b = BUILDINGS[o.type];
+    for (let i = 0; i < b.w; i++) for (let j = 0; j < b.h; j++) if (!okTile(x + i, y + j)) return false;
+    return placed.every(p => { const pb = BUILDINGS[p.type], g = gapOf(b, pb); return !(x < p.x + pb.w + g && x + b.w + g > p.x && y < p.y + pb.h + g && y + b.h + g > p.y); }); };
+  blds.sort((a, b) => (b.type === 'santa') - (a.type === 'santa'));
+  for (const o of blds){
+    if (!fitsAt(o, o.x, o.y)){ let best = null;
+      for (let r = 1; r < 40 && !best; r++) for (let dx = -r; dx <= r && !best; dx++) for (let dy = -r; dy <= r && !best; dy++){
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; if (fitsAt(o, o.x + dx, o.y + dy)) best = [o.x + dx, o.y + dy]; }
+      if (best){ o.x = best[0]; o.y = best[1]; moved++; } }
+    placed.push(o);
+  }
+  return moved;
+}
 export function clearUnder(s){
   const blds = s.objs.filter(isBld);
   s.objs = s.objs.filter(o => isBld(o) || !blds.some(p => { const pb = BUILDINGS[p.type], ob = BUILDINGS[o.type]; return o.x < p.x + pb.w && o.x + ob.w > p.x && o.y < p.y + pb.h && o.y + ob.h > p.y; }));

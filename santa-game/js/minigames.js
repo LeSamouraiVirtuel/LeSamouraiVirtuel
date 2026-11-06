@@ -24,7 +24,7 @@ export async function openMinigame(kind, ctx){
   const cv = root.querySelector('canvas'), x = cv.getContext('2d');
   const dpr = Math.min(2, devicePixelRatio || 1);
   let W, H;
-  const resize = () => { W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px'; x.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  const resize = () => { W = root.clientWidth || innerWidth; H = root.clientHeight || innerHeight; cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px'; x.setTransform(dpr, 0, 0, dpr, 0, 0); };
   resize(); addEventListener('resize', resize);
   const img = {};
   await Promise.all(Object.entries(ctx.icons).map(async ([k, v]) => { img[k] = await load(v); }));

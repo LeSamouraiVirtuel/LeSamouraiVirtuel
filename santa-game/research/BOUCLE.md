@@ -312,3 +312,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Haches et scies manquantes achetables dans la fenêtre « Agrandir » (pièces ou étoiles).
 - Flocon : 6 stades visibles (écharpe, cloche, couverture, étoiles, halo, couronne) × 7 pelages ; garde-robe (étoiles) + skins Doré et Aurore dans la boutique d'événement.
 - Fenêtre BRAVO : les rayons étaient coupés en rectangle (overflow) → corrigé.
+
+## Tour 57 (v75)
+- Grands écrans : interface à taille de téléphone agrandie (--uiz), fenêtres en carte centrée, barre du bas 600 px, mini-jeux en colonne ; téléphone à l'horizontale : interface réduite.
+- Réparation automatique des bâtiments superposés au chargement (fixOverlaps) ; audit automatique des textes (coupés, débordants, chevauchés) sur toutes les fenêtres : 0 problème restant sur iPhone SE.
+- Skins : Maison ×4 (pain d'épices, bois, glace, royal) × 3 apparences, tenues des lutins ×4 (avec marche), onglet Skins de la boutique, 3 packs exclusifs + pack de la semaine, tenue givrée en événement (tools/export-skins.mjs).
+- Étude des 20 jeux : research/jeux/*.md + SYNTHESE.md.
