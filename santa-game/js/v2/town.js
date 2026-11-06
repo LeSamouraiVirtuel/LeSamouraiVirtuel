@@ -322,8 +322,8 @@ export const maxOf = (s, type) => {
   if (b.kind === 'path') return Infinity;
   return 99;
 };
-export const has = (s, req) => Object.entries(req).every(([k, n]) => (RES.includes(k) || k === 'stars' ? s[k] || 0 : s.inv[k] || 0) >= n);
-export const take = (s, req) => { for (const [k, n] of Object.entries(req)){ if (RES.includes(k) || k === 'stars') s[k] -= n; else s.inv[k] = (s.inv[k] || 0) - n; } };
+export const has = (s, req) => Object.entries(req || {}).every(([k, n]) => (RES.includes(k) || k === 'stars' ? s[k] || 0 : s.inv[k] || 0) >= n);
+export const take = (s, req) => { for (const [k, n] of Object.entries(req || {})){ if (RES.includes(k) || k === 'stars') s[k] -= n; else s.inv[k] = (s.inv[k] || 0) - n; } };
 export function give(s, k, n = 1){ if (RES.includes(k) || k === 'stars') s[k] = (s[k] || 0) + n; else s.inv[k] = (s.inv[k] || 0) + n; }
 export const busyBuilders = (s, now = Date.now()) => s.objs.filter(o => (o.build && o.build > now) || (o.up && o.up > now)).length;
 export function buildBlock(s, type){
@@ -355,7 +355,7 @@ export const toysAvailable = s => TOY_KEYS.filter(k => TOYS[k].lvl <= s.lvl);
 export function makeOrder(s, bureauLv = 1){
   const av = toysAvailable(s), n = av.length > 1 && Math.random() < .4 ? 2 : 1, items = {};
   for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
-  const value = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].value * q, 0), xp = Object.entries(items).reduce((a, [k, q]) => a + TOYS[k].xp * q, 0);
+  const value = Object.entries(items || {}).reduce((a, [k, q]) => a + TOYS[k].value * q, 0), xp = Object.entries(items || {}).reduce((a, [k, q]) => a + TOYS[k].xp * q, 0);
   const m = orderBonus(bureauLv);
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const used = new Set((s.orders || []).map(o => o?.kid)), kid = pick(KIDS.filter(k => !used.has(k)).length ? KIDS.filter(k => !used.has(k)) : KIDS);
@@ -726,7 +726,7 @@ export const SHOP = [
 export const PICK_REFILL = 6;              // remplir les pioches de la grotte
 export const missingStars = (s, req) => {  // acheter les ressources qui manquent (comme Clash of Clans)
   let n = 0;
-  for (const [k, q] of Object.entries(req)){
+  for (const [k, q] of Object.entries(req || {})){
     const lack = Math.max(0, q - (RES.includes(k) ? s[k] || 0 : s.inv[k] || 0)); if (!lack) continue;
     n += k === 'gold' ? lack * 6 : k === 'ice' ? lack * 1.5 : k === 'stars' ? Infinity : k === 'axe' || k === 'saw' ? lack * 15 : TOYS[k] ? lack * Math.max(2, Math.ceil(TOYS[k].value / 120)) : Math.pow(lack, .7) / 4;
   }
@@ -884,8 +884,8 @@ export const JOBS = {
 // Les quantités sont des « heures de production » du bâtiment : elles suivent son niveau.
 export function jobPlan(s, o, j){
   const per = rate(o.type, o.lv), give = {}, cost = {};
-  for (const [k, h] of Object.entries(j.give)) give[k] = R5(h * (k === BUILDINGS[o.type].res ? per : per * .5));
-  for (const [k, n] of Object.entries(j.cost)) cost[k] = R5(n * (1 + (o.lv - 1) * .4));
+  for (const [k, h] of Object.entries(j.give || {})) give[k] = R5(h * (k === BUILDINGS[o.type].res ? per : per * .5));
+  for (const [k, n] of Object.entries(j.cost || {})) cost[k] = R5(n * (1 + (o.lv - 1) * .4));
   return {give, cost, time: j.time};
 }
 export function jobStart(s, o, k, now = Date.now()){
@@ -923,7 +923,7 @@ export function visitorTick(s, now = Date.now()){
   let want;
   if (toys.length && Math.random() < .5){ const k = pick(toys); want = {[k]: 1 + Math.floor(Math.random() * Math.min(3, s.inv[k]))}; }
   else { const k = pick(['wood', 'cookies', 'fabric'].filter(k => k !== 'fabric' || s.objs.some(o => o.type === 'mill'))); want = {[k]: R5((80 + L * 40) * (.8 + Math.random() * .6))}; }
-  const value = Object.entries(want).reduce((a, [k, n]) => a + (TOYS[k] ? TOYS[k].value * n : n * .9), 0);
+  const value = Object.entries(want || {}).reduce((a, [k, n]) => a + (TOYS[k] ? TOYS[k].value * n : n * .9), 0);
   const give = {coins: R5(value * 1.6), xp: Math.round(6 + value / 25)};
   const r = Math.random(); if (r < .12) give.stars = 1; else if (r < .35 && L >= 5) give.ice = 2 + Math.floor(L / 4); else if (r < .5) give[Math.random() < .5 ? 'axe' : 'saw'] = 1;
   s.visitor = {...v, want, give, until: now + 20 * 60e3};
@@ -1096,7 +1096,7 @@ export function trainWagon(s){
   else if (r < .8 && toys.length) want[pickOne(toys)] = 2 + Math.floor(Math.random() * Math.min(5, 1 + L / 6));
   else if (L >= 7) want.ice = 3 + Math.floor(L / 4 + Math.random() * 4);
   else want.wood = R5(150 * (1 + L * .45));
-  const val = Object.entries(want).reduce((a, [k, n]) => a + (TOYS[k] ? TOYS[k].value * n * 1.2 : k === 'ice' ? n * 60 : n * 1.2), 0);
+  const val = Object.entries(want || {}).reduce((a, [k, n]) => a + (TOYS[k] ? TOYS[k].value * n * 1.2 : k === 'ice' ? n * 60 : n * 1.2), 0);
   const rw = {coins: R5(val * 1.25), xp: Math.round(8 + L * 1.5)}, b = Math.random();
   if (b < .2) rw.ice = 2 + Math.floor(L / 5); else if (b < .3 && L >= 11) rw.gold = 1; else if (b < .42) rw[Math.random() < .5 ? 'axe' : 'saw'] = 1; else if (b < .55) rw.parcel = 1;
   return {want, rw, done: false};

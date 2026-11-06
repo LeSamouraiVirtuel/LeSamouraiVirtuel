@@ -297,7 +297,7 @@ function deliver(i, el){
   if (wrap){ S.inv.paper -= need; T.track(S, 'wrap', need); if (Math.random() < T.WRAP_STAR){ S.stars += 1; setTimeout(() => { fly('stars', 1, el); toast('Un enfant ravi t’offre une étoile d’or !'); }, 400); } }
   const pay = Math.round(od.coins * T.albumBonus(S) * m);
   T.take(S, od.items); S.coins += pay; fly('coins', pay, el); gainXp(Math.round(od.xp * m), el);
-  for (const [k, q] of Object.entries(od.items)) T.track(S, 'deliver:' + k, q);
+  for (const [k, q] of Object.entries(od.items || {})) T.track(S, 'deliver:' + k, q);
   if (od.mat){ T.give(S, od.mat); setTimeout(() => fly(od.mat, 1, el), 300); }
   if (od.stars){ S.stars += od.stars; }
   T.track(S, 'orders'); M.passAdd(S, 5); S.orders[i] = {wait: now() + 15000}; sfx.level(); tutoEv('deliver'); save(); renderPanel();
@@ -959,8 +959,8 @@ let panel = null, panelArg = null, panelHtml = '', selOrder = 0;
 function openPanel(name, arg){ if (name !== 'craft'){ fromOrder = false; wantToy = ''; } closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
 function closePanel(){ const was = panel; panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
 const hd = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
-const need = req => Object.entries(req).map(([k, n]) => `<span class="need ${haveOf(k) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${fmt(haveOf(k))}/${fmt(n)}</b></span>`).join('');
-const costChips = req => Object.entries(req).map(([k, n]) => `<span class="chip ${haveOf(k) < n ? 'bad' : ''}">${k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join('');
+const need = req => Object.entries(req || {}).map(([k, n]) => `<span class="need ${haveOf(k) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${fmt(haveOf(k))}/${fmt(n)}</b></span>`).join('');
+const costChips = req => Object.entries(req || {}).map(([k, n]) => `<span class="chip ${haveOf(k) < n ? 'bad' : ''}">${k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join('');
 function renderPanel(){
   if (!panel) return;
   let h = '';
@@ -974,7 +974,7 @@ function renderPanel(){
     const detail = od?.items ? `<div class="od">
         <div class="letter"><p>${od.msg || 'Cher Père Noël, voici ma liste !'}</p><i>— ${od.kid}${od.age ? `, ${od.age} ans, ${od.city}` : ''}</i></div>
         <div class="odh"><small>Récompense${wrapOk(od) ? ' · emballée' : ''}</small><span class="rw"><span>${icon('coins')}${Math.round(od.coins * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span><span><i class="i xp">XP</i>${Math.round(od.xp * (wrapOk(od) ? T.WRAP_BONUS : 1))}</span>${od.mat ? `<span><img class="i" src="${ICON[od.mat]}" alt="">1</span>` : ''}${od.stars ? `<span><i class="i star"></i>${od.stars}</span>` : ''}</span></div>
-        <div class="big">${Object.entries(od.items).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : `<button class="loupe" data-a="findtoy" data-k="${k}" aria-label="Où le fabriquer ?">🔍</button>`}<b>${Math.min(h, n)}/${n}</b>${h > n ? `<small class="inst">${h} en stock</small>` : ''}</div>`; }).join('')}</div>
+        <div class="big">${Object.entries(od.items || {}).map(([k, n]) => { const h = S.inv[k] || 0; return `<div class="bi ${h >= n ? 'have' : ''}"><img src="${ICON[k]}" alt="">${h >= n ? '<i class="ck"></i>' : `<button class="loupe" data-a="findtoy" data-k="${k}" aria-label="Où le fabriquer ?">🔍</button>`}<b>${Math.min(h, n)}/${n}</b>${h > n ? `<small class="inst">${h} en stock</small>` : ''}</div>`; }).join('')}</div>
         ${S.lvl >= TOYS.paper.lvl ? `<button class="wrapbtn ${S.wrapOn ? 'on' : ''}" data-a="wrap"><img src="${ICON.paper}" alt=""><span><b>Emballer · ${T.wrapNeed(od)} papier${T.wrapNeed(od) > 1 ? 's' : ''} cadeau</b><small>${S.inv.paper || 0} en stock · +50 % pièces et XP, parfois une étoile</small></span><i class="tog"></i></button>` : ''}
         <div class="oacts"><button class="trash" data-a="trash" data-i="${selOrder}" aria-label="Remplacer cette commande"></button><button class="btn green" data-a="deliver" data-i="${selOrder}" ${T.has(S, od.items) ? '' : 'disabled'}>Livrer</button></div>
       </div>` : '<p class="meta">De nouvelles commandes arrivent…</p>';
@@ -1175,7 +1175,7 @@ function renderPanel(){
       const mer = M.merchant(S), toys = T.TOY_KEYS.filter(k => S.inv[k] > 0);
       const An = M.auction(S).lots.length;
       h = hd('Revends ton surplus, achète au marchand', 'Marché du village') + `<div class="aucentry"><img src="${thumbs.gifts}" alt=""><div><b>Salle des ventes</b><small>${An ? `${An} lot${An > 1 ? 's' : ''} perdu${An > 1 ? 's' : ''} à gagner contre des rivaux` : 'Nouveaux lots bientôt'}</small></div><button class="btn gold sm" data-a="auction">Enchérir</button></div><h3>Le marchand ambulant <small class="meta">· aujourd'hui il est <b>${mer.mood}</b></small></h3>
-        <div class="deals">${mer.offers.map(o => `<div class="deal ${o.left <= 0 ? 'done' : ''}"><b>${Object.entries(o.give).map(([k, n]) => { const nm = (RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase(); return `${fmt(n)} ${n > 1 ? nm : nm.replace(/^(\S+)s\b/, '$1')}`; }).join(', ')}</b><span class="costs">${rewardChips(o.give)}</span><small class="meta">encore ${Math.max(0, o.left)} aujourd'hui</small>${o.left > 0 ? `<button class="btn blue sm" data-a="mbuy" data-k="${o.k}">${icon('coins')}${fmt(o.cost.coins)}</button>` : '<span class="meta">Épuisé</span>'}</div>`).join('')}</div>
+        <div class="deals">${mer.offers.map(o => `<div class="deal ${o.left <= 0 ? 'done' : ''}"><b>${Object.entries(o.give || {}).map(([k, n]) => { const nm = (RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase(); return `${fmt(n)} ${n > 1 ? nm : nm.replace(/^(\S+)s\b/, '$1')}`; }).join(', ')}</b><span class="costs">${rewardChips(o.give)}</span><small class="meta">encore ${Math.max(0, o.left)} aujourd'hui</small>${o.left > 0 ? `<button class="btn blue sm" data-a="mbuy" data-k="${o.k}">${icon('coins')}${fmt(o.cost.coins)}</button>` : '<span class="meta">Épuisé</span>'}</div>`).join('')}</div>
         <h3>Vendre des ressources</h3><div class="mlist">${Object.entries(M.SELL_RATE).map(([k, r0]) => { const r = Math.round(r0 * (1 + T.zoneB(S, 'sell')) * 100) / 100, n = Math.floor((S[k] || 0) * .25);
           return `<div class="mis"><div><b>${RINFO[k].name}</b><small>${fmt(S[k] || 0)} en stock · 1 ${RINFO[k].name.toLowerCase().replace(/s$/, '')} = ${String(r).replace('.', ',')} pièce${r > 1 ? 's' : ''}</small></div><button class="btn green sm" data-a="sell" data-k="${k}" ${n >= 10 ? '' : 'disabled'}>Vendre ${fmt(n)} → ${icon('coins')}${fmt(Math.floor(n * r))}</button></div>`; }).join('')}</div>
         <h3>Vendre des jouets</h3><div class="mlist">${toys.length ? toys.map(k => `<div class="mis"><div><b>${ITEMS[k].name}</b><small>${S.inv[k]} en stock · gardés pour les lettres ?</small></div><button class="btn green sm" data-a="selltoy" data-k="${k}">Vendre 1 → ${icon('coins')}${M.sellToy(k)}</button></div>`).join('') : '<p class="meta">Aucun jouet en stock.</p>'}</div>`;
@@ -1189,7 +1189,7 @@ function renderPanel(){
         <button class="btn ${sp ? 'gold' : 'green'}" data-a="tspeed">${sp ? `Faire revenir <i class="i star"></i>${sp}` : 'Faire revenir gratuitement'}</button></div>`; }
     else { const W = st.tr.wag, n = W.filter(w => w.done).length;
       h = hd(`Gare niv. ${o.lv} · ${n} / ${W.length} wagons chargés`, 'Le train est à quai') + `<p class="help">Charge les wagons : chacun donne sa récompense tout de suite. Si le train part <b>plein</b>, bonus en plus !</p>
-        <div class="wagons">${W.map((w, i) => { const [k, q] = Object.entries(w.want)[0], hv = haveOf(k);
+        <div class="wagons">${W.map((w, i) => { const [k, q] = Object.entries(w.want || {x: 0})[0], hv = haveOf(k);
           return `<div class="wagon ${w.done ? 'done' : ''}"><div class="wt">${resImg(k)}<b>${fmt(q)}</b><small>${w.done ? 'Chargé' : `${fmt(Math.min(hv, q))} / ${fmt(q)}`}</small></div><div class="costs">${rewardChips(w.rw)}</div>${w.done ? '<span class="ok">✓</span>' : `<button class="btn ${hv >= q ? 'green' : 'blue'} sm" data-a="tload" data-i="${i}">${hv >= q ? 'Charger' : 'Où trouver ?'}</button>`}</div>`; }).join('')}</div>
         <div class="tbonus"><span>Bonus train complet</span><span class="costs">${rewardChips(T.trainBonus(S))}</span></div>
         <button class="btn ${n === W.length ? 'green' : 'blue'} wide" data-a="tsend">${n === W.length ? 'Faire partir le train plein !' : `Faire partir le train (${n} / ${W.length})`}</button>`; }
@@ -1534,7 +1534,7 @@ function digCell(i, el){
   const c = S.mine.cells[i], r = res.r; c.got = Object.keys(r).find(k => k !== 'picks' && k !== 'parcel');
   if (r.parcel != null) c.r = r.parcel;
   T.track(S, 'dig');
-  const give = {}; for (const [k, n] of Object.entries(r)) if (k !== 'picks' && k !== 'parcel') give[k] = n;
+  const give = {}; for (const [k, n] of Object.entries(r || {})) if (k !== 'picks' && k !== 'parcel') give[k] = n;
   if (Object.keys(give).length) giveReward(give, el); else sfx.tap();
   if (res.k === 'stairs') toast("L'escalier ! Tu peux descendre.");
   if (res.k === 'pick') toast('+2 pioches !');
@@ -1607,7 +1607,7 @@ function goTo(where){
 }
 /** Ce qui manque pour une action : combien, où le trouver, et la possibilité de compléter en étoiles d'or. */
 function showMissing(req, what, retry){
-  const lack = Object.entries(req).map(([k, n]) => [k, n - haveOf(k)]).filter(([, d]) => d > 0);
+  const lack = Object.entries(req || {}).map(([k, n]) => [k, n - haveOf(k)]).filter(([, d]) => d > 0);
   if (!lack.length) return retry?.();
   const st = T.missingStars(S, Object.fromEntries(lack.map(([k]) => [k, req[k]]))), m = $('#modal'); m.className = 'glow rinfo';
   m.querySelector('.mcard').innerHTML = `<small>${what}</small><h2 class="stroke">Il te manque…</h2>
@@ -1731,7 +1731,7 @@ setInterval(() => { if (modalQ.length && !modalBusy()) modalQ.shift()(); }, 450)
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
   if (modalBusy()) return void modalQ.push(() => bravo(r, sub, title));
   const m = $('#modal'); m.className = 'cere bravo';
-  const cards = Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<div class="rcard r-${k}">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : `<img src="${ICON[k]}" alt="">`}<b>${fmt(n)}</b></div>`).join('');
+  const cards = Object.entries(r || {}).filter(([, n]) => n).map(([k, n]) => `<div class="rcard r-${k}">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : `<img src="${ICON[k]}" alt="">`}<b>${fmt(n)}</b></div>`).join('');
   m.querySelector('.mcard').innerHTML = `<div class="rays"></div><h2${title.length > 9 ? ' class="long"' : ''}>${title}</h2><small>${sub}</small><div class="rcards ${Object.values(r).filter(Boolean).length > 4 ? 'many' : ''}">${cards}</div><button class="okc" data-m="ok" aria-label="OK"></button>`;
   m.hidden = false; sfx.level();
   m.onclick = e => { if (!e.target.closest('[data-m]')) return; m.hidden = true; giveReward(r, m.querySelector('.rcards') || $('#quest2')); if (pendingStory >= 0){ const k = pendingStory; pendingStory = -1; setTimeout(() => story(k), 900); } };
@@ -1739,7 +1739,7 @@ function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
 
 /* ---------- tâche en cours (carte en bas à gauche) ---------- */
 let questHtml = '';
-function rewardChips(r){ return Object.entries(r).filter(([, n]) => n).map(([k, n]) => `<span class="chip">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join(''); }
+function rewardChips(r){ return Object.entries(r || {}).filter(([, n]) => n).map(([k, n]) => `<span class="chip">${k === 'xp' ? '<i class="i xp">XP</i>' : k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join(''); }
 function renderQuest(){
   const {q, v, done} = T.questProgress(S);
   const ch = T.chapterOf(S.quest.i), ct = T.CHAPTERS[ch];
@@ -1747,7 +1747,7 @@ function renderQuest(){
   if (h !== questHtml){ questHtml = h; $('#quest2').innerHTML = h; $('#quest2').classList.toggle('done', done); }
 }
 function giveReward(r, el){
-  for (const [k, n] of Object.entries(r)){
+  for (const [k, n] of Object.entries(r || {})){
     if (!n || k === 'xp') continue;
     if (k === 'stars'){ S.stars += n; continue; }
     if (k === 'parcel'){ S.parcels ||= []; for (let j = 0; j < n; j++) S.parcels.push(1); continue; }
@@ -1814,7 +1814,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 76;
+const GAME_V = 77;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
