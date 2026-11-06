@@ -283,5 +283,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Trouvé grâce à la vidéo du joueur (images successives : Maison énorme, puis fine, puis plate). Reproduit sur la version en ligne avec une sauvegarde contenant ce rebond.
 - Correction : le rebond n'est plus jamais sauvegardé (mémoire à part), un âge négatif est ignoré, et les anciennes sauvegardes sont nettoyées au chargement.
 
+## Tour 53 — Village plus beau, toucher précis, bataille façon jeux d'arcade
+- Socles retirés : les bâtiments sont posés sur une fine dalle de neige au ras du sol (pack régénéré). Couleurs des images +28 % de saturation ; nuit beaucoup plus douce ; missions et coffres colorés.
+- Beaucoup moins de sapins sauvages (34 au lieu de 140 à la création, éclaircissement des anciens villages) ; les terrains réservés ne sont plus affichés sur la carte.
+- Toucher précis : on teste la vraie silhouette dessinée (pixels opaques), bâtiments d'abord, puis décorations ; allées et sapins en dernier.
+- Bataille refaite façon publicités TikTok (Kingdom Shot) : Pépin sur sa tour avec un canon à neige, on garde le doigt pour viser (trajectoire en pointillés), tir en rafale, portails ×2 / ×3 qui multiplient les boules, explosions de zone, vagues avec 3 bonus au choix entre chacune (tir double, dégâts, cadence, explosion, portail ×3, réparer).
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).

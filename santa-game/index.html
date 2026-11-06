@@ -1460,7 +1460,26 @@ body.cine #hud2,body.cine #sideR,body.cine #sideL2,body.cine #tabbar,body.cine #
 .b-float{position:absolute;left:50%;top:32%;font:400 30px var(--display);-webkit-text-stroke:2px #141a33;paint-order:stroke fill;pointer-events:none;white-space:nowrap}
 .b-hearts{display:block;color:#e0405a;font-size:13px!important;letter-spacing:1px;text-transform:none!important}
 .b-load{position:absolute;inset:0;display:grid;place-items:center;font:400 22px var(--display);color:#fff;background:#2a3f7a}
-.d-pow.b3{justify-content:flex-end;padding-right:14px}
+.d-pow.b3{left:auto;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 150px);flex-direction:column;gap:10px}
+/* plus de couleur (retour joueur : trop fade) */
+.mch .pbox{filter:saturate(1.2)!important}.mch.got .pbox{opacity:.5}
+.mchests .mch{background:linear-gradient(180deg,#fff,#fff3d6)!important;border-color:#f0c060!important}
+.mchests .mch:nth-child(1){background:linear-gradient(180deg,#e6f1ff,#c8e0ff)!important;border-color:#5aa0ff!important}
+.mchests .mch:nth-child(2){background:linear-gradient(180deg,#f3e6ff,#e0c8ff)!important;border-color:#a060ff!important}
+.mchests .mch:nth-child(3){background:linear-gradient(180deg,#fff0dc,#ffd9a8)!important;border-color:#ff9a2a!important}
+.mchests .mch .pbox{width:48px!important;height:48px!important}
+.mprog{height:16px!important;background:#3a2a1e!important;border-radius:8px!important;overflow:hidden}.mprog i{display:block;height:100%;background:linear-gradient(90deg,#ffd23a,#ff8a1c)!important}
+.mis .bar{height:10px!important;border-radius:5px!important;background:#ecdcbc!important;overflow:hidden}.mis .bar i{background:linear-gradient(90deg,#5fd36a,#2fae4a)!important}
+.mis{background:linear-gradient(180deg,#fffdf6,#fff4dc)!important;border-color:#f0d9a8!important}
+#sheet{background:linear-gradient(180deg,#fff1d0,#f6dfb0)!important}
+#sheet h3{color:#b0402a!important}
+.b-wave{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 74px);text-align:center;font:400 18px var(--display);color:#fff;-webkit-text-stroke:1.5px #141a33;paint-order:stroke fill;pointer-events:none}
+.b-cards[hidden]{display:none!important}
+.b-cards{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,16,40,.6);padding:20px;text-align:center}
+.b-cards h3{font:400 30px var(--display);color:#ffd34a;-webkit-text-stroke:2px #141a33;paint-order:stroke fill;margin:0}.b-cards p{color:#fff;font-weight:700;margin:4px 0 14px}
+.b-cards .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:440px}
+.b-cards button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 6px;border-radius:16px;border:3px solid #141a33;background:linear-gradient(180deg,#fff7dc,#ffd98a);font:inherit;color:#5a3a1e;box-shadow:0 5px 0 #8a5a20;animation:popin .35s cubic-bezier(.2,1.5,.4,1)}
+.b-cards button span{font-size:34px}.b-cards button b{font:400 15px var(--display);color:#b0402a}.b-cards button small{font-size:12px;line-height:1.25}
 </style>
 <canvas id="c"></canvas>
 <div id="hud2">
@@ -1527,4 +1546,4 @@ window.addEventListener('unhandledrejection', e => { const l = document.getEleme
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="js/v2/main.js?v=69"></script>
+<script type="module" src="js/v2/main.js?v=70"></script>

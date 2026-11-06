@@ -31,22 +31,22 @@ export async function openBattle(ctx){
   const C = ctx.camp, root = document.createElement('div'); root.id = 'mg'; root.className = 'mg-b3';
   root.innerHTML = `<canvas></canvas>
     <div class="mg-hud"><div class="mg-pill"><small>Monstres</small><b class="b-left">0</b></div><div class="mg-pill wide"><small>Palissade</small><span class="d-hp gate"><i></i></span><small class="b-hearts"></small></div><button class="mg-quit" aria-label="Quitter"></button></div>
-    <div class="b-stick"><i></i></div><div class="b-hint">Déplace Pépin · <b>arrête-toi pour lancer</b></div>
+    <div class="b-hint">Garde le doigt sur l'écran et <b>vise</b> : Pépin tire en rafale !</div><div class="b-wave"></div><div class="b-cards" hidden></div>
     <div class="d-pow b3"><button data-p="ava"><span class="pi">🌨</span><small>Avalanche</small><i></i></button><button data-p="gel"><span class="pi">❄</span><small>Grand Gel</small><i></i></button>${ctx.pet ? '<button data-p="pet"><span class="pi">🦌</span><small>Flocon</small><i></i></button>' : ''}</div>
     <div class="b-load">Les monstres arrivent…</div>
-    <div class="mg-card" hidden><small>Campagne des Trolls</small><h2>${C.name}</h2><p>Tu es <b>Pépin</b>, le lutin gardien. Déplace-toi avec ton pouce : quand tu t'arrêtes, tu lances des boules de neige sur le monstre le plus proche. Esquive leurs tirs, protège la palissade !${C.boss ? ' <b>Un chef les accompagne…</b>' : ''}</p><span class="mg-best">${C.n} monstres${C.boss ? ' + le chef' : ''}</span><button class="btn green mg-go">À l'attaque !</button></div>`;
+    <div class="mg-card" hidden><small>Campagne des Trolls</small><h2>${C.name}</h2><p>Pépin tient le canon à neige du haut de la tour. <b>Garde le doigt sur l'écran pour viser</b> : il tire en rafale. Fais passer tes boules dans les <b>portails ×2</b> pour les multiplier, et choisis un bonus entre chaque vague !${C.boss ? ' <b>Un chef les accompagne…</b>' : ''}</p><span class="mg-best">${C.n} monstres${C.boss ? ' + le chef' : ''}</span><button class="btn green mg-go">À l'attaque !</button></div>`;
   document.body.appendChild(root);
   const cv = root.querySelector('canvas');
   const R = new THREE.WebGLRenderer({canvas: cv, antialias: true, powerPreference: 'high-performance'});
-  R.setPixelRatio(Math.min(2, devicePixelRatio || 1)); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.0;
+  R.setPixelRatio(Math.min(2, devicePixelRatio || 1)); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.25;
   R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
-  const scene = new THREE.Scene(); scene.background = new THREE.Color('#7fa9e0'); scene.fog = new THREE.Fog('#a9c6ea', 30, 70);
-  const cam = new THREE.PerspectiveCamera(46, 1, .1, 100); cam.position.set(0, 4.6, 8.4);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#6fb0ff'); scene.fog = new THREE.Fog('#a9c6ea', 30, 70);
+  const cam = new THREE.PerspectiveCamera(46, 1, .1, 100); cam.position.set(0, 9.5, 12.8);
   const resize = () => { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); cv.style.width = w + 'px'; cv.style.height = h + 'px'; cam.aspect = w / h; cam.fov = w / h < .6 ? 52 : 44; cam.updateProjectionMatrix(); };
   resize(); addEventListener('resize', resize);
 
   // lumière d'hiver
-  scene.add(new THREE.HemisphereLight('#d8ecff', '#7d8db5', 1.0));
+  scene.add(new THREE.HemisphereLight('#eaf4ff', '#a8b8dd', 1.5));
   const sun = new THREE.DirectionalLight('#fff1d8', 2.0); sun.position.set(-8, 16, 10); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, {left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 50}); scene.add(sun);
 
@@ -91,7 +91,10 @@ export async function openBattle(ctx){
   const shadowOn = o => o.traverse(m => { if (m.isMesh){ m.castShadow = true; m.frustumCulled = false; } });
 
   // le héros : Pépin
-  const hero = SkeletonUtils.clone(heroG.scene); fit(hero, 1.35); shadowOn(hero); scene.add(hero); hero.position.set(0, 0, 2.2);
+  const hero = SkeletonUtils.clone(heroG.scene); fit(hero, 1.35); shadowOn(hero); scene.add(hero); let cannon = null; hero.position.set(0, 1.6, GATE_Z + .5);
+  { const tw = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 1.6, 10), mat('#7a5232')); tw.position.set(0, .8, GATE_Z + .5); tw.castShadow = true; scene.add(tw);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, .18, 10), mat('#f4f7fc')); top.position.set(0, 1.62, GATE_Z + .5); scene.add(top);
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(.22, .3, 1.1, 12), new THREE.MeshStandardMaterial({color: '#c0283c', roughness: .4, metalness: .3})); can.rotation.x = Math.PI / 2.6; can.position.set(.5, 2.15, GATE_Z + .7); scene.add(can); cannon = can; }
   const hm = new THREE.AnimationMixer(hero), clip = n => heroA.find(a => a.name === n);
   const act = {}; for (const n of ['Idle_A', 'Running_A', 'Throw', 'Hit_A', 'Death_A', 'Interact']) if (clip(n)) act[n] = hm.clipAction(clip(n));
   let heroAnim = null; const play = (n, once) => { const a = act[n]; if (!a || heroAnim === a && !once) return; if (once){ a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } a.reset().fadeIn(.12).play(); heroAnim?.fadeOut(.12); heroAnim = a; };
@@ -102,7 +105,39 @@ export async function openBattle(ctx){
   // monstres
   const total = queue.length, foes = [], balls = [], shots = [], puffs = [];
   let killed = 0, spawnT = 1.2, gateHp = 100, hearts = 3 + (ctx.extraHearts || 0), heartsMax = hearts, invul = 0, cd = 0, combo = 0, freeze = 0, state = 'intro', last = performance.now(), raf = 0, shake = 0;
-  const charge = {ava: 0, gel: 0, pet: 0}, NEED = {ava: 14, gel: 9, pet: 11};
+  const charge = {ava: 0, gel: 0, pet: 0}, NEED = {ava: 18, gel: 12, pet: 14};
+  // tir façon jeux d'arcade : rafale tant qu'on vise, portails multiplicateurs, bonus entre les vagues
+  const up = {multi: 1, dmg: 1, rate: .34, splash: 1.1, gates: 1};
+  const waves = []; { const q = queue.slice(), n = Math.max(1, Math.min(3, Math.ceil(q.length / 6))), per = Math.ceil((q.length - (C.boss ? 1 : 0)) / n);
+    for (let w = 0; w < n; w++) waves.push(q.splice(0, w === n - 1 ? q.length : per)); }
+  let wave = 0; queue.length = 0; queue.push(...waves[0]);
+  const aim = new THREE.Vector3(0, 0, -6); let aiming = false;
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundP = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const dots = []; for (let i = 0; i < 14; i++){ const d = new THREE.Mesh(new THREE.SphereGeometry(.07, 6, 5), new THREE.MeshBasicMaterial({color: '#ffffff', transparent: true, opacity: .85})); d.visible = false; scene.add(d); dots.push(d); }
+  const reticle = new THREE.Mesh(new THREE.RingGeometry(.5, .7, 28), new THREE.MeshBasicMaterial({color: '#ffd23a', transparent: true, opacity: .9})); reticle.rotation.x = -Math.PI / 2; ring.visible = false; reticle.position.y = .05; reticle.visible = false; scene.add(reticle);
+  const gates = [];
+  function addGate(mult){ const g = new THREE.Group(), w = 2.4, c = mult >= 3 ? '#ff9a2a' : '#3fb6ff';
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.6), new THREE.MeshBasicMaterial({color: c, transparent: true, opacity: .35, side: THREE.DoubleSide, depthWrite: false})); panel.position.y = 1.6; g.add(panel);
+    for (const sx of [-w / 2, w / 2]){ const post = new THREE.Mesh(new THREE.BoxGeometry(.14, 2.6, .14), new THREE.MeshStandardMaterial({color: c, emissive: c, emissiveIntensity: .5})); post.position.set(sx, 1.3, 0); g.add(post); }
+    const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 128; const x = cvs.getContext('2d'); x.font = 'bold 96px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineWidth = 12; x.strokeStyle = '#141a33'; x.strokeText('×' + mult, 128, 68); x.fillStyle = '#fff'; x.fillText('×' + mult, 128, 68);
+    const lab = new THREE.Mesh(new THREE.PlaneGeometry(1.4, .7), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(cvs), transparent: true, side: THREE.DoubleSide})); lab.position.set(0, 1.6, .05); lab.scale.setScalar(1.4); lab.renderOrder = 5; lab.material.depthTest = false; g.add(lab);
+    g.position.set(0, 0, -3 - gates.length * 2.5); g.userData = {mult, w, ph: Math.random() * 6, sp: .5 + Math.random() * .4}; scene.add(g); gates.push(g); }
+  addGate(2);
+  const CARDS = [
+    ['multi', '🎯', 'Tir double', 'Une boule de plus à chaque tir', () => up.multi++],
+    ['dmg', '💥', 'Boules de glace', '+1 dégât par boule', () => up.dmg++],
+    ['rate', '⚡', 'Canon rapide', 'Tire 25 % plus vite', () => up.rate *= .75],
+    ['splash', '❄', 'Grosse explosion', 'Zone de dégâts plus grande', () => up.splash *= 1.4],
+    ['gate', '✨', 'Portail ×3', 'Un portail multiplicateur en plus', () => addGate(3)],
+    ['heal', '🪵', 'Réparer', '+35 à la palissade', () => gateHp = Math.min(100, gateHp + 35)],
+  ];
+  function showCards(){
+    state = 'pick'; aiming = false; const box = root.querySelector('.b-cards'), pick = [...CARDS].sort(() => Math.random() - .5).slice(0, 3);
+    box.innerHTML = `<h3>Vague ${wave} repoussée !</h3><p>Choisis un bonus</p><div class="cards">${pick.map(([k, ic, t, d]) => `<button data-c="${k}"><span>${ic}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`;
+    box.hidden = false; ctx.sfx.level();
+    box.onclick = e => { const b = e.target.closest('[data-c]'); if (!b) return; CARDS.find(c => c[0] === b.dataset.c)[4](); box.hidden = true; say(b.querySelector('b').textContent + ' !', '#ffd84a');
+      queue.push(...waves[wave]); state = 'play'; spawnT = 1; root.querySelector('.b-wave').textContent = `Vague ${wave + 1} / ${waves.length}`; };
+  }
   const scaleUp = 1 + Math.floor(C.i / 10) * .3;
   function spawn(){
     const kind = queue.shift(), D = FOES[kind], src = models[kind], o = SkeletonUtils.clone(src.scene); fit(o, D.h); shadowOn(o);
@@ -126,15 +161,20 @@ export async function openBattle(ctx){
       f.dead = 1.1; f.bar.visible = false; }
   }
   function puff(p, s, c, n = 10){ for (let i = 0; i < n; i++){ const m = new THREE.Mesh(new THREE.SphereGeometry(.12 * s, 6, 5), new THREE.MeshBasicMaterial({color: c, transparent: true})); m.position.copy(p).add(new THREE.Vector3(0, .8 * s, 0)); m.userData.v = new THREE.Vector3((Math.random() - .5) * 4, Math.random() * 4, (Math.random() - .5) * 4).multiplyScalar(s * .7); m.userData.t = 0; scene.add(m); puffs.push(m); } }
+  function shoot(from, to, t0, through){ const b = new THREE.Mesh(ballGeo, ballMat); b.castShadow = true; b.position.copy(from);
+    b.userData = {from: from.clone(), to, t: t0 ? 0 : 0, h: 1.4 + from.distanceTo(to) * .14, through: new Set(through || [])}; if (t0){ b.userData.from = from.clone(); b.userData.h *= (1 - t0); } scene.add(b); balls.push(b); if (balls.length > 120) { scene.remove(balls[0]); balls.shift(); } }
+  const ballGeo = new THREE.SphereGeometry(.16, 10, 8), ballMat = new THREE.MeshStandardMaterial({color: '#ffffff', roughness: .5, emissive: '#cfe8ff', emissiveIntensity: .25});
   const addCharge = n => { for (const k in charge) charge[k] = Math.min(NEED[k], charge[k] + n); };
   const floats = []; function say(txt, col = '#fff', at){ const d = document.createElement('div'); d.className = 'b-float'; d.textContent = txt; d.style.color = col; root.appendChild(d); floats.push({d, t: 0, at: at?.clone()}); }
 
-  // contrôles : joystick sous le pouce, n'importe où dans la moitié basse
-  const stick = root.querySelector('.b-stick'), knob = stick.querySelector('i'); let sx = 0, sy = 0, dx = 0, dy = 0, sid = null;
-  cv.addEventListener('pointerdown', e => { if (state !== 'play') return; sid = e.pointerId; sx = e.clientX; sy = e.clientY; dx = dy = 0; stick.style.left = sx + 'px'; stick.style.top = sy + 'px'; stick.classList.add('on'); cv.setPointerCapture(sid); root.querySelector('.b-hint')?.remove(); });
-  cv.addEventListener('pointermove', e => { if (e.pointerId !== sid) return; dx = e.clientX - sx; dy = e.clientY - sy; const l = Math.hypot(dx, dy), m = 46; if (l > m){ dx *= m / l; dy *= m / l; } knob.style.transform = `translate(${dx}px,${dy}px)`; });
-  const up = e => { if (e.pointerId !== sid) return; sid = null; dx = dy = 0; knob.style.transform = ''; stick.classList.remove('on'); };
-  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  // contrôles : on garde le doigt sur l'écran, le canon vise l'endroit touché (sur le sol) et tire en rafale
+  const setAim = e => { ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, cam); const p = new THREE.Vector3();
+    if (ray.ray.intersectPlane(groundP, p)){ aim.set(THREE.MathUtils.clamp(p.x, -6, 6), 0, THREE.MathUtils.clamp(p.z, -17, GATE_Z - 1)); } };
+  let sid = null;
+  cv.addEventListener('pointerdown', e => { if (state !== 'play') return; sid = e.pointerId; cv.setPointerCapture(sid); aiming = true; setAim(e); root.querySelector('.b-hint')?.remove(); });
+  cv.addEventListener('pointermove', e => { if (e.pointerId === sid) setAim(e); });
+  const up0 = e => { if (e.pointerId !== sid) return; sid = null; aiming = false; };
+  cv.addEventListener('pointerup', up0); cv.addEventListener('pointercancel', up0);
   root.querySelector('.d-pow').addEventListener('pointerdown', e => { const b = e.target.closest('[data-p]'); if (!b) return; e.stopPropagation(); power(b.dataset.p); });
   function power(k){
     if (state !== 'play' || charge[k] < NEED[k]) return; charge[k] = 0; ctx.sfx.level();
@@ -151,26 +191,30 @@ export async function openBattle(ctx){
     if (state !== 'play') return;
     freeze = Math.max(0, freeze - dt); invul = Math.max(0, invul - dt); shake = Math.max(0, shake - dt);
     if (!freeze) for (const f of foes) if (f.iced){ f.iced = 0; f.o.traverse(m => { if (m.isMesh && m.material.emissive) m.material.emissiveIntensity = 0; }); }
-    // déplacement du héros
-    const moving = Math.hypot(dx, dy) > 8;
-    if (moving){ const sp = 6.2 * Math.min(1, Math.hypot(dx, dy) / 46); hero.position.x = THREE.MathUtils.clamp(hero.position.x + dx / 46 * sp * dt, -6, 6); hero.position.z = THREE.MathUtils.clamp(hero.position.z + dy / 46 * sp * dt, -7, 3.4);
-      hero.rotation.y = Math.atan2(dx, dy); play('Running_A'); }
-    // tir automatique à l'arrêt, sur le monstre vivant le plus proche
+    // visée : trajectoire en pointillés + cible au sol
+    const from = new THREE.Vector3(hero.position.x + .5, 2.2, hero.position.z - .5);
+    hero.rotation.y = Math.atan2(aim.x - hero.position.x, aim.z - hero.position.z);
+    if (cannon){ cannon.rotation.y = Math.atan2(aim.x - cannon.position.x, aim.z - cannon.position.z) + Math.PI; }
+    reticle.visible = aiming; reticle.position.x = aim.x; reticle.position.z = aim.z; reticle.scale.setScalar(up.splash);
+    const H = 2 + from.distanceTo(aim) * .18;
+    dots.forEach((d, i) => { const t = (i + 1) / (dots.length + 1); d.visible = aiming; d.position.lerpVectors(from, aim, t); d.position.y += Math.sin(t * Math.PI) * H; });
     cd -= dt;
-    const alive = foes.filter(f => !f.dead && f.o.position.z > -16);
-    if (!moving && alive.length){
-      const tgt = alive.reduce((a, f) => f.o.position.distanceTo(hero.position) < a.o.position.distanceTo(hero.position) ? f : a);
-      hero.rotation.y = Math.atan2(tgt.o.position.x - hero.position.x, tgt.o.position.z - hero.position.z);
-      if (cd <= 0){ cd = .5; play('Throw', true); setTimeout(() => { if (heroAnim === act.Throw) play('Idle_A'); }, 420);
-        const b = new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 8), new THREE.MeshStandardMaterial({color: '#ffffff', roughness: .6})); b.castShadow = true; b.position.copy(hero.position).add(new THREE.Vector3(0, 1.1, 0));
-        b.userData = {tgt, t: 0, from: b.position.clone()}; scene.add(b); balls.push(b); ctx.sfx.tap(); }
-    } else if (!moving && heroAnim !== act.Throw) play('Idle_A');
-    ring.position.x = hero.position.x; ring.position.z = hero.position.z; ring.material.opacity = invul > 0 ? (Math.sin(invul * 30) > 0 ? .9 : .1) : .6;
-    // boules du héros
-    for (const b of [...balls]){ const u = b.userData; u.t += dt * 2.6; const to = u.tgt.o.position.clone().add(new THREE.Vector3(0, u.tgt.D.h * .55, 0)); b.position.lerpVectors(u.from, to, Math.min(1, u.t)); b.position.y += Math.sin(Math.min(1, u.t) * Math.PI) * 1.2;
-      if (u.t >= 1){ scene.remove(b); balls.splice(balls.indexOf(b), 1); if (!u.tgt.dead){ hurt(u.tgt, 1); combo++; addCharge(1); puff(b.position.clone().setY(0), .5, '#ffffff', 5); if (combo % 8 === 0) say(`Combo ×${combo} !`, '#ffd84a'); } } }
+    if (aiming && cd <= 0){ cd = up.rate; play('Throw', true); setTimeout(() => { if (heroAnim === act.Throw) play('Idle_A'); }, 300);
+      for (let k = 0; k < up.multi; k++){ const off = (k - (up.multi - 1) / 2) * .9; shoot(from, aim.clone().add(new THREE.Vector3(off, 0, Math.abs(off) * .3)), 0); }
+      ctx.sfx.tap(); }
+    // boules : arc vers la cible, passage dans les portails = multiplication, explosion à l'arrivée
+    for (const b of [...balls]){ const u = b.userData; u.t += dt * 1.6; const t = Math.min(1, u.t), prev = b.position.clone();
+      b.position.lerpVectors(u.from, u.to, t); b.position.y += Math.sin(t * Math.PI) * u.h;
+      for (const g of gates){ if (u.through.has(g)) continue; const gz = g.position.z; if ((prev.z - gz) * (b.position.z - gz) <= 0 && Math.abs(b.position.x - g.position.x) < g.userData.w / 2 && b.position.y < 3){
+        u.through.add(g); g.userData.flash = .15; for (let k = 1; k < g.userData.mult; k++){ const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * .8; shoot(b.position.clone(), u.to.clone().add(new THREE.Vector3(off, 0, -.3 * k)), t, u.through); } } }
+      if (u.t >= 1){ scene.remove(b); balls.splice(balls.indexOf(b), 1); puff(u.to, .55 * up.splash, '#ffffff', 5);
+        let hit = false; for (const f of foes){ if (f.dead) continue; if (Math.hypot(f.o.position.x - u.to.x, f.o.position.z - u.to.z) < .9 * up.splash + f.D.h * .2){ hurt(f, up.dmg); hit = true; } }
+        // une boule peut aussi détruire un tir ennemi
+        for (const sh of shots){ if (sh.position.distanceTo(b.position) < 1.2){ sh.userData.t = 9; sh.userData.parried = 1; } }
+        if (hit){ combo++; addCharge(1); if (combo % 15 === 0) say(`Combo ×${combo} !`, '#ffd84a'); } } }
+    for (const g of gates){ g.userData.ph += dt * g.userData.sp; g.position.x = Math.sin(g.userData.ph) * 3.6; if (g.userData.flash > 0){ g.userData.flash -= dt; g.children[0].material.opacity = .8; } else g.children[0].material.opacity = .35; }
     // apparition
-    spawnT -= dt; if (queue.length && spawnT <= 0 && (!FOES[queue[0]].boss || alive.length < 3)){ spawn(); spawnT = Math.max(.6, 1.8 - C.i * .03) * (.7 + Math.random() * .6); }
+    spawnT -= dt; if (queue.length && spawnT <= 0 && (!FOES[queue[0]].boss || foes.filter(f => !f.dead).length < 3)){ spawn(); spawnT = Math.max(.6, 1.8 - C.i * .03) * (.7 + Math.random() * .6); }
     // monstres
     for (const f of [...foes]){
       const o = f.o, D = f.D; f.hitT = Math.max(0, f.hitT - dt);
@@ -181,9 +225,9 @@ export async function openBattle(ctx){
       if (D.stop && o.position.z >= -D.stop){
         // lanceur / Krampus : s'arrête et tire sur Pépin
         f.walk?.stop(); if (f.idle && !f.idle.isRunning()) f.idle.play();
-        o.rotation.y = Math.atan2(hero.position.x - o.position.x, hero.position.z - o.position.z);
+        o.rotation.y = 0;
         f.atkT -= dt; if (f.atkT <= 0){ f.atkT = f.kind === 'krampus' ? Math.max(1.1, 2.4 - C.ch * .12) : 2.8; oneShot(f, f.punch);
-          const n = f.kind === 'krampus' ? 3 : 1; for (let k = 0; k < n; k++){ const aim = hero.position.clone().add(new THREE.Vector3((k - (n - 1) / 2) * 1.6, 0, 0));
+          const n = f.kind === 'krampus' ? 3 : 1; for (let k = 0; k < n; k++){ const aim = new THREE.Vector3(o.position.x + (k - (n - 1) / 2) * 1.6, 0, GATE_Z - .2);
             const s = new THREE.Mesh(f.kind === 'krampus' ? new THREE.OctahedronGeometry(.28) : new THREE.SphereGeometry(.2, 8, 6), new THREE.MeshStandardMaterial({color: f.kind === 'krampus' ? '#8fdcff' : '#f2f2f2', emissive: f.kind === 'krampus' ? '#2a8ee0' : '#000', emissiveIntensity: .6}));
             s.position.copy(o.position).add(new THREE.Vector3(0, D.h * .7, 0)); s.userData = {from: s.position.clone(), to: aim, t: 0, d: f.kind === 'krampus' ? 1.1 : 1.3};
             const mark = new THREE.Mesh(new THREE.RingGeometry(.35, .5, 24), new THREE.MeshBasicMaterial({color: '#ff3b3b', transparent: true, opacity: .8})); mark.rotation.x = -Math.PI / 2; mark.position.set(aim.x, .04, aim.z); scene.add(mark); s.userData.mark = mark;
@@ -193,7 +237,6 @@ export async function openBattle(ctx){
       // marche vers la palissade
       f.t += dt; const sp = D.sp * (1 + C.i * .015); o.position.z += sp * dt; o.position.x += Math.sin(f.t * 1.3) * .2 * dt; o.rotation.y = 0;
       // contact avec le héros : il le repousse et le blesse
-      if (o.position.distanceTo(hero.position) < (D.h * .35 + .4) && invul <= 0){ heroHit(); oneShot(f, f.punch); }
       if (o.position.z >= GATE_Z - .6){ gateHp -= D.dmg; shake = .5; say('-' + D.dmg + ' palissade', '#ff8a9a'); ctx.sfx.err(); puff(o.position, 1, '#c9a07a', 8); f.dead = .01; f.bar.visible = false; scene.remove(o); killed++;
         if (gateHp <= 0){ gateHp = 0; finish(false); } }
     }
@@ -201,43 +244,45 @@ export async function openBattle(ctx){
     for (const s of [...shots]){ const u = s.userData; u.t += dt / u.d; s.position.lerpVectors(u.from, u.to, Math.min(1, u.t)); s.position.y += Math.sin(Math.min(1, u.t) * Math.PI) * 2.2; s.rotation.x += dt * 8;
       u.mark.material.opacity = .4 + .5 * Math.sin(u.t * 20);
       if (u.t >= 1){ scene.remove(s); scene.remove(u.mark); shots.splice(shots.indexOf(s), 1); puff(s.position.clone().setY(0), .6, '#dff3ff', 6);
-        if (tmp.set(u.to.x, 0, u.to.z).distanceTo(hero.position) < .75 && invul <= 0) heroHit(); } }
+        if (!u.parried){ const d = f0dmg(s); gateHp -= d; shake = .3; say('-' + d + ' palissade', '#ff8a9a'); ctx.sfx.err(); if (gateHp <= 0){ gateHp = 0; finish(false); } } else say('Paré !', '#bfe6ff'); } }
     for (const m of [...puffs]){ m.userData.t += dt; m.position.addScaledVector(m.userData.v, dt); m.userData.v.y -= 9 * dt; m.material.opacity = 1 - m.userData.t / .7; if (m.userData.t > .7){ scene.remove(m); puffs.splice(puffs.indexOf(m), 1); } }
+    if (!queue.length && !foes.length && state === 'play' && wave < waves.length - 1){ wave++; showCards(); return; }
     if (!queue.length && !foes.length && state === 'play'){ state = 'won'; play('Interact', true); setTimeout(() => finish(true), 900); }
   }
+  const f0dmg = s => s.geometry.type === 'OctahedronGeometry' ? 12 : 7;
   function heroHit(){ hearts--; invul = 1.4; combo = 0; shake = .5; ctx.sfx.err(); play('Hit_A', true); setTimeout(() => play('Idle_A'), 500); say('Aïe !', '#ff8a9a');
     if (hearts <= 0){ play('Death_A', true); finish(false); } }
 
   function finish(win){
     if (state === 'end') return; state = 'end';
-    const pct = gateHp / 100, stars = !win ? 0 : (hearts === heartsMax && pct > .66) ? 3 : (hearts >= 2 && pct > .33) ? 2 : 1;
+    const pct = gateHp / 100, stars = !win ? 0 : pct > .66 ? 3 : pct > .33 ? 2 : 1;
     const res = ctx.result({win, hearts: stars, score: killed}), card = root.querySelector('.mg-card');
-    card.innerHTML = `<small>${C.name}</small><h2>${win ? 'Village sauvé !' : hearts <= 0 ? 'Pépin est tombé…' : 'La palissade a cédé…'}</h2>${win ? `<div class="mg-stars">${[1, 2, 3].map(k => `<i class="${k <= stars ? 'on' : ''}">★</i>`).join('')}</div>` : `<p>${killed} / ${total} monstres repoussés. Améliore ton village et Flocon, puis reviens !</p>`}
+    card.innerHTML = `<small>${C.name}</small><h2>${win ? 'Village sauvé !' : 'La palissade a cédé…'}</h2>${win ? `<div class="mg-stars">${[1, 2, 3].map(k => `<i class="${k <= stars ? 'on' : ''}">★</i>`).join('')}</div>` : `<p>${killed} / ${total} monstres repoussés. Améliore ton village et Flocon, puis reviens !</p>`}
       <div class="costs mg-rw">${ctx.chipsHtml(res.rw)}</div><button class="btn green mg-claim">${win ? 'Récupérer' : 'Retour'}</button>`;
     card.hidden = false; card.querySelector('.mg-claim').onclick = e => { ctx.grant(res.rw, e.currentTarget); ctx.sfx.level(); setTimeout(close, 400); };
   }
   function close(){ cancelAnimationFrame(raf); removeEventListener('resize', resize); R.dispose(); root.remove(); ctx.onClose?.(); }
   let quitArmed = 0;
   root.querySelector('.mg-quit').onclick = () => { if (state === 'play' && performance.now() - quitArmed > 2500){ quitArmed = performance.now(); say('Touche encore pour fuir', '#ffd84a'); return; } close(); };
-  root.querySelector('.mg-go').onclick = () => { root.querySelector('.mg-card').hidden = true; state = 'play'; ctx.sfx.tap(); setTimeout(() => root.querySelector('.b-hint')?.remove(), 4500); };
+  root.querySelector('.mg-go').onclick = () => { root.querySelector('.mg-card').hidden = true; state = 'play'; root.querySelector('.b-wave').textContent = `Vague 1 / ${waves.length}`; ctx.sfx.tap(); setTimeout(() => root.querySelector('.b-hint')?.remove(), 4500); };
 
   const camT = new THREE.Vector3();
   function render(){
     // caméra derrière et au-dessus de Pépin, qui le suit en douceur
-    camT.set(hero.position.x * .6, 5.4, hero.position.z + 6.8); cam.position.lerp(camT, .08);
+    camT.set(0, 9.5, GATE_Z + 7.6); cam.position.lerp(camT, .1);
     if (shake) cam.position.add(new THREE.Vector3((Math.random() - .5) * shake * .4, (Math.random() - .5) * shake * .3, 0));
-    cam.lookAt(hero.position.x * .6, .9, hero.position.z - 4.2);
+    cam.lookAt(0, 0, -5.5);
     R.render(scene, cam);
     // textes flottants
     for (const f of [...floats]){ f.t += .016; f.d.style.opacity = Math.max(0, 1 - f.t); f.d.style.transform = `translate(-50%, ${-f.t * 50}px)`; if (f.t > 1.1){ f.d.remove(); floats.splice(floats.indexOf(f), 1); } }
     root.querySelector('.b-left').textContent = `${killed}/${total}`;
     root.querySelector('.gate i').style.width = gateHp + '%'; root.querySelector('.gate').classList.toggle('low', gateHp < 34);
-    root.querySelector('.b-hearts').textContent = '❤'.repeat(Math.max(0, hearts)) + '♡'.repeat(Math.max(0, heartsMax - hearts));
+    root.querySelector('.b-hearts').textContent = '';
     for (const b of root.querySelectorAll('[data-p]')){ const k = b.dataset.p, r = charge[k] / NEED[k]; b.querySelector('i').style.height = (r * 100) + '%'; b.classList.toggle('ready', r >= 1); }
   }
   function loop(now){ raf = requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; update(dt); render(); }
   raf = requestAnimationFrame(loop);
-  window.__b3 = {get state(){ return state; }, get hero(){ return hero; }, get foes(){ return foes; }, power};
+  window.__b3 = {screen: v => { const p = v.clone().project(cam); return {x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight}; }, get balls(){ return balls.length; }, get killed(){ return killed; }, get aim(){ return aim.toArray().map(v => +v.toFixed(1)); }, get state(){ return state; }, get hero(){ return hero; }, get foes(){ return foes; }, power};
 }
 
 /** Portrait 3D d'un monstre (pour les cinématiques et le bestiaire) : rendu une fois, gardé en mémoire. */

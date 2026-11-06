@@ -73,11 +73,15 @@ export function plotBase(tier, skin = null){
     if (!skinMats.has(skin.top)){ const pair = [new THREE.MeshStandardMaterial({color: skin.top, roughness: .6}), new THREE.MeshStandardMaterial({color: skin.rim, roughness: .4, metalness: skin.rim === '#f2b632' ? .4 : 0})]; pair.forEach(m => addRim(m, .3)); skinMats.set(skin.top, pair); }
     [top, rim] = skinMats.get(skin.top);
   }
-  const r = new THREE.Mesh(rimGeo, rim); r.position.y = .17; r.receiveShadow = true; r.castShadow = true; g.add(r);
-  const b = new THREE.Mesh(baseGeo, top); b.position.y = .26; b.receiveShadow = true; g.add(b);
+  // Plus de socle : une fine dalle de neige tassée au ras du sol, juste pour poser le bâtiment (retour joueur).
+  // Le bâtiment reste à la même hauteur relative ; l'ensemble est descendu de PLATE_DROP au moment du rendu.
+  const b = new THREE.Mesh(padGeo, padMat); b.position.y = PLATE_DROP + .015; b.receiveShadow = true; g.add(b);
   return g;
 }
 export const BASE_Y = .34;
+export const PLATE_DROP = .32;      // de combien on descend un bâtiment pour que son ancien socle soit sous le sol
+const padGeo = new RoundedBoxGeometry(3.7, .03, 3.7, 2, .015);
+const padMat = new THREE.MeshStandardMaterial({color: '#e9eef8', roughness: .95});
 
 /* ------------------------------------------------------------------ */
 /* Décorations ajoutées niveau par niveau (coins du socle)             */
