@@ -56,16 +56,17 @@ async function loadPack(){
   let saved0 = null; try { saved0 = JSON.parse(localStorage.getItem('village-du-pole-v5')); } catch(e){}
   const used = new Set((saved0?.objs || []).map(o => o.type));
   const eager = k => !k.startsWith('b:') || used.has(k.slice(2).split(':')[0]) || /^b:(santa|sawmill|letters|orders|cabin|path|wildtree|tree|lantern|bench|gifts|reindeer|snowman|candy)/.test(k);
-  const lazy = (k, m) => { let im = null, c = null; SPR[k] = {ax: m.ax, ay: m.ay, w: m.w, h: m.h, get canvas(){ if (c) return c; if (!im){ im = new Image(); im.onload = () => { c = raster(im); im = null; }; im.src = dir + m.f + q; } return im || c; }}; };
+  // Décodage en ImageBitmap (blob → createImageBitmap) : l'image est décodée une fois en pleine résolution et
+  // n'est plus gérée par le cache d'images de Safari, qui « sous-échantillonne » les grandes images sur iPhone (flou).
+  const bitmap = async src => { const r = await fetch(src); if (!r.ok) throw new Error('image ' + src); const bl = await r.blob();
+    if (window.createImageBitmap){ try { return await createImageBitmap(bl); } catch(e){} }
+    const i = await img(URL.createObjectURL(bl)); return i; };
+  window.__sprInfo = {};
+  const lazy = (k, m) => { let c = null, busy = false; SPR[k] = {ax: m.ax, ay: m.ay, w: m.w, h: m.h, get canvas(){ if (!c && !busy){ busy = true; bitmap(dir + m.f + q).then(b => { c = b; __sprInfo[k] = b.width + 'x' + b.height; }).catch(() => { busy = false; }); } return c || {complete: false}; }}; };
   const now0 = keys.filter(eager);
   for (const k of keys) if (!eager(k)) lazy(k, P.spr[k]);
-  // Sur iPhone, Safari « sous-échantillonne » les grandes images quand la mémoire manque : elles deviennent floues
-  // et changent d'aspect d'une image à l'autre. On les recopie une fois dans un canevas, plafonné à 900 px.
-  const raster = im => { const k = Math.min(1, 900 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
-    c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
-    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height); return c; };
-  await Promise.all(now0.map(async k => { const m = P.spr[k], im = await img(dir + m.f + q); try { await im.decode?.(); } catch(e){}
-    SPR[k] = {canvas: raster(im), ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / now0.length); }));
+  await Promise.all(now0.map(async k => { const m = P.spr[k], b = await bitmap(dir + m.f + q); __sprInfo[k] = (b.width || b.naturalWidth) + 'x' + (b.height || b.naturalHeight);
+    SPR[k] = {canvas: b, ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / now0.length); }));
   for (const [k, f] of Object.entries(P.icon)) ICON[k] = dir + f + q;
   for (const [k, f] of Object.entries(P.thumb)) thumbs[k] = dir + f + q;
   portrait = dir + P.portrait + q; buildIcon = dir + P.buildIcon + q;
@@ -1682,7 +1683,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 65;
+const GAME_V = 66;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1701,6 +1702,7 @@ function diagText(){
   let nS = 0, nOk = 0, nBad = 0; for (const k in SPR){ nS++; const c = SPR[k]._c || null; } 
   for (const k in SPR){ const d = Object.getOwnPropertyDescriptor(SPR[k], 'canvas'); if (d && d.get) continue; const c = SPR[k].canvas; if (c && (c.width || c.naturalWidth)) nOk++; else nBad++; }
   L.push(`images ${nS} · prêtes ${nOk} · vides ${nBad}`);
+  L.push('tailles : ' + Object.entries(window.__sprInfo || {}).filter(([k]) => /santa|sawmill|forest|cabin/.test(k)).map(([k, v]) => k.replace('b:', '') + '=' + v).join(' '));
   const top = []; for (const e of document.body.querySelectorAll('body > *')){ const cs = getComputedStyle(e); if (cs.display === 'none' || e.hidden || e.id === 'diag') continue; const r = e.getBoundingClientRect(); if (r.width < 40 || r.height < 40) continue;
     top.push(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${e.className && typeof e.className === 'string' ? '.' + e.className.split(' ').slice(0, 2).join('.') : ''} ${Math.round(r.width)}×${Math.round(r.height)} op${(+cs.opacity).toFixed(2)} z${cs.zIndex}${cs.filter !== 'none' ? ' F' : ''}`); }
   L.push('calques : ' + top.join(' | '));
@@ -1712,7 +1714,7 @@ function diagText(){
 function showDiag(){
   let d = $('#diag'); if (!d){ d = document.createElement('div'); d.id = 'diag'; document.body.appendChild(d); }
   d.innerHTML = `<pre>${diagText().replace(/</g, '&lt;')}</pre><div><button class="btn green sm" data-d="fix">Réparer l'affichage</button> <button class="btn blue sm" data-d="close">Fermer</button></div>`;
-  d.onclick = ev => { const b = ev.target.closest('[data-d]'); if (!b) return; if (b.dataset.d === 'fix'){ $('#intro')?.remove(); const c = $('#cine'); if (c){ c.hidden = true; document.body.classList.remove('cine'); } rebuild(); toast('Affichage recréé'); } d.remove(); };
+  d.onclick = ev => { const b = ev.target.closest('[data-d]'); if (!b) return; if (b.dataset.d === 'fix'){ try { localStorage.setItem('vdp-lasterr', 'réparation demandée · ' + diagText().split('\n').slice(3, 5).join(' / ')); } catch(_){} save(); saveLock = true; location.reload(); return; } d.remove(); };
 }
 // garde-fou au démarrage : rien ne doit rester par-dessus le village une fois le jeu lancé
 setTimeout(() => { const i = $('#intro'); if (i){ i.remove(); try { localStorage.setItem('vdp-lasterr', 'intro restée affichée'); } catch(_){} } }, 6000);
