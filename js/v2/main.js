@@ -1683,7 +1683,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 66;
+const GAME_V = 67;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1705,6 +1705,7 @@ function diagText(){
   L.push('tailles : ' + Object.entries(window.__sprInfo || {}).filter(([k]) => /santa|sawmill|forest|cabin/.test(k)).map(([k, v]) => k.replace('b:', '') + '=' + v).join(' '));
   const top = []; for (const e of document.body.querySelectorAll('body > *')){ const cs = getComputedStyle(e); if (cs.display === 'none' || e.hidden || e.id === 'diag') continue; const r = e.getBoundingClientRect(); if (r.width < 40 || r.height < 40) continue;
     top.push(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${e.className && typeof e.className === 'string' ? '.' + e.className.split(' ').slice(0, 2).join('.') : ''} ${Math.round(r.width)}×${Math.round(r.height)} op${(+cs.opacity).toFixed(2)} z${cs.zIndex}${cs.filter !== 'none' ? ' F' : ''}`); }
+  L.push('grandes images : ' + ((window.__big || []).join(' | ') || 'aucune'));
   L.push('calques : ' + top.join(' | '));
   L.push(`modal ${$('#modal').hidden ? 'caché' : 'VISIBLE ' + $('#modal').className} · cine ${$('#cine') ? ($('#cine').hidden ? 'caché' : 'VISIBLE') : 'absent'} · intro ${$('#intro') ? 'PRÉSENTE' : 'absente'} · tuto ${tuto.active() ? S.tuto : 'fini'}`);
   let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){}
@@ -2201,7 +2202,21 @@ function smoke(dt){
 }
 const PROF = /[?&]prof/.test(location.search) ? (window.__prof = {}) : null;
 const pt = (k, f) => { if (!PROF) return f(); const a = performance.now(); const r = f(); const e = PROF[k] ||= {n: 0, t: 0, max: 0}, d = performance.now() - a; e.n++; e.t += d; e.max = Math.max(e.max, d); return r; };
+// sonde : une image sur 90, on note tout dessin d'image qui couvre une grande partie de l'écran (pour trouver le flou)
+window.__big = []; let probeN = 0;
+const rawDraw = CanvasRenderingContext2D.prototype.drawImage;
+function probe(on){
+  if (!on){ ctx.drawImage = rawDraw; return; }
+  ctx.drawImage = function(im, ...a){ const dw = a.length >= 4 ? a[a.length - 2] : (im.width || 0), dh = a.length >= 4 ? a[a.length - 1] : (im.height || 0);
+    if (dw * dh > W * H * .35){ const st = (new Error().stack || '').split('\n').slice(1, 4).map(l => (l.match(/(\w+)@|at (\w+)/) || [])[1] || l.trim().slice(0, 30)).join('<');
+      const rec = `${Math.round(dw)}x${Math.round(dh)} a${ctx.globalAlpha.toFixed(2)} ${ctx.globalCompositeOperation} src${im.width || im.naturalWidth}x${im.height || im.naturalHeight} ${st}`; if (!__big.includes(rec)){ __big.push(rec); if (__big.length > 12) __big.shift(); } }
+    return rawDraw.call(this, im, ...a); };
+}
 function step(t, dt){
+  if (++probeN % 30 === 0){ probe(true); try { step1(t, dt); } finally { probe(false); } return; }
+  step1(t, dt);
+}
+function step1(t, dt){
   if (PROF) return pt('step', () => step0(t, dt));
   step0(t, dt);
 }
