@@ -260,7 +260,7 @@ export function decorate(s){
   for (const [t, x, y] of [['lantern', 18, 21], ['lantern', 22, 23], ['lantern', 16, 23], ['lantern', 25, 21], ['lantern', 18, 28], ['lantern', 25, 28], ['lantern', 29, 23],
     ['bench', 21, 23], ['bench', 16, 21], ['gifts', 18, 17], ['gifts', 23, 23], ['reindeer', 18, 26], ['reindeer', 20, 28], ['snowman', 28, 20], ['snowman', 13, 23], ['candy', 22, 17], ['candy', 18, 23]]) add(t, x, y);
   let r = 11; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
-  for (let i = 0; i < 140; i++){
+  for (let i = 0; i < 34; i++){
     const edge = rnd() < .7, x = edge ? (rnd() < .5 ? 11 + Math.floor(rnd() * 2) : 31 + Math.floor(rnd() * 2)) : 11 + Math.floor(rnd() * 22), y = edge && rnd() < .5 ? 11 + Math.floor(rnd() * 22) : (rnd() < .5 ? 11 + Math.floor(rnd() * 3) : 30 + Math.floor(rnd() * 3));
     add('tree', edge && rnd() < .5 ? x : 11 + Math.floor(rnd() * 22), y, {wild: 1});
   }
@@ -274,7 +274,8 @@ export function loadTown(){
       for (const k of [...RES, 'stars', 'xp']) s[k] = +s[k] || 0;
       clearLots(s);
       s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
-      for (const o of s.objs) delete o.bounce;   // ancien rebond sauvegardé par erreur : il déformait les bâtiments
+      for (const o of s.objs) delete o.bounce;
+      thinTrees(s);   // ancien rebond sauvegardé par erreur : il déformait les bâtiments
       spaceOut(s);
       return s;
     }
@@ -1236,3 +1237,11 @@ export async function importCode(code){
   return s;
 }
 export function replaceTown(s){ saveTown(s); }
+
+/** Moins de sapins sauvages dans le village : on garde ceux du bord (cadre joli) et on libère le reste. */
+export function thinTrees(s){
+  if (s.thinned) return; s.thinned = 1;
+  const open = new Set(s.chunks), inside = (x, y) => open.has(`${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`);
+  const nearEdge = o => { for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) if (!inside(o.x + dx, o.y + dy)) return true; return false; };
+  let kept = 0; s.objs = s.objs.filter(o => { if (!o.wild) return true; if (nearEdge(o) && kept < 40 && (o.x * 7 + o.y * 3) % 3){ kept++; return true; } return false; });
+}

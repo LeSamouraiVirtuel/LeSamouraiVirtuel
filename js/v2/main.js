@@ -439,7 +439,7 @@ function draw(){
     items.push({d: o.x + o.y + (b.w + b.h) / 2, f: () => drawObj(o)});
   }
   // terrains réservés : le futur bâtiment en transparence, avec ce qu'il faut pour le débloquer
-  for (const l of T.lotsShown(S)){ const b = BUILDINGS[l.type]; items.push({d: l.x + l.y + (b.w + b.h) / 2, f: () => drawLot(l)}); }
+  // terrains réservés : plus affichés sur la carte (ils encombraient) ; le menu Construire propose toujours une bonne place
   for (const e of elves) items.push({d: e.x + e.y, f: () => drawElf(e)});
   if (S.visitor){ const h = S.objs.find(o => o.type === 'santa'); if (h){ const vx = h.x + 5.3, vy = h.y + 1.6; items.push({d: vx + vy, f: () => drawVisitor(vx, vy)}); } }
   if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : T.isUpgradable(b) ? `b:${ghost.type}:1` : 'b:' + ghost.type, c.x, c.y, .85); }}); }
@@ -451,7 +451,6 @@ function draw(){
   labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden]), #sideL2 > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width).map(r => ({left: r.left - 8, right: r.right + 8, top: r.top - 6, bottom: r.bottom + 16}));
   const inCine = document.body.classList.contains('cine');
   if (!inCine){ for (const o of S.objs) plate(o);
-  for (const l of T.lotsShown(S)) lotLabel(l);
   bangs = 0; for (const o of [...S.objs].sort((a, b) => (B(b).kind === 'hq') - (B(a).kind === 'hq'))) drawHint(o); }
   drawSleigh();
   // neige qui tombe
@@ -479,7 +478,7 @@ function ambiance(){
   const {n, dusk} = nightLevel(); if (n <= 0 && dusk <= 0) return;
   ctx.save();
   if (dusk > 0){ ctx.globalAlpha = dusk * .22; ctx.fillStyle = '#ff8a5c'; ctx.fillRect(0, 0, W, H); }
-  if (n > 0){ ctx.globalAlpha = n * .5; ctx.fillStyle = '#0d1640'; ctx.fillRect(0, 0, W, H); }
+  if (n > 0){ ctx.globalAlpha = n * .2; ctx.fillStyle = '#1a2a66'; ctx.fillRect(0, 0, W, H); }   // nuit douce : le village garde ses couleurs
   if (n > .3){
     ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, (n - .3) / .4);
     for (const o of S.objs){
@@ -555,7 +554,7 @@ function lotLabel(l){
   else { ctx.strokeStyle = '#ffd34a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, -2, 3, Math.PI, 0); ctx.stroke(); ctx.fillStyle = '#ffd34a'; ctx.fillRect(-4.5, -1.5, 9, 6.5); }
   ctx.restore();
 }
-function lotAt(sx, sy){ const t = toTile(sx, sy); return T.lotsShown(S).find(l => { const b = BUILDINGS[l.type]; return t.x >= l.x && t.x < l.x + b.w && t.y >= l.y && t.y < l.y + b.h; }); }
+function lotAt(sx, sy){ return null; const t = toTile(sx, sy); return T.lotsShown(S).find(l => { const b = BUILDINGS[l.type]; return t.x >= l.x && t.x < l.x + b.w && t.y >= l.y && t.y < l.y + b.h; }); }
 const isOpen = (cx, cy) => S.chunks.includes(`${cx},${cy}`);
 const isNextToOpen = (cx, cy) => isOpen(cx - 1, cy) || isOpen(cx + 1, cy) || isOpen(cx, cy - 1) || isOpen(cx, cy + 1);
 function sign(x, y, cx, cy){
@@ -732,14 +731,34 @@ function drawElf(e){ const c = toScreen(e.x, e.y), s = elfSprites[e.v]; const bo
    TOUCHER : déplacer la vue, glisser pour récolter/planter, placer
    ===================================================================== */
 const ptrs = new Map(); let drag = null;
+// Toucher précis : on teste la vraie silhouette dessinée (pixels opaques de l'image), du plus proche au plus lointain.
+// Les allées et les sapins sauvages passent en dernier : ils ne « volent » plus le toucher d'un bâtiment.
+const MASKS = {};
+function maskOf(key){
+  if (MASKS[key] !== undefined) return MASKS[key];
+  const s = SPR[key], im = s && s.canvas; if (!im || im.complete === false || !(im.width || im.naturalWidth)){ return null; }
+  const w = Math.max(1, Math.round(s.w / 4)), h = Math.max(1, Math.round(s.h / 4)), c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', {willReadFrequently: true}); x.drawImage(im, 0, 0, w, h);
+  let d = null; try { d = x.getImageData(0, 0, w, h).data; } catch(e){}
+  return MASKS[key] = d ? {w, h, d} : false;
+}
+function hitSprite(o, sx, sy, pad = 0){
+  const r = objScreenRect(o); if (sx < r.left - pad || sx > r.left + r.width + pad || sy < r.top - pad || sy > r.top + r.height + pad) return false;
+  const m = maskOf(spriteKey(o)); if (!m) return sx > r.left + r.width * .15 && sx < r.left + r.width * .85 && sy > r.top + r.height * .1;
+  // on regarde un petit voisinage (le doigt n'est pas un pixel)
+  for (const [dx, dy] of [[0, 0], [-8, 0], [8, 0], [0, -8], [0, 8]]){
+    const u = Math.floor((sx + dx - r.left) / r.width * m.w), v = Math.floor((sy + dy - r.top) / r.height * m.h);
+    if (u >= 0 && v >= 0 && u < m.w && v < m.h && m.d[(v * m.w + u) * 4 + 3] > 60) return true; }
+  return false;
+}
 function objAt(sx, sy){
+  const order = [...S.objs].sort((a, b) => (b.x + b.y + B(b).w) - (a.x + a.y + B(a).w));
+  const main = o => !o.wild && B(o).kind !== 'path';
+  for (const o of order) if (main(o) && B(o).kind !== 'deco' && hitSprite(o, sx, sy)) return o;        // bâtiments
+  for (const o of order) if (main(o) && B(o).kind === 'deco' && hitSprite(o, sx, sy)) return o;        // décorations
   const t = toTile(sx, sy);
-  // d'abord l'emprise au sol, puis la silhouette des bâtiments (du plus proche au plus lointain)
-  let best = null;
-  for (const o of S.objs){ const b = B(o); if (t.x >= o.x && t.x < o.x + b.w && t.y >= o.y && t.y < o.y + b.h){ if (!best || o.x + o.y > best.x + best.y) best = o; } }
-  if (best) return best;
-  const sorted = [...S.objs].sort((a, b) => (b.x + b.y) - (a.x + a.y));
-  for (const o of sorted){ if (B(o).kind === 'deco' || B(o).kind === 'path') continue; const r = objScreenRect(o); if (sx > r.left + r.width * .2 && sx < r.left + r.width * .8 && sy > r.top + r.height * .1 && sy < r.cy) return o; }
+  for (const o of order){ const b = B(o); if (main(o) && t.x >= o.x && t.x < o.x + b.w && t.y >= o.y && t.y < o.y + b.h) return o; }
+  for (const o of order) if (o.wild && hitSprite(o, sx, sy)) return o;                                  // sapins sauvages
   return null;
 }
 cv.addEventListener('pointerdown', e => {
@@ -1689,7 +1708,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 69;
+const GAME_V = 70;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();

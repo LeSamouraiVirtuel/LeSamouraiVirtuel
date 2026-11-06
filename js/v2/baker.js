@@ -3,7 +3,7 @@
 // (2) en secours sur l'appareil si le pack n'est pas disponible.
 import * as THREE from 'three';
 import {loadAssets, prop, tint, character, elfLook, santaLook} from '../assets.js';
-import {buildModel, cabin, plotBase} from '../buildings.js';
+import {buildModel, cabin, plotBase, PLATE_DROP} from '../buildings.js';
 import {bake, bakeIcon, free, disposeBaker} from './bake.js';
 import * as T from './town.js';
 import {pickIcon, coinsModel, pathTile, giftPile} from './models.js';
@@ -164,11 +164,12 @@ export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   const SPR = {}, ICON = {}, thumbs = {}, models = {};
   const jobs = [];
   for (const [type, b] of Object.entries(BUILDINGS)){
-    if (T.isUpgradable(b)) for (const t of [1, 2, 3]) jobs.push([`b:${type}:${t}`, () => modelFor(type, t)]);
-    else jobs.push(['b:' + type, () => modelFor(type)]);
+    const sunk = o => { const w = new THREE.Group(); o.position.y -= PLATE_DROP; w.add(o); return w; };
+    if (T.isUpgradable(b)) for (const t of [1, 2, 3]) jobs.push([`b:${type}:${t}`, () => sunk(modelFor(type, t))]);
+    else jobs.push(['b:' + type, () => b.kind === 'deco' || b.kind === 'path' ? modelFor(type) : sunk(modelFor(type))]);
   }
   jobs.push(['b:path2', () => pathTile(2)], ['b:path3', () => pathTile(3)], ['b:wildtree', () => deco('wildtree')], ['b:wildtree2', () => deco('wildtree2')]);
-  for (const n of [1, 2, 3, 4]) jobs.push(['site:' + n, () => site(n)]);
+  for (const n of [1, 2, 3, 4]) jobs.push(['site:' + n, () => { const w = new THREE.Group(), o = site(n); o.position.y -= PLATE_DROP * .9; w.add(o); return w; }]);
   jobs.push(['forest:0', () => forest(7)], ['forest:1', () => forest(31)], ['forest:2', () => forest(77)]);
   for (let v = 0; v < 3; v++) jobs.push(['elf:' + v, () => { const c = character('elf', elfLook(v)); c.root.scale.setScalar(.38); c.mixer.update(.5); return c.root; }]);
   for (let i = 0; i < jobs.length; i++){
