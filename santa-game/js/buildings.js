@@ -75,7 +75,7 @@ export function plotBase(tier, skin = null){
   }
   // Plus de socle : une fine dalle de neige tassée au ras du sol, juste pour poser le bâtiment (retour joueur).
   // Le bâtiment reste à la même hauteur relative ; l'ensemble est descendu de PLATE_DROP au moment du rendu.
-  const b = new THREE.Mesh(padGeo, padMat); b.position.y = PLATE_DROP + .015; b.receiveShadow = true; g.add(b);
+  // plus de socle blanc : le bâtiment est posé directement dans la neige (son ombre suffit à l'ancrer)
   return g;
 }
 export const BASE_Y = .34;

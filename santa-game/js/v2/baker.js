@@ -92,7 +92,7 @@ function dress(g, type, t){
 function modelFor(type, t = 1){
   const lv = TIER_LV[t], mk = (k, s = .78) => scaled(buildModel(k, lv).group, s);
   switch (type){
-    case 'santa': return dress(mk('hq', 1.02), 'santa', t);
+    case 'santa': return dress(mk('hq', .95), 'santa', t);
     case 'sawmill': return dress(mk('sawmill'), 'sawmill', t);
     case 'letters': return dress(mk('post'), 'letters', t);
     case 'bakery': return dress(mk('bakery'), 'bakery', t);
@@ -161,6 +161,11 @@ function heroScene(){
  */
 /** Cycle de marche des lutins : 3 tenues × 4 directions (+x, +y, -x, -y en cases) × 8 images. */
 export const WALK_N = 8;
+export async function bakePets({DPR, base}){
+  await loadAssets(base, () => {}); const ICON = {};
+  for (let st = 0; st < 6; st++) for (const sk of Object.keys(PET_SKINS)) ICON[`pet_${st}_${sk}`] = bakeIcon(petModel(st, sk), 120, DPR);
+  return ICON;
+}
 export async function bakeWalk({BD, base}){
   await loadAssets(base, () => {});
   const SPR = {};
@@ -173,6 +178,41 @@ export async function bakeWalk({BD, base}){
     });
   }
   return SPR;
+}
+
+/* ---------- Flocon : un modèle par stade d'évolution (accessoires) et par skin (pelage recoloré) ---------- */
+export const PET_SKINS = {classic: null, frost: [.56, .45, 1.55, .2], mint: [.42, .5, 1.25, .1], ruby: [.98, .62, 1.05, .02], gold: [.125, .95, 1.12, .06], aurora: [.76, .55, 1.25, .1], choco: [.06, .45, .7, 0]};
+const furCache = new Map();
+function furTex(tex, sk){
+  const k = tex.uuid + sk; if (furCache.has(k)) return furCache.get(k);
+  const [H, S2, L, add] = PET_SKINS[sk], img = tex.image, c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0); const d = x.getImageData(0, 0, c.width, c.height), p = d.data, col = new THREE.Color(), hsl = {};
+  for (let i = 0; i < p.length; i += 4){ col.setRGB(p[i] / 255, p[i + 1] / 255, p[i + 2] / 255); col.getHSL(hsl);
+    if (hsl.h > .025 && hsl.h < .14 && hsl.s > .2 && hsl.l > .08 && hsl.l < .8){ col.setHSL(H, Math.min(1, S2), Math.min(.93, hsl.l * L + add)); p[i] = col.r * 255; p[i + 1] = col.g * 255; p[i + 2] = col.b * 255; } }
+  x.putImageData(d, 0, 0); const t = tex.clone(); t.source = new THREE.Source(c); t.needsUpdate = true; furCache.set(k, t); return t;
+}
+const M = (c, e = 0) => new THREE.MeshStandardMaterial({color: c, roughness: .55, metalness: c === '#f5c542' ? .5 : 0, emissive: e ? c : '#000', emissiveIntensity: e});
+export function petModel(stage, skin = 'classic'){
+  const g = new THREE.Group(), d = prop('reindeer'); g.add(d);
+  if (PET_SKINS[skin]) d.traverse(o => { if (o.isMesh && o.material.map){ o.material = o.material.clone(); o.material.map = furTex(o.material.map, skin); } });
+  d.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(d), sz = b.getSize(new THREE.Vector3()), cx = (b.min.x + b.max.x) / 2;
+  // la tête est du côté +z (vers la caméra) : cou à ~75 % de la longueur, dos au milieu
+  const zN = b.min.z + sz.z * .78, yN = b.min.y + sz.y * .62, yB = b.min.y + sz.y * .47, zB = b.min.z + sz.z * .48, W = sz.x;
+  const add = (geo, mat, x, y, z, r = [0, 0, 0]) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(...r); g.add(m); return m; };
+  const scarf = stage >= 4 ? '#3fd6b0' : '#e8323f';
+  if (stage >= 1){ add(new THREE.TorusGeometry(W * .24, W * .07, 8, 20), M(scarf), cx, yN - sz.y * .04, zN - sz.z * .03, [Math.PI / 2.4, 0, 0]);
+    add(new THREE.BoxGeometry(W * .14, sz.y * .2, W * .05), M(scarf), cx + W * .18, yN - sz.y * .1, zN + W * .12, [0, 0, .25]); }
+  if (stage >= 2){ add(new THREE.SphereGeometry(W * .11, 12, 10), M('#f5c542'), cx, yN - sz.y * .15, zN + W * .25);
+    const bl = stage >= 4 ? '#8a5cf0' : '#c0283a'; add(new THREE.BoxGeometry(W * .92, sz.y * .04, sz.z * .2), M(bl), cx, yB, zB);
+    add(new THREE.BoxGeometry(W * 1.12, sz.y * .03, sz.z * .06), M('#ffffff'), cx, yB - sz.y * .01, zB - sz.z * .1); add(new THREE.BoxGeometry(W * 1.12, sz.y * .03, sz.z * .06), M('#ffffff'), cx, yB - sz.y * .01, zB + sz.z * .1); }
+  if (stage >= 4){ const h = add(new THREE.TorusGeometry(Math.max(W, sz.z) * .42, W * .045, 8, 32), M(stage >= 5 ? '#ffd34a' : '#3fe0b0', 1.2), cx, b.min.y + .01, (b.min.z + b.max.z) / 2, [Math.PI / 2, 0, 0]); }
+  if (stage >= 3){ const st = new THREE.OctahedronGeometry(W * .13, 0); for (const [dx, dy, dz] of [[-.4, .98, .72], [.45, 1.0, .6], [0, 1.06, .5]]) add(st, M('#ffe14a', .9), cx + W * dx, b.min.y + sz.y * dy, b.min.z + sz.z * dz, [0, .6, 0]).scale.set(1, 1.3, .45); }
+  if (stage >= 5){ const cr = new THREE.Group(); cr.position.set(cx, b.min.y + sz.y * .9, b.min.z + sz.z * .8); g.add(cr);
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(W * .22, W * .24, sz.y * .07, 12, 1, true), M('#f5c542')); ring.material.side = THREE.DoubleSide; cr.add(ring);
+    for (let i = 0; i < 6; i++){ const a = i / 6 * Math.PI * 2, s2 = new THREE.Mesh(new THREE.ConeGeometry(W * .05, sz.y * .09, 6), M('#f5c542')); s2.position.set(Math.cos(a) * W * .22, sz.y * .07, Math.sin(a) * W * .22); cr.add(s2);
+      if (i % 2 === 0){ const j = new THREE.Mesh(new THREE.SphereGeometry(W * .035, 8, 6), M(['#ff3b5c', '#3fb6ff', '#5ad27a'][i / 2], .5)); j.position.set(Math.cos(a) * W * .235, 0, Math.sin(a) * W * .235); cr.add(j); } } }
+  g.scale.setScalar([.72, .86, 1, 1, 1.05, 1.12][stage] || 1);
+  return g;
 }
 export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   await loadAssets(base, p => bar(p * .55));
@@ -200,6 +240,7 @@ export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   ICON.coins = iconURL(coinsModel());
   // mini-jeux
   ICON.mg_sleigh = url(bakeIcon(sleighIcon(), 120, DPR)); ICON.mg_gift = iconURL(prop('present_A_red')); ICON.mg_deer = iconURL(prop('reindeer'));
+  for (let st = 0; st < 6; st++) for (const sk of Object.keys(PET_SKINS)) ICON[`pet_${st}_${sk}`] = url(bakeIcon(petModel(st, sk), 120, DPR));
   ICON.mg_gold = iconURL(goldSnowman()); ICON.mg_elf = (() => { const c = character('elf', elfLook(0)); c.mixer.update(.5); return url(bakeIcon(c.root, 80, DPR)); })();
   ICON.mg_snow = iconURL(prop('snowball_pile'));
     const portrait = (() => { const c = character('santa', santaLook(9), {hat: true}); c.mixer.update(.6); return bust(c.root, 128, DPR); })();

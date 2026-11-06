@@ -198,6 +198,8 @@ export const EV_SHOP = [
   {k: 'reindeer', name: 'Renne décoré', price: 150, deco: 'reindeer'},
   {k: 'gifts', name: 'Pile de cadeaux', price: 90, deco: 'gifts'},
   {k: 'snowman', name: 'Bonhomme de neige', price: 60, deco: 'snowman'},
+  {k: 'skin_gold', name: 'Flocon doré (skin)', price: 400, skin: 'gold'},
+  {k: 'skin_aurora', name: 'Flocon des aurores (skin)', price: 700, skin: 'aurora'},
   {k: 'parcel', name: 'Colis rare', price: 200, give: {parcel: 1}},
   {k: 'stars', name: '5 étoiles d’or', price: 300, give: {stars: 5}},
 ];
@@ -205,7 +207,9 @@ export const evSpendable = s => { eventState(s); return s.ev.pts - (s.ev.spent |
 export function evBuy(s, k){
   const it = EV_SHOP.find(x => x.k === k); if (!it) return null;
   if (evSpendable(s) < it.price) return 'Pas assez de flocons';
+  if (it.skin && hasSkin(s, it.skin)) return 'Tu as déjà ce skin';
   s.ev.spent = (s.ev.spent || 0) + it.price;
+  if (it.skin){ skinState(s).own[it.skin] = 1; return {skin: it.skin}; }
   if (it.deco){ s.tokens ||= {}; s.tokens[it.deco] = (s.tokens[it.deco] || 0) + 1; return {deco: it.deco}; }
   return {give: it.give};
 }
@@ -264,4 +268,23 @@ export function aucRivalTurn(st){
   const jump = r.style === 'fonceuse' && Math.random() < .4 ? 2 : 1;
   st.price = Math.min(r.max, st.price + aucStep(st.price) * jump); if (st.price < next) st.price = next;
   st.lead = st.riv.indexOf(r); return r;
+}
+
+/* ===================== SKINS (apparences) ===================== */
+// Flocon change de pelage : certains s'achètent en étoiles d'or, d'autres ne se gagnent qu'en événement.
+export const PET_SKIN_LIST = [
+  {k: 'classic', name: 'Classique'},
+  {k: 'choco', name: 'Chocolat', stars: 60},
+  {k: 'frost', name: 'Givré', stars: 120},
+  {k: 'mint', name: 'Menthe glacée', stars: 120},
+  {k: 'ruby', name: 'Rubis', stars: 200},
+  {k: 'gold', name: 'Doré', event: 'Boutique de l’événement (❄ 400)'},
+  {k: 'aurora', name: 'Aurore', event: 'Boutique de l’événement (❄ 700)'},
+];
+export const skinState = s => (s.skins ||= {pet: 'classic', own: {classic: 1}});
+export const hasSkin = (s, k) => !!skinState(s).own[k];
+export function buySkin(s, k){
+  const d = PET_SKIN_LIST.find(x => x.k === k); if (!d || d.event) return 'Ce skin se gagne en événement';
+  if (hasSkin(s, k)) return null; if ((s.stars || 0) < d.stars) return {stars: d.stars};
+  s.stars -= d.stars; skinState(s).own[k] = 1; skinState(s).pet = k; return null;
 }

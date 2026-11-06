@@ -305,3 +305,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Village plus lumineux : voile de nuit 0,2 → 0,07, crépuscule 0,22 → 0,1, vignette 0,28 → 0,1, fumée plus claire.
 - Lutins : vrai cycle de marche (96 images rendues du modèle 3D : 3 tenues × 4 directions × 8 images, tools/export-walk.mjs), trajets par le plus court chemin le long des allées vers une destination, pauses.
 - Menu Mini-jeux : la carte « Campagne des Trolls » verrouillée passait derrière les cartes (classe .lock générique) → .camp-lock.
+
+## Tour 56 (v74)
+- Toucher un bâtiment (écurie, mine, labo, gare, atelier, bureau) ouvre d'abord sa fiche, puis un bouton mène à son activité.
+- Plus de socle blanc sous les bâtiments (pack ré-exporté) ; Maison un peu réduite ; allées/déco/sapins sous un bâtiment retirés au chargement (clearUnder).
+- Haches et scies manquantes achetables dans la fenêtre « Agrandir » (pièces ou étoiles).
+- Flocon : 6 stades visibles (écharpe, cloche, couverture, étoiles, halo, couronne) × 7 pelages ; garde-robe (étoiles) + skins Doré et Aurore dans la boutique d'événement.
+- Fenêtre BRAVO : les rayons étaient coupés en rectangle (overflow) → corrigé.
