@@ -291,3 +291,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
+
+## Tour 54 (v72)
+- Bug : « Vendre » d’une déco (et « Couper » un sapin) ne faisait rien — l’action portait le même nom que la vente du Marché. Renommée `sellobj`.
+- Un bâtiment peut se poser sur le décor : allées, sapins, décorations sous lui sont rangés automatiquement (déco achetée remboursée à 50 
+## Tour 54 (v72)
+- Bug : « Vendre » d'une déco (et « Couper » un sapin) ne faisait rien : l'action avait le même nom que la vente du Marché. Renommée `sellobj`.
+- Un bâtiment peut se poser sur le décor : allées, sapins et décorations dessous sont rangés automatiquement (déco achetée remboursée à 50 %).
+- Tap : l'objet le plus en avant sous le doigt gagne (déco devant un bâtiment). Les allées se touchent et se retirent.
