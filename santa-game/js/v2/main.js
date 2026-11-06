@@ -4,7 +4,7 @@
 // canvas 2D : chargement rapide, fluide, net, et aucune 3D à calculer sur l'appareil.
 import {createTuto} from '../tuto.js';
 import {openMinigame, GAMES} from '../minigames.js';
-import {openDefense} from '../defense.js';
+import {openBattle, portrait3d} from '../battle3d.js';
 import {portrait as villainPortrait} from '../villains.js';
 import * as ACC from '../account.js';
 import * as T from './town.js';
@@ -1671,7 +1671,7 @@ $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo
 function rsCheck(){ const R = T.rsTick(S); if (!R) return; const r = T.RESEARCH.find(x => x.k === R.k); toast(`Recherche terminée : ${r.name} niveau ${R.lv} !`); sfx.level(); save(); if (panel === 'lab') renderPanel(); }
 
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 63;
+const GAME_V = 64;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1966,8 +1966,8 @@ function campGo(i){
   const C = T.campState(S); if (i > C.at) return; const cost = T.campCost(i), c = T.camp(i);
   if (!T.has(S, cost)){ sfx.err(); return showMissing(cost, `Attaquer : ${c.name}`, () => campGo(i)); }
   T.take(S, cost); save(); closePanel(); document.body.classList.add('in-game');
-  openDefense({
-    pet: (S.pet?.lv || 0) >= 5, camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
+  openBattle({
+    pet: (S.pet?.lv || 0) >= 5, extraHearts: T.petHearts(S), camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
     result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
       if (first && c.boss) relicFound(Math.min(3, 1 + c.ch)); C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
@@ -1984,6 +1984,8 @@ function campGo(i){
    ===================================================================== */
 const KRAMPUS = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M24 34 C10 18 12 6 20 2 C20 14 28 22 36 28Z M76 34 C90 18 88 6 80 2 C80 14 72 22 64 28Z" fill="#e8e0d0" stroke="#1d2547" stroke-width="3"/><ellipse cx="50" cy="56" rx="30" ry="34" fill="#5a3a8a" stroke="#1d2547" stroke-width="3.5"/><ellipse cx="50" cy="74" rx="18" ry="13" fill="#efe6ff"/><circle cx="38" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="62" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="39" cy="51" r="3" fill="#1d2547"/><circle cx="61" cy="51" r="3" fill="#1d2547"/><path d="M28 40 L44 44 M72 40 L56 44" stroke="#1d2547" stroke-width="4" stroke-linecap="round"/><path d="M38 70 Q50 80 62 70" stroke="#1d2547" stroke-width="3" fill="#7a1a2a"/><path d="M43 71 L45 76 L47 72 M53 72 L55 76 L57 71" fill="#fff"/></svg>`);
 const VP = {}; const vp = k => VP[k] ||= villainPortrait(k);
+// portraits en 3D (modèles animés des monstres) dès qu'ils sont prêts ; dessin en attendant
+setTimeout(() => { for (const k of ['krampus', 'chief', 'troll', 'runner', 'yeti']) portrait3d(k).then(u => { if (u) VP[k] = u; }); }, 4000);
 const WHO = {
   'Le vieux Père Noël': () => portrait, 'Mère Noël': elfImg, 'Krampus des Glaces': () => vp('krampus'), 'Baron Glaçon': () => vp('baron'), 'Grognard, chef des trolls': () => vp('chief'), 'Narrateur': null,
 };

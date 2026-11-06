@@ -272,5 +272,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Nouvelle bataille « Défense du village » : trolls sur 3 chemins en perspective vers la palissade, types (coureur, bouclier, lanceur dont on pare les tirs, yéti), chef ou Krampus en boss (téléportation, pluie d'éclats), pouvoirs Avalanche, Grand Gel, charge de Flocon ; étoiles selon l'état de la palissade.
 - Comptes : module prêt (Google, e-mail, mot de passe oublié, relier Google et e-mail, sauvegarde en ligne toutes les minutes et au départ, reprise du village le plus avancé). Attend la configuration Firebase du propriétaire.
 
+## Tour 51 — Bataille en 3D avec un héros : Pépin
+- Retour : graphismes trop simples, envie d'incarner un personnage. Nouvelle bataille en 3D (three.js) : on dirige Pépin, un lutin (modèle KayKit, animations course, lancer, touché, défaite) avec un joystick sous le pouce ; à l'arrêt, il lance tout seul ses boules de neige sur le monstre le plus proche (comme Archero), donc il faut bouger pour esquiver et s'arrêter pour tirer.
+- Monstres 3D animés, CC0 (Quaternius Ultimate Monsters) : trolls (orcs), lanceurs, petits yétis, grands yétis, chef troll, Krampus (démon bleu) qui tire des éclats de glace avec une cible rouge au sol.
+- Décor : champ de neige, montagnes, sapins, lanternes, sucres d'orge, palissade ; Pépin a des cœurs, la palissade a des points de vie. Pouvoirs Avalanche, Grand Gel, Flocon.
+- Les portraits du bestiaire et des cinématiques utilisent maintenant les modèles 3D.
+
 ## Idées pour la suite
 5. Petites animations propres à chaque bâtiment (roue de la scierie qui tourne, flamme du four).
