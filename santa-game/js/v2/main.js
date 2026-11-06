@@ -76,7 +76,8 @@ const packed = !EXPORT && await loadPack().catch(() => false);
 if (!packed){
   // secours (ou fabrication du pack) : pré-rendu sur l'appareil à partir des modèles 3D
   $('#loadtxt').textContent = 'Préparation du village…';
-  const {bakeAll} = await import('./baker.js');
+  const {bakeAll, bakeWalk} = await import('./baker.js');
+  if (Q.get('export') === 'walk'){ window.__export = {SPR: await bakeWalk({BD, base: ROOT + 'assets/'}), ICON: {}, thumbs: {}}; throw new Error('export prêt'); }
   const out = await bakeAll({DPR, BD, bar, base: ROOT + 'assets/', extras: EXPORT});
   const url = c => c.toDataURL('image/png');
   Object.assign(SPR, out.SPR);
@@ -488,8 +489,8 @@ const WINDOWS = {santa: [[.27, .55], [.47, .6], [.73, .5]], cabin: [[.32, .58], 
 function ambiance(){
   const {n, dusk} = nightLevel(); if (n <= 0 && dusk <= 0) return;
   ctx.save();
-  if (dusk > 0){ ctx.globalAlpha = dusk * .22; ctx.fillStyle = '#ff8a5c'; ctx.fillRect(0, 0, W, H); }
-  if (n > 0){ ctx.globalAlpha = n * .2; ctx.fillStyle = '#1a2a66'; ctx.fillRect(0, 0, W, H); }   // nuit douce : le village garde ses couleurs
+  if (dusk > 0){ ctx.globalAlpha = dusk * .1; ctx.fillStyle = '#ff9a6c'; ctx.fillRect(0, 0, W, H); }
+  if (n > 0){ ctx.globalAlpha = n * .07; ctx.fillStyle = '#3a4a9a'; ctx.fillRect(0, 0, W, H); }   // à peine bleuté : le jeu reste lumineux même le soir   // nuit douce : le village garde ses couleurs
   if (n > .3){
     ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, (n - .3) / .4);
     for (const o of S.objs){
@@ -507,7 +508,7 @@ let fxDt = 0;
 let vig = null, vigW = 0, vigH = 0;
 function vignette(){ // calculée une fois en petite taille, puis étirée (dégradé doux : aucun flou visible)
   if (vigW !== W || vigH !== H){ vigW = W; vigH = H; vig = document.createElement('canvas'); vig.width = 128; vig.height = Math.round(128 * H / W); const x = vig.getContext('2d'), w = vig.width, h = vig.height;
-    const g = x.createRadialGradient(w / 2, h * .45, Math.min(w, h) * .35, w / 2, h * .45, Math.hypot(w, h) * .62); g.addColorStop(0, 'rgba(20,30,70,0)'); g.addColorStop(1, 'rgba(20,30,70,.28)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }
+    const g = x.createRadialGradient(w / 2, h * .45, Math.min(w, h) * .35, w / 2, h * .45, Math.hypot(w, h) * .62); g.addColorStop(0, 'rgba(20,30,70,0)'); g.addColorStop(1, 'rgba(60,80,140,.1)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }
   return vig;
 }
 // Étiquettes : jamais coupées au bord de l'écran, jamais sous la barre du haut, les boutons de droite ou la barre du bas,
@@ -683,7 +684,7 @@ function drawFx(dt){
       const sc = u < .2 ? .6 + u * 3 : 1.2 - (u - .2) * .25; ctx.globalAlpha = u > .75 ? (1 - u) / .25 : 1;
       ctx.save(); ctx.translate(f.x, f.y - 30 * u); ctx.scale(sc, sc); ctx.font = '400 30px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 7; ctx.strokeStyle = '#7a1a10'; ctx.strokeText(f.txt, 0, 0); ctx.fillStyle = '#ffd34a'; ctx.fillText(f.txt, 0, 0); ctx.restore();
     } else if (f.k === 'smoke'){
-      f.x += f.vx * dt; f.y += f.vy * dt; f.vx += 4 * dt; const R = f.r * (1 + u * 1.6); ctx.globalAlpha = Math.min(1, u * 6) * (1 - u * u); const g = ctx.createRadialGradient(f.x - R * .3, f.y - R * .3, R * .1, f.x, f.y, R); g.addColorStop(0, '#ffffff'); g.addColorStop(.55, '#cfd4de'); g.addColorStop(1, 'rgba(120,130,150,.0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, R, 0, 7); ctx.fill();
+      f.x += f.vx * dt; f.y += f.vy * dt; f.vx += 4 * dt; const R = f.r * (1 + u * 1.6); ctx.globalAlpha = Math.min(1, u * 6) * (1 - u * u); const g = ctx.createRadialGradient(f.x - R * .3, f.y - R * .3, R * .1, f.x, f.y, R); g.addColorStop(0, 'rgba(255,255,255,.85)'); g.addColorStop(.55, 'rgba(240,244,250,.5)'); g.addColorStop(1, 'rgba(230,236,246,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, R, 0, 7); ctx.fill();
     } else if (f.k === 'puff'){
       f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = (1 - u) * .85; ctx.fillStyle = '#fbf6ee'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + u * 1.3), 0, 7); ctx.fill();
     } else if (f.k === 'chip'){                        // copeaux de la scierie, braises de la fonderie, paillettes…
@@ -712,15 +713,28 @@ function drawFx(dt){
 /* ---------- lutins qui se promènent ---------- */
 const elfSprites = [0, 1, 2].map(v => SPR['elf:' + v]);
 const elves = Array.from({length: 9}, (_, i) => ({x: 13 + i * 2, y: 22, tx: 13 + i * 2, ty: 22, v: i % 3, wait: Math.random() * 3, carry: ['wood', null, 'cookies', 'coins', null, 'fabric', 'wood', null, 'train'][i]}));
+// les lutins choisissent une destination au bout des allées et y vont par le plus court chemin (recherche en largeur),
+// s'arrêtent un moment, puis repartent : on voit un vrai va-et-vient, plus de zigzag case par case
+let pathKey = '', pathSet = null;
+function paths(){ const L = S.objs.filter(o => o.type === 'path'), k = L.length + ':' + (L[0]?.x || 0); if (k !== pathKey){ pathKey = k; pathSet = new Map(L.map(o => [o.x + ',' + o.y, o])); } return pathSet; }
+function route(fx, fy){
+  const P = paths(); if (!P.size) return null;
+  const start = `${Math.floor(fx)},${Math.floor(fy)}`; if (!P.has(start)) { const L = [...P.values()]; const n = L.reduce((m, o) => Math.hypot(o.x + .5 - fx, o.y + .5 - fy) < Math.hypot(m.x + .5 - fx, m.y + .5 - fy) ? o : m, L[0]); return [[n.x + .5, n.y + .5]]; }
+  const prev = new Map([[start, null]]), q = [start], far = [];
+  while (q.length){ const c = q.shift(); far.push(c); const [x, y] = c.split(',').map(Number);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){ const n = `${x + dx},${y + dy}`; if (P.has(n) && !prev.has(n)){ prev.set(n, c); q.push(n); } } }
+  const pool = far.slice(Math.floor(far.length * .35)); const goal = pool[Math.floor(Math.random() * pool.length)] || start;
+  const out = []; for (let c = goal; c && c !== start; c = prev.get(c)){ const [x, y] = c.split(',').map(Number); out.unshift([x + .5, y + .5]); }
+  return out;
+}
 function moveElves(dt){
   for (const e of elves){
-    const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy);
-    if (d < .05){ e.wait -= dt; if (e.wait <= 0){ // les lutins marchent le long des allées, d'une dalle voisine à l'autre
-        const here = S.objs.filter(o => o.type === 'path' && Math.abs(o.x + .5 - e.x) + Math.abs(o.y + .5 - e.y) <= 1.6 && !(Math.abs(o.x + .5 - e.x) < .1 && Math.abs(o.y + .5 - e.y) < .1));
-        const all = here.length ? here : S.objs.filter(o => o.type === 'path');
-        if (all.length){ const t = all[Math.floor(Math.random() * all.length)]; e.tx = t.x + .5; e.ty = t.y + .5; e.wait = Math.random() < .15 ? 1 + Math.random() * 3 : 0; } } }
-    else { const st = Math.min(d, dt * .9); e.x += dx / d * st; e.y += dy / d * st; }
-    e.walk = d >= .05;
+    if (!e.route?.length){ e.walk = false; e.wait -= dt; if (e.wait <= 0){ e.route = route(e.x, e.y) || []; e.wait = 1.5 + Math.random() * 4; } continue; }
+    const [tx, ty] = e.route[0], dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
+    if (d < .02){ e.route.shift(); continue; }
+    const st = Math.min(d, dt * .85); e.x += dx / d * st; e.y += dy / d * st; e.phase = (e.phase || 0) + st;
+    if (Math.abs(dx) > .01 || Math.abs(dy) > .01) e.dir = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3);
+    e.walk = true;
   }
 }
 // le visiteur : un lutin habillé autrement, avec une bulle de ce qu'il demande ; on le touche pour lui répondre
@@ -734,9 +748,11 @@ function drawVisitor(x, y){
   bubble(c.x, top, k, '?');
   visitorRect = {left: c.x - 36, right: c.x + 36, top: top - 64, bottom: c.y + 10};
 }
-function drawElf(e){ const c = toScreen(e.x, e.y), s = elfSprites[e.v]; const bob = e.walk ? Math.abs(Math.sin(performance.now() / 120)) * 3 : 0; ctx.save(); if (e.tx - e.x > 0 === e.ty - e.y < 0){ ctx.translate(c.x, 0); ctx.scale(-1, 1); ctx.translate(-c.x, 0); } ctx.drawImage(s.canvas, c.x - s.ax * cam.z, c.y - s.ay * cam.z - bob, s.w * cam.z, s.h * cam.z); ctx.restore();
+function drawElf(e){ const c = toScreen(e.x, e.y); let s = elfSprites[e.v], bob = 0;
+  if (e.walk){ const f = SPR[`elfw:${e.v}:${e.dir || 0}:${Math.floor(e.phase * 9) % 8}`]; if (f && f.canvas && f.canvas.complete !== false) s = f; else bob = Math.abs(Math.sin(performance.now() / 120)) * 3; }
+  ctx.drawImage(s.canvas, c.x - s.ax * cam.z, c.y - s.ay * cam.z - bob, s.w * cam.z, s.h * cam.z);
   // certains lutins portent une caisse au-dessus de la tête quand ils marchent
-  if (e.carry && e.walk && ICON[e.carry]){ const im = img(ICON[e.carry]); if (im.complete){ const z = 22 * Math.max(.7, cam.z); ctx.drawImage(im, c.x - z / 2, c.y - s.ay * cam.z - bob - z * .55, z, z); } } }
+  if (e.carry && e.walk && ICON[e.carry]){ const im = img(ICON[e.carry]); if (im.complete){ const z = 22 * Math.max(.7, cam.z); ctx.drawImage(im, c.x - z / 2, c.y - 29 * cam.z - bob - z * .8, z, z); } } }
 
 /* =====================================================================
    TOUCHER : déplacer la vue, glisser pour récolter/planter, placer
@@ -965,7 +981,7 @@ function renderPanel(){
   else if (panel === 'games'){
     const g = tickets();
     h = hd('', 'Mini-jeux') + `<div class="tix"><span>${'<i class="tk"></i>'.repeat(g.tickets)}${'<i class="tk off"></i>'.repeat(TMAX - g.tickets)}</span><small>${g.tickets < TMAX ? `+1 ticket dans <b data-until="${g.t + TEVERY}"></b>` : 'Tickets au maximum'}</small></div>
-      ${campCard()}<div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', ICON.mg_snow]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
+      ${campCard()}<div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', thumbs.gifts || ICON.mg_gift]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
       <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
   }
   else if (panel === 'fish'){
@@ -1719,7 +1735,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 72;
+const GAME_V = 73;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1886,7 +1902,7 @@ function todoGo(g){
   if (g.o) return goTo(g.o.type === 'cabin' ? 'cabin' : g.o.type);
 }
 
-/* ---------- mini-jeux (Tournée de Noël, Bataille de boules de neige) ---------- */
+/* ---------- mini-jeux (Tournée de Noël, Tour de cadeaux) ---------- */
 let TMAX = 3; const TEVERY = 15 * 60e3;   // tickets (plus avec l'Écurie), 1 de plus toutes les 15 minutes
 function tickets(){
   { const st = findType('stable'); TMAX = st ? T.ticketsMax(st.lv) : 3; }
@@ -1911,7 +1927,7 @@ function playGame(k){
   g.tickets--; save(); closePanel(); document.body.classList.add('in-game');
   openMinigame(k, {
     icons: {sleigh: ICON.mg_sleigh, gift: ICON.mg_gift, elf: ICON.mg_elf, deer: ICON.mg_deer, gold: ICON.mg_gold},
-    sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: kk => S.games.best[kk] || 0, setBest: (kk, v) => { S.games.best[kk] = v; save(); },
+    sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, tone, best: kk => S.games.best[kk] || 0, setBest: (kk, v) => { S.games.best[kk] = v; save(); },
     chipsHtml: rewardChips, reward: gameReward,
     grant: (rw, el) => { giveReward(rw, el); T.track(S, 'games'); },
     onScore: () => {}, onClose: () => { document.body.classList.remove('in-game'); },
@@ -2009,7 +2025,7 @@ function petUp(up, el){
 }
 /* ---------- campagne contre les trolls ---------- */
 function campCard(){
-  if (S.lvl < T.CAMP_LVL) return `<div class="campentry lock"><b>Campagne des Trolls</b><small>Niveau ${T.CAMP_LVL} requis</small></div>`;
+  if (S.lvl < T.CAMP_LVL) return `<div class="campentry camp-lock"><b>Campagne des Trolls</b><small>Niveau ${T.CAMP_LVL} requis</small></div>`;
   const C = T.campState(S), c = T.camp(C.at);
   return `<div class="campentry" role="button" data-a="camp"><span class="ti">⚔</span><div><b>Campagne des Trolls</b><small>Prochain : ${c.name}</small></div><span class="btn red sm">Attaquer</span></div>`;
 }
@@ -2018,7 +2034,7 @@ function campGo(i){
   if (!T.has(S, cost)){ sfx.err(); return showMissing(cost, `Attaquer : ${c.name}`, () => campGo(i)); }
   T.take(S, cost); save(); closePanel(); document.body.classList.add('in-game');
   openBattle({
-    pet: (S.pet?.lv || 0) >= 5, extraHearts: T.petHearts(S), camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, best: () => 0, setBest: () => {},
+    pet: (S.pet?.lv || 0) >= 5, extraHearts: T.petHearts(S), camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, tone, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
     result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
       if (first && c.boss) relicFound(Math.min(3, 1 + c.ch)); C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },

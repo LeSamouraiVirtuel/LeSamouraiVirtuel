@@ -159,6 +159,21 @@ function heroScene(){
  * Rend toutes les images. opts : {DPR, BD, bar, base, extras}
  * Renvoie {SPR: {clé: {canvas, ax, ay, w, h}}, ICON: {clé: canvas}, thumbs: {type: canvas}, portrait, buildIcon, splash?}
  */
+/** Cycle de marche des lutins : 3 tenues × 4 directions (+x, +y, -x, -y en cases) × 8 images. */
+export const WALK_N = 8;
+export async function bakeWalk({BD, base}){
+  await loadAssets(base, () => {});
+  const SPR = {};
+  for (let v = 0; v < 3; v++){
+    const c = character('elf', elfLook(v)); c.root.scale.setScalar(.38); c.play('Walking_A', 0);
+    const clip = c.actions.Walking_A.getClip(), g = new THREE.Group(); g.add(c.root);
+    [Math.PI / 2, 0, -Math.PI / 2, Math.PI].forEach((rot, d) => {
+      c.root.rotation.y = rot;
+      for (let i = 0; i < WALK_N; i++){ c.mixer.setTime(clip.duration * i / WALK_N); g.updateMatrixWorld(true); SPR[`elfw:${v}:${d}:${i}`] = bake(g, {density: BD}); }
+    });
+  }
+  return SPR;
+}
 export async function bakeAll({DPR, BD, bar = () => {}, base, extras = false}){
   await loadAssets(base, p => bar(p * .55));
   const SPR = {}, ICON = {}, thumbs = {}, models = {};

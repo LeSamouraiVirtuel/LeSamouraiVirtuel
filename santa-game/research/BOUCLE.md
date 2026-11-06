@@ -299,3 +299,9 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Bug : « Vendre » d'une déco (et « Couper » un sapin) ne faisait rien : l'action avait le même nom que la vente du Marché. Renommée `sellobj`.
 - Un bâtiment peut se poser sur le décor : allées, sapins et décorations dessous sont rangés automatiquement (déco achetée remboursée à 50 %).
 - Tap : l'objet le plus en avant sous le doigt gagne (déco devant un bâtiment). Les allées se touchent et se retirent.
+
+## Tour 55 (v73)
+- Mini-jeu « Bataille de boules de neige » (tape-taupe jugé pas fun) remplacé par « La Tour de cadeaux » : un doigt, lâcher le cadeau pile sur la tour, débris qui tombent, Parfait + combo qui élargit la tour, ciel jour → coucher de soleil → aurore → étoiles.
+- Village plus lumineux : voile de nuit 0,2 → 0,07, crépuscule 0,22 → 0,1, vignette 0,28 → 0,1, fumée plus claire.
+- Lutins : vrai cycle de marche (96 images rendues du modèle 3D : 3 tenues × 4 directions × 8 images, tools/export-walk.mjs), trajets par le plus court chemin le long des allées vers une destination, pauses.
+- Menu Mini-jeux : la carte « Campagne des Trolls » verrouillée passait derrière les cartes (classe .lock générique) → .camp-lock.
