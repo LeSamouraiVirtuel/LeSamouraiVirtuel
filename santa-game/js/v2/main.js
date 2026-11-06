@@ -1670,8 +1670,19 @@ $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent');
 $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o) panTo(o.x + 2, o.y + 2, {zoom: startZoom()}); return; } openPanel('todo'); });
 function rsCheck(){ const R = T.rsTick(S); if (!R) return; const r = T.RESEARCH.find(x => x.k === R.k); toast(`Recherche terminée : ${r.name} niveau ${R.lv} !`); sfx.level(); save(); if (panel === 'lab') renderPanel(); }
 
+/* ---------- retour dans l'app : on repart sur une image neuve ----------
+   Après un verrouillage ou un passage en arrière-plan, Safari (iPhone) peut rendre la surface de dessin floue.
+   Le village est déjà sauvegardé à la sortie : au retour on recharge proprement (aucune perte), comme le font les jeux mobiles. */
+let bgAt = 0;
+const inBattle = () => !!document.getElementById('mg') || document.body.classList.contains('cine');
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ bgAt = Date.now(); save(); try { sessionStorage.setItem('vdp-cam', JSON.stringify({x: cam.x, y: cam.y, z: cam.z})); } catch(e){} return; }
+  if (bgAt && Date.now() - bgAt > 2500 && !inBattle()){ saveLock = true; location.reload(); }
+});
+addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
+try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 64;
+const GAME_V = 65;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1680,7 +1691,7 @@ async function checkUpdate(){
       const reg = await navigator.serviceWorker?.getRegistration(); await reg?.update().catch(() => {});
       setTimeout(() => location.replace(location.pathname + '?v=' + j.v), 600); } } catch(e){}
 }
-setTimeout(checkUpdate, 2500); document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+setTimeout(checkUpdate, 2500);
 /* ---------- diagnostic d'affichage (pour trouver un bug qu'on ne voit que sur un téléphone précis) ---------- */
 function diagText(){
   const L = [], vv = window.visualViewport, mem = performance.memory;
