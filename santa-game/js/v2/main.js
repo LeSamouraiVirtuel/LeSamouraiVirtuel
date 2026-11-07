@@ -1726,7 +1726,9 @@ function confirmStars(n, btn){
 }
 // une seule fenêtre à la fois : les suivantes attendent leur tour (au démarrage : retour d'absence, succès, histoire…)
 const modalQ = [];
-function modalBusy(){ return !$('#modal').hidden || document.body.classList.contains('cine') || !!$('#intro'); }
+// on attend seulement si une AUTRE fenêtre de récompense est affichée (ou une cinématique) ; une fenêtre qui enchaîne
+// sur sa propre récompense (colis, achat, cadeau d'arrivée…) est remplacée directement
+function modalBusy(){ const m = $('#modal'); return (!m.hidden && m.classList.contains('bravo')) || document.body.classList.contains('cine') || !!$('#intro'); }
 setInterval(() => { if (modalQ.length && !modalBusy()) modalQ.shift()(); }, 450);
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
   if (modalBusy()) return void modalQ.push(() => bravo(r, sub, title));
@@ -1814,7 +1816,7 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 77;
+const GAME_V = 78;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2393,6 +2395,8 @@ function welcomeBack(){
   bravo(got, `Pendant ton absence (${h ? h + ' h ' : ''}${m} min), tes gardiens ont récolté`, 'BON RETOUR !');
 }
 setTimeout(welcomeBack, 1400);
+// v76-v77 : un colis ouvert pouvait rester bloqué (récompense jamais donnée) → on rend un colis rare, une seule fois
+if (!S.fixParcel77 && (S.lvl || 1) >= 3){ S.fixParcel77 = 1; (S.parcels ||= []).unshift(1); save(); setTimeout(() => toast('Un colis rare t’a été rendu (bug des colis corrigé)'), 2600); }
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
