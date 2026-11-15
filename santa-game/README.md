@@ -24,6 +24,14 @@ Jeu de gestion de village de Noël pour téléphone, tablette et PC, dans la lig
    - la bataille ;
    - l'audit des textes de toutes les fenêtres.
 
+## Tests de non-régression
+
+```bash
+bash tools/tests/run.sh      # tutoriel, colis, bataille (iPhone SE et PC), lettres, audit des textes, robot
+```
+
+Variables utiles : `PLAYWRIGHT_BROWSERS_PATH` (dossier des navigateurs), `CHROMIUM_PATH` (Chromium pour le PC). Les captures vont dans `tools/tests/out/` (ignoré par git).
+
 ## Lancer en local
 
 ```bash

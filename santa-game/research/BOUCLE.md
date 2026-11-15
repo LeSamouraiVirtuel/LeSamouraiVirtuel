@@ -334,3 +334,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Démarrage : 3,5 Mo / 169 requêtes → 1,8 Mo / 112 requêtes. three.js et la bataille ne se chargent qu'à la première bataille ; portraits 3D des méchants seulement après une bataille ; images de marche des lutins à la demande.
 - PC : bataille et mini-jeux calculent leur taille et le viseur sur leur colonne (pas la fenêtre) ; bulle du tutoriel non agrandie (elle recouvrait « Améliorer »).
 - Audit : rechargement automatique seulement au calme + recherche de mise à jour toutes les 5 min ; fenêtre bloquée fermée au bout de 6 s ; « Vendre le surplus » quand les pièces manquent ; courbe d'XP de Flocon douce (11 800 au niv. 45 au lieu de 20 M) ; bouton « Plus » (Album, Avent, Marché).
+
+## Tour 60 (v80)
+- PC : raccourcis clavier (Échap, flèches/ZQSD/WASD, + et −).
+- Panneaux de zone (« NIV. 30 », « À VENDRE ») jamais sous la barre du haut, les boutons ou la quête.
+- Carte de quête repliable (flèche, mémorisé).
+- Réglage « Animations réduites » (neige, fumée et animations d'interface coupées ; activé d'office si le téléphone demande moins de mouvement).
+- Flocon se promène autour de l'Écurie avec son stade et son skin.
+- Tests de non-régression dans le dépôt : tools/tests/run.sh (tutoriel, colis, bataille sur iPhone SE et PC, lettres, audit des textes, robot). Tests rendus robustes (attente des boutons et de la fin des transitions du tutoriel).

@@ -459,6 +459,7 @@ function draw(){
   // terrains réservés : le futur bâtiment en transparence, avec ce qu'il faut pour le débloquer
   // terrains réservés : plus affichés sur la carte (ils encombraient) ; le menu Construire propose toujours une bonne place
   for (const e of elves) items.push({d: e.x + e.y, f: () => drawElf(e)});
+  if (petW.on) items.push({d: petW.x + petW.y, f: drawPetW});
   if (S.visitor){ const h = S.objs.find(o => o.type === 'santa'); if (h){ const vx = h.x + 5.3, vy = h.y + 1.6; items.push({d: vx + vy, f: () => drawVisitor(vx, vy)}); } }
   if (ghost){ const b = BUILDINGS[ghost.type]; items.push({d: ghost.x + ghost.y + (b.w + b.h) / 2 + .01, f: () => { const ok = fits(ghost.type, ghost.x, ghost.y, ghost.move); diamond(ghost.x, ghost.y, b.w, b.h, ok ? 'rgba(80,220,100,.35)' : 'rgba(255,60,60,.35)', ok ? '#2fae48' : '#d81f33'); const c = toScreen(ghost.x + b.w / 2, ghost.y + b.h / 2); drawSprite(ghost.move ? spriteKey(ghost.move) : T.isUpgradable(b) ? `b:${ghost.type}:1` : 'b:' + ghost.type, c.x, c.y, .85); }}); }
   items.sort((a, b) => a.d - b.d);
@@ -466,6 +467,7 @@ function draw(){
   drawDrop();
   ambiance();
   // noms des bâtiments, puis indicateurs au-dessus
+  { const hr = $('#hud2')?.getBoundingClientRect(); hudBottom = hr ? hr.bottom : 0; }
   labels = []; labelZones = [...document.querySelectorAll('#quest2, #sideR > button:not([hidden]), #sideL2 > button:not([hidden])')].map(e => e.getBoundingClientRect()).filter(r => r.width).map(r => ({left: r.left - 8, right: r.right + 8, top: r.top - 6, bottom: r.bottom + 16}));
   const inCine = document.body.classList.contains('cine');
   if (!inCine){ for (const o of S.objs) plate(o);
@@ -473,7 +475,7 @@ function draw(){
   drawSleigh();
   // neige qui tombe
   ctx.fillStyle = 'rgba(255,255,255,.85)';
-  for (const f of flakes){ ctx.beginPath(); ctx.arc(f.x * W, f.y * H, f.s * 1.6, 0, 7); ctx.fill(); }
+  if (!lite) for (const f of flakes){ ctx.beginPath(); ctx.arc(f.x * W, f.y * H, f.s * 1.6, 0, 7); ctx.fill(); }
   // vignette : bords légèrement assombris, le regard va au centre
   ctx.drawImage(vignette(), 0, 0, W, H);
   drawFx(fxDt);
@@ -482,6 +484,9 @@ function draw(){
 // avec les lampadaires et les fenêtres qui s'allument (comme les soirées d'hiver de Township). ?heure=21 pour tester.
 // grands écrans (tablette, PC) : interface à taille de téléphone agrandie, fenêtres centrées (voir body.wide dans index.html)
 let uiSize = 1; try { uiSize = +localStorage.getItem('vdp-uisize') || 1; } catch(e){}
+// animations réduites (batterie, vieux téléphones, mal des transports) : pas de neige ni de fumée, pas d'animations d'interface
+let lite = false; try { lite = localStorage.getItem('vdp-lite') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches && localStorage.getItem('vdp-lite') !== '0'; } catch(e){}
+document.body.classList.toggle('lite', lite);
 function applyWide(){
   const w = innerWidth, h = innerHeight, wide = w >= 700, us = !wide && w < 380 ? Math.min(uiSize, 1.04) : uiSize, z = (wide ? Math.max(.62, Math.min(1.6, w / 700, h / 760)) : 1) * us, r = document.documentElement.style;
   r.setProperty('--uis', us);
@@ -584,7 +589,10 @@ function lotLabel(l){
 function lotAt(sx, sy){ return null; const t = toTile(sx, sy); return T.lotsShown(S).find(l => { const b = BUILDINGS[l.type]; return t.x >= l.x && t.x < l.x + b.w && t.y >= l.y && t.y < l.y + b.h; }); }
 const isOpen = (cx, cy) => S.chunks.includes(`${cx},${cy}`);
 const isNextToOpen = (cx, cy) => isOpen(cx - 1, cy) || isOpen(cx + 1, cy) || isOpen(cx, cy - 1) || isOpen(cx, cy + 1);
+let hudBottom = 0;
 function sign(x, y, cx, cy){
+  { const L = x - 45, R = x + 45, T_ = y - 34, B_ = y + 22; if (T_ < hudBottom + 4) return;
+    for (const z of labelZones) if (L < z.right && R > z.left && T_ < z.bottom && B_ > z.top) return; }
   ctx.save(); ctx.translate(x, y - 10);
   ctx.fillStyle = '#c98a4b'; ctx.strokeStyle = '#2a1a0e'; ctx.lineWidth = 2.5;
   { const sw = T.zoneLock(S, cx, cy) ? 76 : 60; ctx.beginPath(); ctx.roundRect(-sw / 2, -22, sw, 30, 8); ctx.fill(); ctx.stroke(); }
@@ -741,6 +749,21 @@ function route(fx, fy){
   const pool = far.slice(Math.floor(far.length * .35)); const goal = pool[Math.floor(Math.random() * pool.length)] || start;
   const out = []; for (let c = goal; c && c !== start; c = prev.get(c)){ const [x, y] = c.split(',').map(Number); out.unshift([x + .5, y + .5]); }
   return out;
+}
+/* Flocon se promène autour de l'Écurie (avec son stade d'évolution et son skin), s'arrête, sautille */
+const petW = {on: false, x: 0, y: 0, tx: 0, ty: 0, wait: 0, hop: 0, flip: false};
+function movePet(dt){
+  const st = S.pet && S.objs.find(o => o.type === 'stable' && !o.build); petW.on = !!st; if (!st) return;
+  const cx = st.x + 1.5, cy = st.y + 1.5;
+  if (!petW.x || Math.hypot(petW.x - cx, petW.y - cy) > 6){ petW.x = petW.tx = cx + 2; petW.y = petW.ty = cy + 1.2; }
+  const dx = petW.tx - petW.x, dy = petW.ty - petW.y, d = Math.hypot(dx, dy);
+  if (d < .05){ petW.wait -= dt; if (petW.wait <= 0){ const a = Math.random() * Math.PI * 2, r = 2.2 + Math.random() * 1.3; petW.tx = cx + Math.cos(a) * r; petW.ty = cy + Math.sin(a) * r; petW.wait = 2 + Math.random() * 4; } petW.hop = Math.max(0, petW.hop - dt); }
+  else { const v = Math.min(d, dt * .7); petW.x += dx / d * v; petW.y += dy / d * v; petW.hop = (petW.hop + dt * 5) % Math.PI; petW.flip = (dx - dy) < 0; }
+}
+function drawPetW(){
+  const im = img(petImg()); if (!im.complete || !im.naturalWidth) return; const c = toScreen(petW.x, petW.y), z = 58 * cam.z, j = Math.abs(Math.sin(petW.hop)) * 6 * cam.z;
+  ctx.save(); ctx.globalAlpha = .25; ctx.fillStyle = '#20305a'; ctx.beginPath(); ctx.ellipse(c.x, c.y, z * .32, z * .12, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.translate(c.x, c.y - j); if (petW.flip) ctx.scale(-1, 1); ctx.drawImage(im, -z / 2, -z * .92, z, z); ctx.restore();
 }
 function moveElves(dt){
   for (const e of elves){
@@ -993,9 +1016,10 @@ function renderPanel(){
   }
   else if (panel === 'games'){
     const g = tickets();
-    h = hd('', 'Mini-jeux') + `<div class="tix"><span>${'<i class="tk"></i>'.repeat(g.tickets)}${'<i class="tk off"></i>'.repeat(TMAX - g.tickets)}</span><small>${g.tickets < TMAX ? `+1 ticket dans <b data-until="${g.t + TEVERY}"></b>` : 'Tickets au maximum'}</small></div>
+    h = hd('', 'Mini-jeux') + `<div class="tix"><span>${'<i class="tk"></i>'.repeat(g.tickets)}${'<i class="tk off"></i>'.repeat(TMAX - g.tickets)}</span><small>${g.tickets < TMAX ? `+1 ticket dans <b data-until="${g.t + TEVERY}"></b>` : 'Tickets au maximum'}</small>${g.tickets < TMAX ? `<button class="btn gold sm" data-a="buytix">Remplir <i class="i star"></i>${TIX_STARS}</button>` : ''}</div>
       ${campCard()}<div class="games">${[['sleigh', ICON.mg_sleigh], ['snow', thumbs.gifts || ICON.mg_gift]].map(([k, ic]) => `<button class="gcard" data-a="play" data-k="${k}"><img src="${ic}" alt=""><b>${GAMES[k].name}</b><span class="meta">Record : ${S.games.best[k] || 0}</span><span class="btn green sm">Jouer</span></button>`).join('')}</div>
-      <p class="meta">Gagne des pièces, de l'XP, des étoiles et des matériaux !</p>`;
+      <h3>Ce que tu gagnes</h3><div class="mlist">${[['sleigh', 80, 160], ['snow', 15, 30]].map(([k, a, b2]) => { const lo = gameReward(k, a), hi = gameReward(k, b2); return `<div class="mis"><div><b>${GAMES[k].name}</b><small>${a} pts : ${fmt(lo.coins)} pièces, ${lo.xp} XP · ${b2} pts : ${fmt(hi.coins)} pièces, ${hi.xp} XP${hi.stars ? `, ${hi.stars} étoile${hi.stars > 1 ? 's' : ''}` : ''} · parfois une hache ou une scie</small></div></div>`; }).join('')}</div>
+      <p class="meta">Un ticket revient toutes les 15 minutes. Les gains montent avec ton niveau et ton Écurie.</p>`;
   }
   else if (panel === 'fish'){
     const F = S.fish || {}, got = T.FISH.filter(f => F[f.k]).length, c = T.baitCost(S);
@@ -1222,6 +1246,7 @@ function renderPanel(){
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
       <div class="mis"><div><b>Taille de l'interface</b><small>Boutons et textes plus petits ou plus grands</small></div><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
+      <div class="mis"><div><b>Animations réduites</b><small>Moins de neige et d'effets : économise la batterie</small></div><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Activées' : 'Non'}</button></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><div><b>Mon compte</b><small>${ACC.current() ? 'Connecté : ' + (ACC.current().email || '') : 'Google ou e-mail : ton village en sécurité'}</small></div><button class="btn green sm" data-a="account">${ACC.current() ? 'Gérer' : 'Se connecter'}</button></div>
       <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
@@ -1383,6 +1408,8 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'pet') return openPanel('pet');
   if (a === 'skinwear'){ M.skinState(S)[b.dataset.c || 'pet'] = b.dataset.k; sfx.pop(); save(); toast('Nouvelle apparence !'); return renderPanel(); }
   if (a === 'pack') return buyPack(b.dataset.k);
+  if (a === 'buytix'){ const g = tickets(); if (g.tickets >= TMAX) return; if (S.stars < TIX_STARS){ sfx.err(); return showMissing({stars: TIX_STARS}, 'Tickets de mini-jeux', null); } S.stars -= TIX_STARS; g.tickets = TMAX; g.t = now(); sfx.collect(); toast('Tickets remplis !'); save(); return renderPanel(); }
+  if (a === 'lite'){ lite = !lite; try { localStorage.setItem('vdp-lite', lite ? '1' : '0'); } catch(e){} document.body.classList.toggle('lite', lite); sfx.pop(); return renderPanel(); }
   if (a === 'mktool'){ const o = panelArg, k = b.dataset.k, c = toolCost(o, k); if (now() - (o.toolT || 0) < TOOL_CD) return; if (!T.has(S, c)){ sfx.err(); return showMissing(c, ITEMS[k].name, null); } T.take(S, c); T.give(S, k, 1); o.toolT = now(); sfx.collect(); fly(k, 1, b); toast(`${ITEMS[k].name} fabriquée !`); save(); return renderPanel(); }
   if (a === 'findtoy'){ const w = workshopOf(); if (!w){ sfx.err(); return toast("Construis d'abord l'Atelier des jouets"); } fromOrder = true; wantToy = b.dataset.k; return openPanel('craft', w); }
   if (a === 'backorder'){ fromOrder = false; wantToy = ''; return openPanel('orders'); }
@@ -1764,7 +1791,8 @@ function renderQuest(){
   const {q, v, done} = T.questProgress(S);
   const ch = T.chapterOf(S.quest.i), ct = T.CHAPTERS[ch];
   const h = `<span class="tag">${ct ? `Chapitre ${ch + 1}` : 'Tâche'}</span>${ct ? `<small class="chap">${ct.title}</small>` : ''}<b>${q.t}</b><span class="qbar"><i style="width:${v / q.n * 100}%"></i><em>${v} / ${q.n}</em></span><span class="costs">${done ? '<span class="claim">Récupérer</span>' : rewardChips(q.r)}</span>`;
-  if (h !== questHtml){ questHtml = h; $('#quest2').innerHTML = h; $('#quest2').classList.toggle('done', done); }
+  if (h !== questHtml){ questHtml = h; $('#quest2').innerHTML = h + '<i class="qfold" role="button" aria-label="Replier"></i>'; $('#quest2').classList.toggle('done', done); }
+  $('#quest2').classList.toggle('fold', questFold && !done);
 }
 function giveReward(r, el){
   for (const [k, n] of Object.entries(r || {})){
@@ -1777,7 +1805,9 @@ function giveReward(r, el){
   if (r.xp) gainXp(r.xp, el);
   sfx.collect(); save();
 }
+let questFold = false; try { questFold = localStorage.getItem('vdp-qfold') === '1'; } catch(e){}
 $('#quest2').addEventListener('click', e => {
+  if (e.target.closest('.qfold')){ e.stopPropagation(); questFold = !questFold; try { localStorage.setItem('vdp-qfold', questFold ? '1' : '0'); } catch(_){} sfx.tap(); $('#quest2').classList.toggle('fold', questFold); return; }
   const el = $('#quest2'), r = T.questClaim(S);
   if (r){ const before = T.chapterOf(S.quest.i - 1), after = T.chapterOf(S.quest.i); bravo(r, 'Tâche terminée'); if (after !== before && T.CHAPTERS[after]) pendingStory = after; questHtml = ''; renderQuest(); }
   else { sfx.tap(); const {q} = T.questProgress(S); questGo(q); }
@@ -1841,7 +1871,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 79;
+const GAME_V = 80;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2009,7 +2039,7 @@ function todoGo(g){
 }
 
 /* ---------- mini-jeux (Tournée de Noël, Tour de cadeaux) ---------- */
-let TMAX = 3; const TEVERY = 15 * 60e3;   // tickets (plus avec l'Écurie), 1 de plus toutes les 15 minutes
+let TMAX = 3; const TEVERY = 15 * 60e3, TIX_STARS = 6;   // tickets (plus avec l'Écurie), 1 de plus toutes les 15 minutes
 function tickets(){
   { const st = findType('stable'); TMAX = st ? T.ticketsMax(st.lv) : 3; }
   S.games ||= {tickets: TMAX, t: now(), best: {}};
@@ -2028,7 +2058,12 @@ function gameReward(k, score){
 }
 function playGame(k){
   const g = tickets();
-  if (g.tickets < 1){ sfx.err(); return toast(`Plus de tickets : le prochain dans ${fmtTime((g.t + TEVERY - now()) / 1000)}`); }
+  if (g.tickets < 1){ sfx.err(); const m = $('#modal'); m.className = 'glow rinfo';
+    m.querySelector('.mcard').innerHTML = `<small>Mini-jeux</small><h2 class="stroke">Plus de tickets</h2><p>Le prochain arrive dans ${fmtTime((g.t + TEVERY - now()) / 1000)}. Tu peux aussi remplir tes ${TMAX} tickets tout de suite.</p>
+      <div class="acts"><button class="btn gold" data-m="buy">Remplir · <i class="i star"></i>${TIX_STARS}</button><button class="btn blue" data-m="ok">Attendre</button></div>`;
+    m.hidden = false; m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'buy') return;
+      if (S.stars < TIX_STARS) return showMissing({stars: TIX_STARS}, 'Tickets de mini-jeux', null); S.stars -= TIX_STARS; g.tickets = TMAX; g.t = now(); save(); sfx.collect(); playGame(k); };
+    return; }
   if (g.tickets === TMAX) g.t = now();
   g.tickets--; save(); closePanel(); document.body.classList.add('in-game');
   openMinigame(k, {
@@ -2060,20 +2095,38 @@ async function accAction(a){
     if (a === 'accreset'){ await ACC.resetPassword(accVal('accmail')); return toast('E-mail envoyé pour changer ton mot de passe.'); }
     if (a === 'acclinkg'){ await ACC.linkGoogle(); toast('Google relié !'); }
     if (a === 'acclinkm'){ await ACC.linkEmail(accVal('accmail'), $('#accpass')?.value || ''); toast('E-mail relié !'); }
-    if (a === 'accsave'){ await cloudPush(true); }
+    if (a === 'accsave'){ await cloudPush(true, true); }
     if (a === 'acclogout'){ await cloudPush(); await ACC.signOut(); toast('Déconnecté.'); }
     renderPanel();
   } catch(e){ sfx.err(); toast(ACC.friendlyError(e)); }
 }
-async function cloudPush(say){ if (!ACC.current()) return; try { S.cloudT = Date.now(); await ACC.cloudSave(S); if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
+// cloudOk : on n'écrit en ligne qu'une fois sûr de ne pas écraser un village plus avancé (nouvel appareil, autre compte…)
+let cloudOk = false;
+async function cloudPush(say, force){ if (!ACC.current() || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); await ACC.cloudSave(S); if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
 if (ACC.ready()){
   ACC.init().then(() => ACC.onChange(async u => {
-    if (!u) return; const c = await ACC.cloudLoad().catch(() => null);
-    if (c?.save){ const cs = JSON.parse(c.save); if ((cs.lvl || 0) > (S.lvl || 0) || ((cs.lvl || 0) === S.lvl && c.t > (S.t || 0) + 60e3)){
-        if (confirm(`Un village plus avancé est enregistré sur ton compte (niveau ${cs.lvl}). Le charger ?`)){ saveLock = true; T.replaceTown(cs); location.reload(); return; } } }
-    cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Ton village est sauvegardé en ligne.`); if (panel) renderPanel();
+    if (!u){ cloudOk = false; return; }
+    let c = null; try { c = await ACC.cloudLoad(); } catch(e){ toast('Sauvegarde en ligne injoignable pour le moment'); return; }
+    const cs = c?.save ? JSON.parse(c.save) : null;
+    if (!cs){ cloudOk = true; await cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Ton village est maintenant sauvegardé en ligne.`); if (panel) renderPanel(); return; }
+    const sameish = (cs.lvl || 0) === (S.lvl || 0) && Math.abs((c.t || 0) - (S.cloudT || 0)) < 120e3;
+    if (sameish || ((cs.lvl || 0) <= (S.lvl || 0) && (S.cloudT || 0) >= (c.t || 0) - 60e3)){ cloudOk = true; cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Village synchronisé.`); if (panel) renderPanel(); return; }
+    // deux villages différents : c'est le joueur qui choisit, rien n'est écrasé sans son accord
+    chooseVillage(cs, c.t, u);
   })).catch(() => {});
   setInterval(() => cloudPush(), 60e3); document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
+}
+function chooseVillage(cs, t, u){
+  const m = $('#modal'); m.className = 'glow rinfo';
+  const when = t ? new Date(t).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '';
+  m.querySelector('.mcard').innerHTML = `<small>Compte ${u.email || u.displayName || ''}</small><h2 class="stroke">Quel village garder ?</h2>
+    <div class="rrow"><small>Sur ton compte (${when})</small><p><b>Niveau ${cs.lvl || 1}</b> · Maison niv. ${(cs.objs || []).find(o => o.type === 'santa')?.lv || 1} · ${fmt(cs.coins || 0)} pièces</p></div>
+    <div class="rrow"><small>Sur cet appareil</small><p><b>Niveau ${S.lvl || 1}</b> · Maison niv. ${T.hqLv(S)} · ${fmt(S.coins || 0)} pièces</p></div>
+    <div class="acts" style="flex-direction:column"><button class="btn green wide" data-m="cloud">Reprendre le village du compte</button><button class="btn blue wide" data-m="local">Garder celui de cet appareil (remplace le compte)</button></div>`;
+  m.hidden = false;
+  m.onclick = async e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true;
+    if (b.dataset.m === 'cloud'){ saveLock = true; T.replaceTown({...cs, cloudT: t}); location.reload(); return; }
+    cloudOk = true; await cloudPush(true, true); };
 }
 /* ---------- sauvegarde transférable ---------- */
 let saveCodeTxt = '';
@@ -2372,6 +2425,7 @@ function bldFx(dt){
   }
 }
 function smoke(dt){
+  if (lite) return;
   smokeT -= dt; if (smokeT > 0 || cam.z < .45) return; smokeT = .22;
   if (FX.filter(f => f.k === 'smoke').length > 40) return;
   for (const o of S.objs){
@@ -2404,7 +2458,7 @@ function step0(t, dt){
   glideStep(); smoke(dt); bldFx(dt);
   if (performance.now() >= autoT){ autoT = performance.now() + 3000; autoCollect(); checkExps(); dropTick(); rsCheck(); if (!tuto.active()){ const had = !!S.visitor; T.visitorTick(S, now()); if (!had && S.visitor){ toast(`${S.visitor.who} arrive au village !`); sfx.pop(); } } }
   fxDt = dt;
-  pt('logic', () => { refreshOrders(); finishWorks(); moveElves(dt); });
+  pt('logic', () => { refreshOrders(); finishWorks(); moveElves(dt); movePet(dt); });
   for (const f of flakes){ f.y += f.v * dt * .12; f.x += Math.sin(t / 1000 + f.s * 7) * dt * .01; if (f.y > 1) { f.y = 0; f.x = Math.random(); } }
   pt('draw', draw);
   hudT -= dt; if (hudT <= 0){ hudT = .2; pt('hud', hud); }
@@ -2431,3 +2485,11 @@ window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {t
 // sauvegarde : ouvrir un fichier
 document.addEventListener('change', e => { if (e.target.id !== 'loadfile' || !e.target.files?.[0]) return; e.target.files[0].text().then(saveLoad); });
 window.__pan = (x, y) => panTo(x, y);
+addEventListener('keydown', e => {
+  if (e.target.closest?.('input, textarea')) return;
+  if (e.key === 'Escape'){ if (!$('#modal').hidden){ $('#modal').querySelector('[data-m="ok"], [data-m="no"], [data-m]')?.click(); } else if (ghost) $('#pb-no').click(); else if (panel) closePanel(); else $('#moreBox').hidden = true; return; }
+  if (panel || !$('#modal').hidden || document.body.classList.contains('cine') || document.getElementById('mg')) return;
+  const k = e.key.toLowerCase(), st = 60 / cam.z, d = {arrowleft: [-st, 0], q: [-st, 0], a: [-st, 0], arrowright: [st, 0], d: [st, 0], arrowup: [0, -st], z: [0, -st], w: [0, -st], arrowdown: [0, st], s: [0, st]}[k];
+  if (d){ glide = null; cam.x += d[0]; cam.y += d[1]; clampCam(); e.preventDefault(); return; }
+  if (k === '+' || k === '='){ cam.z = Math.min(1.5, cam.z * 1.12); } if (k === '-'){ cam.z = Math.max(.45, cam.z / 1.12); }
+});

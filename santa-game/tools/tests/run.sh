@@ -1,0 +1,15 @@
+#!/bin/bash
+# Parcours de non-régression, à lancer avant chaque mise en ligne (le jeu doit être servi sur http://localhost:8765).
+# Playwright doit être installé (NODE_PATH vers les modules globaux) ; WebKit pour l'iPhone, Chromium pour le PC.
+cd "$(dirname "$0")"; mkdir -p out; export NODE_PATH=${NODE_PATH:-$(npm root -g)}
+for d in se pc; do
+  echo "=== $d tutoriel"; mkdir -p out/$d; timeout 600 node tutoriel-$d.cjs out/$d/ 2>&1 | tail -1
+  echo "=== $d colis"; timeout 300 node colis-$d.cjs 2>&1 | tail -3
+  echo "=== $d bataille"; timeout 300 node bataille-$d.cjs 6 2>&1 | grep -v "^\s*at " | tail -2
+done
+echo "=== lettres, loupe, étoiles, établi"; timeout 600 node lettres-etoiles-outils.cjs 2>&1 | tail -7
+echo "=== audit des textes (SE + PC)"; timeout 1500 node audit-textes.cjs 2>&1 | tail -6
+echo "=== robot : tous les bâtiments et boutons"; timeout 900 node robot-batiments.cjs 2>&1 | tail -3
+echo "=== PC souris : tickets, gains, bataille"; timeout 600 node tickets-souris-pc.cjs 2>&1 | tail -5
+echo "=== Mac (Safari) souris"; timeout 600 node tickets-souris-mac.cjs 2>&1 | tail -5
+echo "=== comptes (création, connexion, reprise sur un autre appareil)"; timeout 600 node comptes.cjs 2>&1 | grep -v PAGEERR | tail -4

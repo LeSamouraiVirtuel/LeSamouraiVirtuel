@@ -1,7 +1,7 @@
 // COMPTES : connexion Google, création de compte par e-mail, liaison des deux, sauvegarde du village dans le cloud.
-// Service : Firebase (Authentication + Firestore). Rien ne marche tant que FIREBASE_CONFIG est vide :
-// on colle ici le bloc « firebaseConfig » de la console Firebase (il est public par nature, ce n'est pas un secret).
-export const FIREBASE_CONFIG = null;   // ← { apiKey: '…', authDomain: '…', projectId: '…', appId: '…' }
+// Service : Firebase (Authentication + Firestore). La configuration est dans js/firebase-config.js.
+import {FIREBASE_CONFIG as CFG} from './firebase-config.js';
+export const FIREBASE_CONFIG = CFG && /^AIza[\w-]{30,}$/.test(CFG.apiKey || '') ? CFG : null;
 
 const V = '10.12.2', base = `https://www.gstatic.com/firebasejs/${V}/`;
 let A = null, F = null, auth = null, db = null, user = null, listeners = [];
@@ -50,5 +50,5 @@ export function friendlyError(e){
   return {'auth/invalid-email': 'Adresse e-mail invalide.', 'auth/email-already-in-use': 'Un compte existe déjà avec cet e-mail : connecte-toi.', 'auth/weak-password': 'Mot de passe trop court (6 caractères minimum).',
     'auth/invalid-credential': 'E-mail ou mot de passe incorrect.', 'auth/wrong-password': 'Mot de passe incorrect.', 'auth/user-not-found': 'Aucun compte avec cet e-mail.', 'auth/too-many-requests': 'Trop d’essais : réessaie dans quelques minutes.',
     'auth/credential-already-in-use': 'Ce compte Google est déjà relié à un autre joueur.', 'auth/provider-already-linked': 'C’est déjà relié.', 'auth/network-request-failed': 'Pas de connexion internet.',
-    'auth/popup-closed-by-user': 'Fenêtre fermée avant la fin.', 'auth/unauthorized-domain': 'Domaine non autorisé dans Firebase (Authentication → Paramètres → Domaines autorisés).'}[c] || (e?.message || 'Erreur inconnue');
+    'auth/popup-closed-by-user': 'Fenêtre fermée avant la fin.', 'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Comptes pas encore configurés (clé du projet manquante).', 'auth/operation-not-allowed': 'Ce mode de connexion n’est pas activé dans Firebase.', 'auth/popup-blocked': 'Fenêtre bloquée par le navigateur : réessaie.', 'auth/unauthorized-domain': 'Domaine non autorisé dans Firebase (Authentication → Paramètres → Domaines autorisés).'}[c] || (e?.message || 'Erreur inconnue');
 }
