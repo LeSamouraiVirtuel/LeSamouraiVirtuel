@@ -17,3 +17,4 @@ body.cine #xpbar,body.in-game #xpbar{display:none}
 #xpbar .xptog{background:#ffd34a!important;color:#2a1a0e!important}#xpbar .xprow{display:flex;gap:5px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:4px}
 #xpbar.fold{width:auto}#xpbar.fold .xpbody{display:none}
 @media (max-width:560px){#xpbar{top:calc(env(safe-area-inset-top,0px) + 92px);right:50%;transform:translateX(50%);padding:4px 6px}#xpbar input{width:90px}#xpbar button{padding:4px 7px;font-size:11px}}
+.xhint{position:absolute;top:64px;left:0;right:0;text-align:center;margin:0;color:#cfd8ff;font-weight:700;pointer-events:none}

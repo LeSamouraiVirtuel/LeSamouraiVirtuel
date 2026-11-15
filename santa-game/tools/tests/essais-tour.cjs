@@ -14,7 +14,7 @@ const {webkit, chromium, devices} = require('playwright');
     await p.click('.xpov header [data-x=close]'); await p.waitForTimeout(400);
     await p.click('#xpbar [data-x=trans]'); await p.waitForTimeout(2500); await p.screenshot({path: `out/et-${dev}-cine.png`});
     for (let i = 0; i < 8 && await p.evaluate(() => document.body.classList.contains('cine')); i++){ await p.mouse.click(200, 300); await p.waitForTimeout(900); }
-    await p.waitForTimeout(3000); await p.screenshot({path: `out/et-${dev}-epreuve.png`});
+    await p.waitForTimeout(2500); await p.mouse.move(400, 500); await p.waitForTimeout(2500); await p.screenshot({path: `out/et-${dev}-epreuve.png`});
     await p.evaluate(() => document.querySelector('.xpov')?.remove());
     await p.click('#xpbar [data-x=lore]').catch(async () => { await p.click('#xpbar [data-x=tog]'); await p.click('#xpbar [data-x=lore]'); }); await p.waitForTimeout(600); await p.screenshot({path: `out/et-${dev}-lore.png`});
     await b.close(); }
