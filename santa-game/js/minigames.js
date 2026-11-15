@@ -208,8 +208,11 @@ export async function openMinigame(kind, ctx){
     x.restore();
   }
   function trollGame(){
+    // Sans fiche de camp (ouverture directe), on ne lance pas : les chiffres viendraient de nulle part.
+    if (!C) return {good: 0, great: 0, tap(){}, update(){}, draw(){}};
     const g = snowGame(), mounds = g.mounds, pops = [], balls = [], splats = [], shots = [];
     let spawn = .4, shake = 0, left = C.n, bossOut = false;
+    const bossAt = () => Math.min(mounds.length - 1, Math.floor(mounds.length / 2));
     const total = C.n + (C.boss ? 1 : 0);
     return {
       good: 0, great: 0,
@@ -223,13 +226,13 @@ export async function openMinigame(kind, ctx){
         else ctx.sfx.tap();
       },
       update(dt, rdt){
-        g.relayout();
+        g.relayout();   // ne redessine les trous que si l'écran a vraiment changé de taille
         spawn -= dt;
         if (dt > 0 && spawn <= 0){
           spawn = C.every * (.8 + Math.random() * .4);
           const free = mounds.map((_, i) => i).filter(i => !pops.some(p => p.m === i));
           if (left > 0 && free.length){ left--; pops.push({m: free[Math.floor(Math.random() * free.length)], t: 0, rise: 0, hp: C.hp, atk: C.atk * (.85 + Math.random() * .3), hurt: 0}); }
-          else if (!left && C.boss && !bossOut && !pops.some(p => p.m === 4)){ bossOut = true; pops.push({m: 4, t: 0, rise: 0, hp: C.bossHp, atk: C.atk * 1.6, boss: true, hurt: 0, max: C.bossHp}); float('Le chef arrive !', W / 2, H * .3, '#ffd84a'); }
+          else if (!left && C.boss && !bossOut && !pops.some(p => p.m === bossAt())){ bossOut = true; pops.push({m: bossAt(), t: 0, rise: 0, hp: C.bossHp, atk: C.atk * 1.6, boss: true, hurt: 0, max: C.bossHp}); float('Le chef arrive !', W / 2, H * .3, '#ffd84a'); }
         }
         for (const p of pops){
           p.t += dt; p.hurt = Math.max(0, p.hurt - rdt);
@@ -388,15 +391,19 @@ export async function openMinigame(kind, ctx){
   function snowGame(){
     const mounds = [], pops = [], balls = [], splats = [];
     let spawn = .6, shake = 0;
+    // Téléphone étroit : 2 colonnes, trous plus gros, doigt plus sûr. Le chef sort au milieu de la grille.
     const layout = () => {
       mounds.length = 0;
-      const top = H * .34, bottom = H * .86, cols = 3, rows = 3;
+      const narrow = W < 430, cols = narrow ? 2 : 3, rows = narrow ? 4 : 3;
+      const top = H * .28, bottom = H * .84;
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++){
-        const y = top + (bottom - top) * (r + .5) / rows, s = Math.min(W / 3.4, (bottom - top) / 3.2) * (.82 + r * .1);
-        mounds.push({x: W * (c + .5) / cols + (r % 2 ? -1 : 1) * W * .03, y, s});
+        const y = top + (bottom - top) * (r + .5) / rows, s = Math.min(W / (cols + .6), (bottom - top) / (rows + .4)) * (.9 + r * .06);
+        mounds.push({x: W * (c + .5) / cols, y, s});
       }
     };
     layout();
+    let laid = W + H * .001;
+    const relayout = () => { if (Math.abs(laid - (W + H * .001)) < 1) return; laid = W + H * .001; layout(); };
     const mound = m => { x.lineWidth = 3; x.strokeStyle = INK;
       const g = x.createLinearGradient(0, m.y - m.s * .2, 0, m.y + m.s * .2); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#c6d6f0');
       x.fillStyle = g; x.beginPath(); x.moveTo(m.x - m.s * .56, m.y + m.s * .08); x.bezierCurveTo(m.x - m.s * .5, m.y - m.s * .2, m.x - m.s * .2, m.y - m.s * .26, m.x, m.y - m.s * .2); x.bezierCurveTo(m.x + m.s * .2, m.y - m.s * .28, m.x + m.s * .5, m.y - m.s * .18, m.x + m.s * .56, m.y + m.s * .08); x.quadraticCurveTo(m.x, m.y + m.s * .2, m.x - m.s * .56, m.y + m.s * .08); x.fill(); x.stroke();
@@ -409,7 +416,7 @@ export async function openMinigame(kind, ctx){
       for (let i = 0; i < mounds.length; i++){ each(i, mounds[i]); mound(mounds[i]); }
     };
     return {
-      mounds, relayout(){ if (mounds.length && Math.abs(mounds[0].x - W / 6) > W * .2) layout(); }, drawScene: scene,
+      mounds, relayout, drawScene: scene,
       good: 25, great: 45,
       tap(px, py){
         let best = null;
@@ -422,7 +429,7 @@ export async function openMinigame(kind, ctx){
         else { const pts = best.k === 'gold' ? 5 : 1; score += pts; float(`+${pts}`, m.x, m.y - m.s, best.k === 'gold' ? '#ffd84a' : '#fff'); ctx.sfx.collect(); splats.push({x: px, y: py, t: 0}); }
       },
       update(dt, rdt){
-        if (mounds.length && Math.abs(mounds[0].x - W / 6) > W * .2) layout();
+        relayout();
         const prog = 1 - time / G.time;
         spawn -= dt;
         if (dt > 0 && spawn <= 0){

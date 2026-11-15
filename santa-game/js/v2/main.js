@@ -25,7 +25,9 @@ RD.now = () => { const t = realNow() - clockOff; return !verified && trust && t 
 class VDate extends RD { constructor(...a){ if (a.length) super(...a); else super(RD.now()); } }
 globalThis.Date = VDate;
 const cheatQ = [];   // alertes relevées avant que le village soit chargé
-function checkClock(){ fetch('version.json?c=' + realNow(), {cache: 'no-store'}).then(r => { const d = Date.parse(r.headers.get('date') || ''); verified = true; if (!d) return;
+// L'adresse est celle du fichier, pas celle de la page : sinon /essais/ demande essais/version.json (404).
+const VER = new URL('../../version.json', import.meta.url);
+function checkClock(){ fetch(VER.href + '?c=' + realNow(), {cache: 'no-store'}).then(r => { const d = Date.parse(r.headers.get('date') || ''); verified = true; if (!d) return;
   const off = realNow() - d; clockOff = Math.abs(off) > 120e3 ? off : 0; try { localStorage.setItem('vdp-off', String(clockOff)); } catch(e){}
   if (Math.abs(off) > 10 * 60e3) cheatQ.push(['horloge', {minutes: Math.round(off / 60e3)}]); }).catch(() => { if (!verified) setTimeout(checkClock, 60e3); }); }
 checkClock();
@@ -1083,12 +1085,14 @@ function renderPanel(){
       <h3>Revoir les cinématiques</h3><div class="replays">${T.CHAPTERS.slice(0, ch + 1).map((c, k) => `<button class="btn blue sm" data-a="replay" data-i="${k}">${k + 1}. ${c.title}</button>`).join('')}</div>`;
   }
   else if (panel === 'camp'){
-    const C = T.campState(S), from = Math.max(0, Math.floor(C.at / 10) * 10 - 10), list = Array.from({length: Math.min(C.at + 1, from + 20) - from}, (_, j) => T.camp(from + j)).reverse();
+    // Un seul chapitre à l'écran (10 camps), avec une carte courte : sur téléphone une liste de 20 noms longs déborde.
+    const C = T.campState(S), ch0 = Math.floor(C.at / 10) * 10, list = Array.from({length: 10}, (_, j) => T.camp(ch0 + j));
     const tot = Object.values(C.st).reduce((a, b) => a + b, 0);
     h = hd(`${C.at} camp${C.at > 1 ? 's' : ''} vaincu${C.at > 1 ? 's' : ''} · ${tot} ★`, 'Campagne des Trolls') + `<button class="btn gold wide" data-a="lore" style="margin:0 0 12px">Légendes du Grand Nord</button><p class="help">Les trolls des neiges volent les cadeaux ! Attaque leurs camps un par un. Chaque attaque coûte le goûter des lutins (biscuits). Protège la palissade : plus elle reste solide, plus tu gagnes d'étoiles.</p>
-      <div class="camps">${list.map(c => { const st = C.st[c.i] || 0, cur = c.i === C.at, lk = c.i > C.at, cost = T.campCost(c.i);
-        return `<div class="campc ${c.boss ? 'boss' : ''} ${cur ? 'cur' : ''} ${st ? 'won' : ''}"><div class="cn"><b>${c.name}</b><small>${c.n} trolls${c.boss ? ' + le chef' : ''}${c.hp > 1 ? ` · ${c.hp} coups chacun` : ''}</small><span class="cst">${[1, 2, 3].map(k => `<i class="${k <= st ? 'on' : ''}">★</i>`).join('')}</span></div>
-          <div class="ca"><span class="costs">${rewardChips(T.campLoot(S, c.i, 3, !st))}</span><button class="btn ${cur ? 'red' : 'blue'} sm" data-a="campgo" data-i="${c.i}" ${lk ? 'disabled' : ''}><span class="costs">${costChips(cost)}</span>${cur ? 'Attaquer' : 'Rejouer'}</button></div></div>`; }).join('')}</div>`;
+      ${campMap(C, ch0)}
+      <div class="camps">${list.map(c => { const st = C.st[c.i] || 0, cur = c.i === C.at, lk = c.i > C.at, cost = T.campCost(c.i), n = c.i % 10 + 1;
+        return `<div class="campc ${c.boss ? 'boss' : ''} ${cur ? 'cur' : ''} ${st ? 'won' : ''}"><div class="cn"><b>${c.boss ? 'Chef' : 'Camp ' + n}</b><small>${T.CHAPTERS_CAMP[c.ch % T.CHAPTERS_CAMP.length]} · ${c.n} trolls${c.boss ? ' + le chef' : ''}</small><span class="cst">${[1, 2, 3].map(k => `<i class="${k <= st ? 'on' : ''}">★</i>`).join('')}</span></div>
+          <div class="ca"><span class="costs">${rewardChips(T.campLoot(S, c.i, 3, !st))}</span><button class="btn ${cur ? 'red' : 'blue'} sm" data-a="campgo" data-i="${c.i}" ${lk ? 'disabled' : ''}><span class="costs">${costChips(cost)}</span>${lk ? 'Plus tard' : cur ? 'Attaquer' : 'Rejouer'}</button></div></div>`; }).join('')}</div>`;
   }
   else if (panel === 'account'){
     const u = ACC.current(), pv = ACC.providers();
@@ -1930,7 +1934,7 @@ try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
 const GAME_V = 94;
 async function checkUpdate(){
-  try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
+  try { const r = await fetch(VER.href + '?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
       reloadWhenCalm(async () => { toast('Mise à jour du jeu…');
         if ('caches' in window) for (const c of await caches.keys()) await caches.delete(c);
@@ -2526,6 +2530,20 @@ function petUp(up, el){
   sfx.level(); toast(T.PET_STAGES.some(([l]) => l === p.lv) ? `Flocon grandit : ${st[1]} !` : `Flocon passe niveau ${p.lv} !`);
 }
 /* ---------- campagne contre les trolls ---------- */
+// Carte d'un seul chapitre (10 camps). Le sentier monte, le camp en cours est jaune, les repris sont verts.
+// Les noms longs restent dans la liste, en deux lignes, pour tenir sur un téléphone.
+function campMap(C, ch0){
+  const W = 340, H = 300, nodes = [];
+  for (let k = 0; k < 10; k++) nodes.push({k, x: 170 + (k % 2 ? 72 : -72), y: 272 - k * 25});
+  const d = nodes.map((n, i) => `${i ? 'L' : 'M'}${n.x} ${n.y}`).join(' ');
+  const dots = nodes.map(n => {
+    const i = ch0 + n.k, done = i < C.at, cur = i === C.at, boss = n.k === 9;
+    const fill = done ? '#3fbf6a' : cur ? '#ffd34a' : '#6d4e96';
+    return `<circle cx="${n.x}" cy="${n.y}" r="${boss ? 16 : 13}" fill="${fill}" stroke="${cur ? '#fff' : '#140c22'}" stroke-width="${cur ? 4 : 2}"/><text x="${n.x}" y="${n.y + 4}" text-anchor="middle" fill="${cur ? '#1a1030' : '#fff'}">${boss ? 'Chef' : n.k + 1}</text>`;
+  }).join('');
+  const title = T.CHAPTERS_CAMP[Math.floor(ch0 / 10) % T.CHAPTERS_CAMP.length];
+  return `<svg class="campmap" viewBox="0 0 ${W} ${H}" role="img" aria-label="Carte : ${title}"><rect width="${W}" height="${H}" rx="14" fill="#1e305c"/><text class="cmt" x="16" y="24" fill="#ffd34a">${title}</text><path d="${d}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="8" stroke-linecap="round"/>${dots}</svg>`;
+}
 function campCard(){
   if (S.lvl < T.CAMP_LVL) return `<div class="campentry camp-lock"><b>Campagne des Trolls</b><small>Niveau ${T.CAMP_LVL} requis</small></div>`;
   const C = T.campState(S), c = T.camp(C.at);
