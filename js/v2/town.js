@@ -365,7 +365,11 @@ export const HQ_CHALLENGE = {
   24: {toys: {bigsled: 1, gbhouse: 1}, fish: 11, camps: 36}, 25: {toys: {bigsled: 2}, fish: 12, camps: 40},
 };
 /** Ce qui manque pour le défi de la Maison au niveau lv : [{k: 'toy'|'fish'|'camps', item, have, need}] (vide = prêt) */
+// INTERRUPTEUR des freins de la course (défis de la Maison + plafond d'accélérations par jour).
+// ÉTEINT : on améliore et on accélère comme avant. Le code et les tests restent, prêts à être rallumés.
+export const RACE_BRAKES = false;
 export function hqNeeds(s, lv){
+  if (!RACE_BRAKES) return [];
   const c = HQ_CHALLENGE[lv]; if (!c) return [];
   const out = [];
   for (const [k, n] of Object.entries(c.toys)) if ((s.inv[k] || 0) < n) out.push({k: 'toy', item: k, have: s.inv[k] || 0, need: n});
@@ -376,7 +380,7 @@ export function hqNeeds(s, lv){
 /* Plafond d'accélération : au plus 24 h d'attente évitées avec des étoiles par jour (heure locale). */
 export const SPEED_DAY_CAP = 24 * 3600;
 const dayOf = t => new Date(t).toDateString();
-export function speedLeft(s, t = Date.now()){ const d = s.spd; return d && d.d === dayOf(t) ? Math.max(0, SPEED_DAY_CAP - d.sec) : SPEED_DAY_CAP; }
+export function speedLeft(s, t = Date.now()){ if (!RACE_BRAKES) return Infinity; const d = s.spd; return d && d.d === dayOf(t) ? Math.max(0, SPEED_DAY_CAP - d.sec) : SPEED_DAY_CAP; }
 export function speedUse(s, sec, t = Date.now()){ if (!s.spd || s.spd.d !== dayOf(t)) s.spd = {d: dayOf(t), sec: 0}; s.spd.sec += Math.max(0, Math.round(sec)); }
 
 export function upBlock(s, o){

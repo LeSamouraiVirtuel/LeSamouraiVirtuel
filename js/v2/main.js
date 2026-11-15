@@ -338,7 +338,7 @@ function startUpgrade(o, el){
   const lv = o.lv + 1;
   // on récolte d'abord ce qui attend dans le bâtiment (sinon ce serait perdu)
   if (B(o).kind === 'prod') collectBld(o);
-  T.take(S, T.upCost(o.type, lv)); if (o.type === 'santa' && T.HQ_CHALLENGE[lv]) T.take(S, T.HQ_CHALLENGE[lv].toys);
+  T.take(S, T.upCost(o.type, lv)); if (o.type === 'santa' && T.RACE_BRAKES && T.HQ_CHALLENGE[lv]) T.take(S, T.HQ_CHALLENGE[lv].toys);
   // pendant le tutoriel, le chantier dure 2 min : le temps de lire et de découvrir « Terminer gratuitement »
   const ms = Math.max(T.upTime(o.type, lv) * 1000 * (1 - T.rsBonus(S, 'plan')), tuto.active() && S.tuto <= 6 ? 120e3 : 0); o.up = now() + ms; o.utotal = ms; o.upTo = lv;
   T.track(S, 'upgrade'); sfx.build(); tutoEv('upgrade'); save(); closePanel();
@@ -1889,7 +1889,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 89;
+const GAME_V = 91;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2400,7 +2400,7 @@ function toolBox(c, n){
 const TOOL_CD = 3 * 3600e3, toolCost = (o, k) => ({wood: R5(250 * (1 + (S.chunks.length - T.START_CHUNKS.length) * .4)) * (k === 'saw' ? 2 : 1), coins: 100 * o.lv});
 const R5 = n => Math.round(n / 5) * 5;
 function challengeBox(lv){
-  const c = T.HQ_CHALLENGE[lv]; if (!c) return '';
+  const c = T.RACE_BRAKES && T.HQ_CHALLENGE[lv]; if (!c) return '';
   const sp = Object.keys(S.fish || {}).length, cp = S.camps?.at || 0;
   const row = (ok, txt, act) => `<div class="mis ${ok ? 'chok' : ''}"><div><b>${ok ? '✓ ' : ''}${txt}</b></div>${ok ? '' : act}</div>`;
   return `<h3>Défi de la Maison niv. ${lv}</h3><p class="meta">Ces défis ne s'achètent pas : fabrique, pêche et combats !</p><div class="mlist">
