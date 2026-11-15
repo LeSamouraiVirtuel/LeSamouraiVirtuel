@@ -40,6 +40,9 @@ for (let t = 0; t <= DAYS * 86400; t += 30){
   while ((s.parcels || []).length){ const r = s.parcels.shift(); rar[r]++; T.track(s, 'parcel'); for (const [k, n] of Object.entries(T.parcelReward(s, r))){ if (k === 'stars') starsWon += n; T.give(s, k, T.RES.includes(k) && k !== 'coins' ? Math.min(n, Math.max(0, T.cap(s, k) - s[k])) : n); } }
   // ce qui bloque la prochaine amélioration de la Maison
   { const h = s.objs.find(o => o.type === 'santa'); if (h && !h.up && h.lv < T.BUILDINGS.santa.max){ const c = T.upCost('santa', h.lv + 1), lack = Object.keys(c).filter(k => !T.has(s, {[k]: c[k]})); for (const k of lack) block[k] = (block[k] || 0) + 30; if (!lack.length && T.busyBuilders(s, now) >= T.builders(s)) block.builders = (block.builders || 0) + 30; } }
+  // défis de la Maison (fin de partie) : le joueur actif fabrique les jouets, pêche et combat pendant ses sessions
+  { const h = s.objs.find(o => o.type === 'santa'); if (h && !h.up && T.HQ_CHALLENGE[h.lv + 1]){ const c = T.HQ_CHALLENGE[h.lv + 1];
+    for (const [k, n] of Object.entries(c.toys)) s.inv[k] = Math.max(s.inv[k] || 0, n); s.fish ||= {}; T.FISH.slice(0, c.fish).forEach(f => s.fish[f.k] ||= {n: 1, best: 1}); s.camps ||= {at: 0, st: {}}; s.camps.at = Math.max(s.camps.at, c.camps); } }
   // constructions et améliorations (la Maison d'abord quand c'est possible)
   const opts = [];
   for (const type of Object.keys(T.BUILDINGS)){ const b = T.BUILDINGS[type]; if (b.kind === 'path' || b.kind === 'deco') continue; if (!T.buildBlock(s, type)) opts.push(['build', type]); }
@@ -48,7 +51,7 @@ for (let t = 0; t <= DAYS * 86400; t += 30){
   opts.sort((a, b) => prio(a) - prio(b));
   for (const [kind, x] of opts.slice(0, 2)){
     if (kind === 'build' && !T.buildBlock(s, x)){ T.take(s, T.upCost(x, 1)); const p = spot(); const o = {id: 'x' + t + x, type: x, x: p.x, y: p.y, lv: 1, t: now}; const ms = T.upTime(x, 1) * 1000; if (ms){ o.build = now + ms; } if (T.BUILDINGS[x].kind === 'craft') o.q = []; s.objs.push(o); acted = true; }
-    if (kind === 'up' && !T.upBlock(s, x)){ T.take(s, T.upCost(x.type, x.lv + 1)); x.up = now + T.upTime(x.type, x.lv + 1) * 1000; x.upTo = x.lv + 1; acted = true; }
+    if (kind === 'up' && !T.upBlock(s, x)){ T.take(s, T.upCost(x.type, x.lv + 1)); if (x.type === 'santa' && T.HQ_CHALLENGE[x.lv + 1]) T.take(s, T.HQ_CHALLENGE[x.lv + 1].toys); x.up = now + T.upTime(x.type, x.lv + 1) * 1000; x.upTo = x.lv + 1; acted = true; }
   }
   // décorations quand on a des pièces en trop
   if (s.coins > 2000 && !T.buildBlock(s, 'tree')){ T.take(s, T.upCost('tree', 1)); const p = spot(); s.objs.push({id: 'd' + t, type: 'tree', x: p.x, y: p.y}); }

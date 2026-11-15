@@ -13,6 +13,15 @@ import * as TR from '../track.js';
 import {LEGAL_V, ageMin} from '../legal.js';
 import * as T from './town.js';
 import * as M from './meta.js';
+/* ---------- ANTI-TRICHE (côté appareil, raisonnable) ----------
+   Horloge : le jeu se cale sur l'heure du serveur (en-tête Date de la page). Avancer l'horloge du téléphone ne termine donc
+   plus les chantiers. Le décalage connu est gardé pour les lancements hors ligne. */
+const realNow = Date.now.bind(Date); let clockOff = 0; try { clockOff = +localStorage.getItem('vdp-off') || 0; } catch(e){}
+Date.now = () => realNow() - clockOff;
+const cheatQ = [];   // alertes relevées avant que le village soit chargé
+fetch('version.json?c=' + realNow(), {cache: 'no-store'}).then(r => { const d = Date.parse(r.headers.get('date') || ''); if (!d) return;
+  const off = realNow() - d; clockOff = Math.abs(off) > 120e3 ? off : 0; try { localStorage.setItem('vdp-off', String(clockOff)); } catch(e){}
+  if (Math.abs(off) > 10 * 60e3) cheatQ.push(['horloge', {minutes: Math.round(off / 60e3)}]); }).catch(() => {});
 
 const {ITEMS, TOYS, BUILDINGS} = T;
 const tierOf = lv => lv >= 12 ? 3 : lv >= 5 ? 2 : 1;   // apparence du bâtiment selon son niveau
@@ -115,6 +124,14 @@ const elfPortrait = portrait;
 T.setTrackHook((s, key, n) => { const add = M.eventOnTrack(s, key, n); if (add && typeof evPing === 'function') evPing(add); });
 const saved = T.loadTown();
 let S = saved || T.newTown();
+function flag(kind, data = {}){ S.flags ||= {}; S.flags[kind] = (S.flags[kind] || 0) + 1; T.logEv(S, 'anomalie', {kind, ...data}); try { TR.ev('anomalie', {kind, ...data}); } catch(e){} }
+{ // valeurs impossibles (sauvegarde modifiée à la main) : corrigées, et notées en silence pour le tableau de bord
+  for (const k of [...T.RES, 'stars', 'xp']) if (!Number.isFinite(+S[k]) || S[k] < 0){ flag('valeur', {k, v: String(S[k]).slice(0, 20)}); S[k] = 0; }
+  if (S.stars > 2e6) flag('etoiles', {n: S.stars});
+  if ((S.lvl || 1) > 300 || !Number.isFinite(+S.lvl)){ flag('niveau', {n: S.lvl}); S.lvl = Math.min(300, Math.max(1, +S.lvl || 1)); }
+  const t = Date.now(); if (S.maxT && t < S.maxT - 10 * 60e3) flag('horloge_arriere', {minutes: Math.round((S.maxT - t) / 60e3)});
+}
+setInterval(() => { while (cheatQ.length) flag(...cheatQ.shift()); S.maxT = Math.max(S.maxT || 0, Date.now()); }, 5000);
 let saveLock = T.localTooNew;   // sauvegarde d'une version plus récente du jeu : on ne l'écrase jamais
 if (T.localTooNew) setTimeout(() => { try { toast('Ton village vient d’une version plus récente du jeu : mise à jour en cours…'); } catch(e){} checkUpdate?.(); }, 1500);
 const save = () => { if (!saveLock) T.saveTown(S); };
@@ -316,11 +333,12 @@ function refreshOrders(){
 }
 /* ---------- chantiers : construction et amélioration ---------- */
 function startUpgrade(o, el){
-  const why = T.upBlock(S, o); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.upCost(o.type, o.lv + 1), `${B(o).name} niveau ${o.lv + 1}`, () => startUpgrade(o)) : toast(why); }
+  const why = T.upBlock(S, o); if (why === 'Défi de la Maison'){ sfx.err(); return openPanel('bld', o); }
+  if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.upCost(o.type, o.lv + 1), `${B(o).name} niveau ${o.lv + 1}`, () => startUpgrade(o)) : toast(why); }
   const lv = o.lv + 1;
   // on récolte d'abord ce qui attend dans le bâtiment (sinon ce serait perdu)
   if (B(o).kind === 'prod') collectBld(o);
-  T.take(S, T.upCost(o.type, lv));
+  T.take(S, T.upCost(o.type, lv)); if (o.type === 'santa' && T.HQ_CHALLENGE[lv]) T.take(S, T.HQ_CHALLENGE[lv].toys);
   // pendant le tutoriel, le chantier dure 2 min : le temps de lire et de découvrir « Terminer gratuitement »
   const ms = Math.max(T.upTime(o.type, lv) * 1000 * (1 - T.rsBonus(S, 'plan')), tuto.active() && S.tuto <= 6 ? 120e3 : 0); o.up = now() + ms; o.utotal = ms; o.upTo = lv;
   T.track(S, 'upgrade'); sfx.build(); tutoEv('upgrade'); save(); closePanel();
@@ -1332,7 +1350,7 @@ function renderPanel(){
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
     if (b.kind === 'train') extra = '<button class="btn green wide" data-a="gotrain">Voir le train</button>';
     if (b.kind === 'lab') extra = '<button class="btn green wide" data-a="golab">Recherches</button>';
-    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn blue wide" data-a="shopskins">🎨 Changer l'apparence de la Maison</button>` + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
+    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (o.lv < max ? challengeBox(next) : '') + (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn blue wide" data-a="shopskins">🎨 Changer l'apparence de la Maison</button>` + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
     h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt="">${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Au niv. ${next}</small></div>` : ''}</div><div class="say2"><b>${K.name}</b><span>${said}</span></div>
       ${extra}${b.kind === 'prod' ? keeperBox(o) : ''}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
@@ -1427,6 +1445,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'golab') return openPanel('lab', panelArg);
   if (a === 'gotrain') return openPanel('train', panelArg);
   if (a === 'camp') return openPanel('camp');
+  if (a === 'hqfish') return T.canFish(S) ? openPanel('fish') : toast('Ouvre le Lac Gelé (forêt à dégager) pour pêcher.');
   if (a === 'lore') return openPanel('lore');
   if (a === 'replay'){ closePanel(); return setTimeout(() => chapterCine(+b.dataset.i), 250); }
   if (a === 'pet') return openPanel('pet');
@@ -1687,6 +1706,7 @@ function showMissing(req, what, retry){
     m.hidden = true; };
 }
 function whyHelp(o, why){
+  if (why === 'Défi de la Maison') return 'Termine d’abord le <b>défi de la Maison</b> ci-dessus : il ne s’achète pas.';
   if (why !== 'Ressources insuffisantes') return why;
   const c = T.upCost(o.type, o.lv + 1), lack = Object.entries(c).filter(([k, n]) => haveOf(k) < n).map(([k, n]) => `${fmt(n - haveOf(k))} ${(RINFO[k]?.name || k).toLowerCase()}`);
   return `Il manque ${lack.join(', ')}. Touche <b>Améliorer</b> pour savoir où en trouver.`;
@@ -1901,7 +1921,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 87;
+const GAME_V = 88;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2237,6 +2257,9 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-a],[
   const a = b.dataset.a || (b.dataset.m ? 'm:' + b.dataset.m : 'x:' + b.dataset.x); let left = 0;
   try { if (a === 'jobspeed') left = panelArg.job.end - now(); else if (a === 'speed') left = workEnd(panelArg) - now(); else if (a === 'tspeed') left = S.train.back - now();
     else if (a === 'rsspeed') left = S.rsRun.end - now(); else if (a === 'expspeed') left = S.exps[+b.dataset.i].end - now(); } catch(_){}
+  // plafond du jour : au plus 24 h d'attente évitées avec des étoiles (la course vers le sommet ne s'achète pas)
+  if (left > T.freeFinish && left / 1000 > T.speedLeft(S)){ e.stopImmediatePropagation(); e.preventDefault(); sfx.err();
+    const h = T.speedLeft(S) / 3600; return toast(h < .05 ? 'Accélérations du jour épuisées (24 h par jour). Ça repart demain !' : `Tu peux encore accélérer ${h >= 1 ? Math.floor(h) + ' h' : Math.round(h * 60) + ' min'} aujourd'hui (24 h par jour).`); }
   lastAct = {a, k: b.dataset.k || '', t: now(), saved: Math.max(0, Math.round(left / 1000)) || 0, panel: panel || ''};
 }, true);
 const RACE_LV = new Set([5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100]), RACE_HQ = new Set([3, 5, 10, 15, 20, 25]);
@@ -2251,8 +2274,9 @@ setInterval(() => {
   if (wSt === null) wSt = S.stars;
   if (S.stars < wSt){ const n = wSt - S.stars, fresh = now() - lastAct.t < 20e3;
     const d = {quoi: fresh ? lastAct.a + (lastAct.k ? ':' + lastAct.k : '') : '?', ecran: fresh ? lastAct.panel : '', n, niv: S.lvl, tempsGagne: fresh ? lastAct.saved : 0};
-    T.logAdd(S, 'stars_spent', n); if (d.tempsGagne) T.logAdd(S, 'saved', d.tempsGagne); if (!d.quoi.startsWith('x:')) T.logEv(S, 'star', d);
+    T.logAdd(S, 'stars_spent', n); if (d.tempsGagne){ T.logAdd(S, 'saved', d.tempsGagne); T.speedUse(S, d.tempsGagne); } if (!d.quoi.startsWith('x:')) T.logEv(S, 'star', d);
     TR.ev('etoiles', d); if (fresh) lastAct.saved = 0; }
+  if (S.stars - wSt > 1000 && !(S.log?.ev || []).some(e => e[1] === 'iap' && Date.now() - e[0] < 15e3)) flag('etoiles_gain', {n: S.stars - wSt});
   wSt = S.stars;
   if (S.lvl !== wLv){ if (wLv && S.lvl > wLv){ T.logEv(S, 'lvl', {L: S.lvl, jeu: S.play}); TR.ev('niveau', {L: S.lvl}); } if (RACE_LV.has(S.lvl)) race('niv' + S.lvl); wLv = S.lvl; }
   const h = T.hqLv(S); if (h !== wHq){ if (wHq && h > wHq){ T.logEv(S, 'hq', {L: h}); TR.ev('maison', {L: h}); } if (RACE_HQ.has(h)) race('maison' + h); if (h >= T.BUILDINGS.santa.max) race('sommet'); wHq = h; }
@@ -2406,6 +2430,15 @@ function toolBox(c, n){
 // la Scierie fabrique une hache ou une scie toutes les 3 h (source régulière d'outils d'agrandissement)
 const TOOL_CD = 3 * 3600e3, toolCost = (o, k) => ({wood: R5(250 * (1 + (S.chunks.length - T.START_CHUNKS.length) * .4)) * (k === 'saw' ? 2 : 1), coins: 100 * o.lv});
 const R5 = n => Math.round(n / 5) * 5;
+function challengeBox(lv){
+  const c = T.HQ_CHALLENGE[lv]; if (!c) return '';
+  const sp = Object.keys(S.fish || {}).length, cp = S.camps?.at || 0;
+  const row = (ok, txt, act) => `<div class="mis ${ok ? 'chok' : ''}"><div><b>${ok ? '✓ ' : ''}${txt}</b></div>${ok ? '' : act}</div>`;
+  return `<h3>Défi de la Maison niv. ${lv}</h3><p class="meta">Ces défis ne s'achètent pas : fabrique, pêche et combats !</p><div class="mlist">
+    ${Object.entries(c.toys).map(([k, n]) => row((S.inv[k] || 0) >= n, `${n} × ${ITEMS[k].name} (tu en as ${S.inv[k] || 0})`, '<button class="btn blue sm" data-a="gocraft">Atelier</button>')).join('')}
+    ${row(sp >= c.fish, `${c.fish} espèces de poissons (tu en as ${sp})`, '<button class="btn blue sm" data-a="hqfish">Pêcher</button>')}
+    ${row(cp >= c.camps, `${c.camps} camps de trolls battus (tu en as ${cp})`, '<button class="btn blue sm" data-a="camp">Campagne</button>')}</div>`;
+}
 function toolsBox(o){
   const ready = now() - (o.toolT || 0) >= TOOL_CD;
   return `<h3>Établi à outils <small class="meta">· une fois toutes les 3 h</small></h3><div class="jobs">${['axe', 'saw'].map(k => `<div class="job"><div class="jt"><img class="i" src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b><small class="meta">tu en as ${S.inv[k] || 0}</small></div>
@@ -2701,7 +2734,7 @@ try { if (sessionStorage.getItem('vdp-welcome')){ sessionStorage.removeItem('vdp
 if (!S.fixParcel77 && (S.lvl || 1) >= 3){ S.fixParcel77 = 1; (S.parcels ||= []).unshift(1); save(); setTimeout(() => toast('Un colis rare t’a été rendu (bug des colis corrigé)'), 2600); }
 setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); legalGate(() => gateWelcome(() => { if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }));}, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier
 document.addEventListener('change', e => { if (e.target.id !== 'loadfile' || !e.target.files?.[0]) return; e.target.files[0].text().then(saveLoad); });
 window.__pan = (x, y) => panTo(x, y);
