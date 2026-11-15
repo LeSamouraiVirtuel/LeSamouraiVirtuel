@@ -30,6 +30,7 @@ function race({cap, challenges}){
     steps.push(`activité obligatoire (≈ ${fishCasts} lancers de pêche + ${camps} batailles, ou des lettres et des expéditions ; ${Object.values(T.HQ_CHALLENGE).reduce((a, c) => a + c.toy[1], 0)} jouets) : ${hm(active)} de jeu, faites pendant les chantiers`); }
   return {t: Math.max(t, active), steps};
 }
+T.setRaceBrakes(true);   // la simulation compare avec les freins allumés
 const before = race({cap: false, challenges: false}), after = race({cap: true, challenges: true});
 console.log('Durée totale des chantiers de la Maison (sans accélérer) :', hm(T.HQ_TIME.reduce((a, b) => a + b, 0)));
 console.log('AVANT (tout s\'achète, accélérations illimitées) : sommet en', hm(before.t), '·', before.steps.join(' · '));

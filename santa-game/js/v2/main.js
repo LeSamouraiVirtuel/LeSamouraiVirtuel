@@ -38,7 +38,8 @@ const ROOT = new URL('../../', import.meta.url).href;
 // outils de développement (fabrication du pack, mesures, heure forcée) : seulement en local, jamais sur le site public
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 const Q = new URLSearchParams(DEV ? location.search : '');
-const DIAG = {spr: {}, big: []};   // mesures internes pour « Vérifier l'affichage » (pas exposées dans window)
+const DIAG = {spr: {}, big: []};
+if (DEV && Q.get('freins') === '1') T.setRaceBrakes(true);   // tests : freins de la course allumés   // mesures internes pour « Vérifier l'affichage » (pas exposées dans window)
 const EXPORT = Q.has('export');                       // mode « fabrication du pack » (outil hors ligne)
 const DPR = EXPORT ? 3 : Math.min(devicePixelRatio || 1, 2);     // ×2 suffit à l'œil et divise par 2,25 le travail du dessin sur iPhone (×3)
 const ZOOM0 = 1.1;                                   // densité des images (le zoom par défaut est plus bas : village plus vaste)
@@ -1909,7 +1910,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 90;
+const GAME_V = 92;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2420,7 +2421,7 @@ function toolBox(c, n){
 const TOOL_CD = 3 * 3600e3, toolCost = (o, k) => ({wood: R5(250 * (1 + (S.chunks.length - T.START_CHUNKS.length) * .4)) * (k === 'saw' ? 2 : 1), coins: 100 * o.lv});
 const R5 = n => Math.round(n / 5) * 5;
 function challengeBox(lv){
-  const c = T.HQ_CHALLENGE[lv]; if (!c) return '';
+  const c = T.RACE_BRAKES && T.HQ_CHALLENGE[lv]; if (!c) return '';
   const [min, n] = c.toy, have = T.challengeToyCount(S, min), A = T.adventurePts(S), okT = have >= n, okP = A.total >= c.pts;
   const names = Object.keys(T.TOYS).filter(k => !T.TOYS[k].wrap && T.TOYS[k].lvl >= min).map(k => ITEMS[k].name).slice(0, 2).join(', ');
   const path = (k, label, pts, act) => `<div class="mis"><div><b>${label}</b><small>${pts}</small></div>${act}</div>`;
