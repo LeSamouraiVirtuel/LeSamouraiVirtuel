@@ -105,17 +105,19 @@ async function load(){
       created: s.created || tr.creeLe || 0, geo: tr.geo || null, dev: tr.appareil || null, consent: tr.analyse === true ? 'oui' : tr.analyse === false ? 'non' : '—',
       saved: Math.max(ag.saved || 0, tr.tempsGagne || 0), spent: Math.max(ag.stars_spent || 0, tr.etoilesDepensees || 0),
       race: {...(s.race || {}), ...Object.fromEntries(Object.entries(tr.course || {}).map(([k, v]) => [k, v.t || v]))}, raceD: tr.course || {},
-      lvlEv: ev.filter(e => e[1] === 'lvl').map(e => [e[0], e[2].L]), alerts: Object.values(s.flags || {}).reduce((a, b) => a + b, 0), alertEv: ev.filter(e => e[1] === 'anomalie'), jours: tr.jours || {}, wasGuest: tr.inviteAvant};
+      lvlEv: ev.filter(e => e[1] === 'lvl').map(e => [e[0], e[2].L]), test: !!s.testEditeur, alerts: s.testEditeur ? 0 : Object.values(s.flags || {}).reduce((a, b) => a + b, 0), alertEv: ev.filter(e => e[1] === 'anomalie'), jours: tr.jours || {}, wasGuest: tr.inviteAvant};
   });
   render();
 }
 function render(){
+  // les villages « test éditeur » sont listés mais exclus des totaux, du classement et des courbes
+  const ALL = P; P = ALL.filter(p => !p.test);
   const now = Date.now(), act = d => P.filter(p => now - p.last < d * 864e5).length;
   const K = [['Joueurs (comptes)', P.length], ['Actifs 24 h', act(1)], ['Actifs 7 jours', act(7)], ['Euros affichés', eur(P.reduce((a, p) => a + p.eur, 0))],
     ['Achats', P.reduce((a, p) => a + p.achats, 0)], ['Payeurs', P.filter(p => p.eur > 0).length], ['Temps de jeu total', dur(P.reduce((a, p) => a + p.play, 0))],
     ['Temps gagné (accélérations)', dur(P.reduce((a, p) => a + p.saved, 0))], ['Étoiles dépensées', P.reduce((a, p) => a + p.spent, 0)], ['Anciens invités', P.filter(p => p.wasGuest).length]];
   $('#kpis').innerHTML = K.map(([l, v]) => `<div class="kpi"><small>${l}</small><b>${v}</b></div>`).join('');
-  table(); raceTable(); charts();
+  raceTable(); charts(); P = ALL; table();
 }
 let sortK = 'last', sortD = -1;
 const COLS = [['nom', 'Joueur'], ['prov', 'Compte'], ['lvl', 'Niveau', 1], ['hq', 'Maison', 1], ['eur', '€ affichés', 1], ['achats', 'Achats', 1], ['play', 'Temps de jeu', 1], ['sessions', 'Sessions', 1], ['last', 'Dernière connexion'], ['geo', 'Lieu'], ['dev', 'Appareil'], ['consent', 'Analyse'], ['alerts', 'Alertes triche', 1]];
@@ -123,7 +125,7 @@ function table(){
   const v = p => sortK === 'geo' ? (p.geo?.ville || '') : sortK === 'dev' ? (p.dev?.model || '') : p[sortK];
   const L = [...P].sort((a, b) => { const x = v(a), y = v(b); return (x > y ? 1 : x < y ? -1 : 0) * sortD; });
   $('#players').innerHTML = `<tr>${COLS.map(([k, l, n]) => `<th class="${n ? 'n' : ''}" data-k="${k}">${l}${sortK === k ? (sortD > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr>` + L.map(p => `<tr class="p" data-u="${p.uid}">
-    <td>${p.photo ? `<img class="ava" src="${esc(p.photo)}" referrerpolicy="no-referrer" alt="">` : ''}<b>${esc(p.nom || p.village || '(sans nom)')}</b><br><span class="mute">${esc(p.email)}</span></td>
+    <td>${p.photo ? `<img class="ava" src="${esc(p.photo)}" referrerpolicy="no-referrer" alt="">` : ''}<b>${esc(p.nom || p.village || '(sans nom)')}</b>${p.test ? ' <span class="tag">test éditeur</span>' : ''}<br><span class="mute">${esc(p.email)}</span></td>
     <td>${esc(p.prov || '—')}</td><td class="n">${p.lvl}</td><td class="n">${p.hq}</td><td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td><td class="n">${dur(p.play)}</td><td class="n">${p.sessions}</td>
     <td>${fd(p.last)}</td><td>${p.geo ? esc([p.geo.ville, p.geo.pays].filter(Boolean).join(', ')) : '—'}</td><td>${p.dev ? esc(`${p.dev.model || p.dev.os} · ${p.dev.br}`) : '—'}</td><td>${esc(p.consent)}</td><td class="n">${p.alerts ? `<b style="color:var(--acc)">${p.alerts}</b>` : '0'}</td></tr>`).join('');
   $('#players').querySelectorAll('th').forEach(th => th.onclick = () => { const k = th.dataset.k; sortD = sortK === k ? -sortD : -1; sortK = k; table(); });

@@ -135,7 +135,8 @@ const elfPortrait = portrait;
 T.setTrackHook((s, key, n) => { const add = M.eventOnTrack(s, key, n); if (add && typeof evPing === 'function') evPing(add); });
 const saved = T.loadTown();
 let S = saved || T.newTown();
-function flag(kind, data = {}){ S.flagT ||= {}; if (Date.now() - (S.flagT[kind] || 0) < 864e5) return; S.flagT[kind] = Date.now(); S.flags ||= {}; S.flags[kind] = (S.flags[kind] || 0) + 1; T.logEv(S, 'anomalie', {kind, ...data}); try { TR.ev('anomalie', {kind, ...data}); } catch(e){} }
+function flag(kind, data = {}){ if (S.testEditeur) return;   // village « test éditeur » : jamais d'alerte
+  S.flagT ||= {}; if (Date.now() - (S.flagT[kind] || 0) < 864e5) return; S.flagT[kind] = Date.now(); S.flags ||= {}; S.flags[kind] = (S.flags[kind] || 0) + 1; T.logEv(S, 'anomalie', {kind, ...data}); try { TR.ev('anomalie', {kind, ...data}); } catch(e){} }
 { // valeurs impossibles (sauvegarde modifiée à la main) : corrigées, et notées en silence pour le tableau de bord
   for (const k of [...T.RES, 'stars', 'xp']) if (!Number.isFinite(+S[k]) || S[k] < 0){ flag('valeur', {k, v: String(S[k]).slice(0, 20)}); S[k] = 0; }
   // étoiles : au plus ce qu'un joueur peut gagner à son niveau + ce qu'il a acheté (large marge) ; au-delà de 10 fois, ramenées
