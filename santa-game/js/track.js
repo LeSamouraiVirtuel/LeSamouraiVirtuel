@@ -105,12 +105,13 @@ async function purgeOld(){
 /** Le joueur change d'avis (réglages ou nouvelle fenêtre d'accord). En cas de refus, l'analyse déjà enregistrée est effacée. */
 export async function setConsent(v){
   const D = db(); if (!D || !uid) return; const {F, db: base} = D;
-  F.setDoc(F.doc(base, 'track', uid), {analyse: v === 'yes'}, {merge: true}).catch(() => {});
-  if (v === 'yes'){ if (!on){ F.setDoc(F.doc(base, 'track', uid), {provenance: REF}, {merge: true}).catch(() => {}); startSession(); } return; }
-  on = false; sid = null; buf = []; clearInterval(timer);   // pas d'envoi final : tout est effacé
-  try { const ss = await F.getDocs(F.collection(base, 'track', uid, 's')); ss.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {}));
-    // « course » et « vu » ne s'enlèvent pas par une mise à jour (règles) : pour tout effacer, le joueur supprime le document.
-    const X = F.deleteField(); await F.updateDoc(F.doc(base, 'track', uid), {appareil: X, geo: X, ips: X, provenance: X, sessions: X, jours: X, tempsJeu: X, chapitre: X, etoilesDepensees: X, tempsGagne: X, jeuTotal: X}); } catch(e){}
+  if (v === 'yes'){ F.setDoc(F.doc(base, 'track', uid), {analyse: true}, {merge: true}).catch(() => {}); if (!on){ F.setDoc(F.doc(base, 'track', uid), {provenance: REF}, {merge: true}).catch(() => {}); startSession(); } return; }
+  on = false; sid = null; buf = []; clearInterval(timer);   // pas d'envoi final : la fiche de suivi part en entier
+  try {
+    const ss = await F.getDocs(F.collection(base, 'track', uid, 's')); ss.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {}));
+    const sec = await F.getDocs(F.collection(base, 'track', uid, 'secu')); sec.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {}));
+    await F.deleteDoc(F.doc(base, 'track', uid));
+  } catch(e){}
 }
 /** Trace de l'accord légal (date, version des textes, choix), gardée dans le compte avec l'historique */
 export function legalProof(rec){ const D = db(); if (!D || !uid) return; D.F.setDoc(D.F.doc(D.db, 'track', uid), {legal: rec, legalHist: D.F.arrayUnion(rec)}, {merge: true}).catch(() => {}); }

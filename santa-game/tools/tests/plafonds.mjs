@@ -71,9 +71,12 @@ ok(/illisible/.test(threw), `fichier incomplet refusé : ${threw}`);
 
 const round = await T.importCode(await T.exportCode(T.newTown()));
 ok(round.v === 5 && round.objs.some(o => o.type === 'santa') && !round.sig && !round.importNote && !round.ancienCode, 'un export officiel se recharge tel quel');
+const kept = T.newTown(); kept.testEditeur = true;
+T.sanitizeTown(kept);
+ok(kept.testEditeur === true, 'le chargement garde le drapeau du village test éditeur');
 const marked = T.newTown(); marked.testEditeur = true;
 const stripped = await T.importCode(await T.exportCode(marked));
-ok(!stripped.testEditeur && !stripped.ancienCode, 'un export signé ne garde pas testEditeur et n’est pas marqué ancien code');
+ok(!stripped.testEditeur && !stripped.ancienCode, 'un code importé perd testEditeur et un export signé n’est pas un ancien code');
 
 const tampered = await T.exportCode(T.newTown());
 const body = JSON.parse(Buffer.from(tampered.slice(5), 'base64').toString('utf8').startsWith('{') ? Buffer.from(tampered.slice(5), 'base64').toString('utf8') : '{}');

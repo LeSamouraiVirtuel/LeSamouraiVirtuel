@@ -68,11 +68,16 @@ service cloud.firestore {
         || ((n is int) && n > 1700000000000 && n < request.time.toMillis() + 600000
             && (!had || !(resource.data[name] is timestamp)));
     }
+    // Le joueur retire l'analyse : les vieux clients effacent « course » et « vu » dans la même fiche.
+    // Le client v95 supprime le document. Tant que l'analyse reste acceptée, ces champs ne partent pas.
+    function consentOff() {
+      return 'analyse' in request.resource.data && request.resource.data.analyse == false;
+    }
     function vuOk() {
       let had = resource != null && 'vu' in resource.data;
-      // Une mise à jour ne peut pas retirer « vu » ni le changer. L'effacement du document entier reste permis (vie privée).
       return had
-        ? 'vu' in request.resource.data && request.resource.data.vu == resource.data.vu
+        ? (consentOff() && !('vu' in request.resource.data))
+          || ('vu' in request.resource.data && request.resource.data.vu == resource.data.vu)
         : !('vu' in request.resource.data) || request.resource.data.vu == request.time;
     }
     // Un jalon de course déjà écrit ne change plus. Un jalon nouveau a l'heure du serveur,
@@ -98,12 +103,13 @@ service cloud.firestore {
     function courseOk() {
       let had = resource != null && 'course' in resource.data;
       let has = 'course' in request.resource.data;
-      // Retirer toute la carte, ou une clé déjà enregistrée, est refusé. Effacer le document entier reste permis.
-      // hasAll tient en une expression : appeler lock() pour chaque clé ferait dépasser 1000 expressions.
+      // Retirer toute la carte, ou une clé déjà enregistrée, est refusé, sauf si l'analyse passe à faux.
+      // Effacer le document entier reste permis. hasAll tient en une expression (plafond de 1000).
       return (!had && !has)
+        || (had && !has && consentOff())
         || (has && request.resource.data.course is map
           && request.resource.data.course.size() <= 40
-          && (!had || request.resource.data.course.keys().hasAll(resource.data.course.keys()))
+          && (!had || consentOff() || request.resource.data.course.keys().hasAll(resource.data.course.keys()))
           && request.resource.data.course.keys().hasOnly([
             'niv5', 'niv10', 'niv15', 'niv20', 'niv25', 'niv30', 'niv40', 'niv50', 'niv60', 'niv75', 'niv100',
             'maison3', 'maison5', 'maison10', 'maison15', 'maison20', 'maison25', 'sommet',
@@ -114,13 +120,14 @@ service cloud.firestore {
           && lock('maison10', 60) && lock('maison20', 600) && lock('maison25', 1200) && lock('sommet', 1200));
     }
     function deviceOk(d) {
-      // Liste des clés seulement : un contrôle par champ ferait dépasser 1000 expressions sur une fiche déjà remplie.
+      // Liste des clés : un contrôle de type en plus fait dépasser 1000 expressions quand la fiche est déjà pleine.
       return d is map && d.size() >= 1 && d.size() <= 20
         && d.keys().hasOnly(['os', 'osv', 'model', 'br', 'sw', 'sh', 'dpr', 'vw', 'vh', 'lang', 'tz', 'pwa', 'touch']);
     }
     function geoOk(d) {
       return d is map && d.size() <= 10
-        && d.keys().hasOnly(['ip', 'pays', 'cc', 'region', 'ville', 'fai', 'src']);
+        && d.keys().hasOnly(['ip', 'pays', 'cc', 'region', 'ville', 'fai', 'src'])
+        && (!('ip' in d) || (d.ip is string && d.ip.size() <= 64));
     }
     function numOk(name, max) {
       return !(name in request.resource.data)

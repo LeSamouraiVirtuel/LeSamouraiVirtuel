@@ -133,27 +133,33 @@ function table(){
   const v = p => sortK === 'geo' ? (p.geo?.ville || '') : sortK === 'dev' ? (p.dev?.model || '') : p[sortK];
   const L = [...P].sort((a, b) => { const x = v(a), y = v(b); return (x > y ? 1 : x < y ? -1 : 0) * sortD; });
   $('#players').innerHTML = `<tr>${COLS.map(([k, l, n]) => `<th class="${n ? 'n' : ''}" data-k="${k}">${l}${sortK === k ? (sortD > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr>` + L.map(p => `<tr class="p" data-u="${p.uid}">
-    <td>${p.photo ? `<img class="ava" src="${esc(p.photo)}" referrerpolicy="no-referrer" alt="">` : ''}<b>${esc(p.nom || p.village || '(sans nom)')}</b>${p.test ? ' <span class="tag">test éditeur</span>' : ''}${p.ancienCode ? ' <span class="tag">ancien code</span>' : ''}<br><span class="mute">${esc(p.email)}</span></td>
+    <td>${p.photo ? `<img class="ava" src="${esc(p.photo)}" referrerpolicy="no-referrer" alt="">` : ''}<b>${esc(p.nom || p.village || '(sans nom)')}</b>${p.test ? ' <span class="tag">test éditeur</span>' : ''}${p.ancienCode ? ' <span class="tag">ancien code</span>' : ''}${p.wasGuest ? ' <span class="tag">ancien invité</span>' : ''}<br><span class="mute">${esc(p.email)}</span></td>
     <td>${esc(p.prov || '—')}</td><td class="n">${p.lvl}</td><td class="n">${p.hq}</td><td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td><td class="n">${dur(p.play)}</td><td class="n">${p.sessions}</td>
     <td>${fd(p.last)}</td><td>${p.geo ? esc([p.geo.ville, p.geo.pays].filter(Boolean).join(', ')) : '—'}</td><td>${p.dev ? esc(`${p.dev.model || p.dev.os} · ${p.dev.br}`) : '—'}</td><td>${esc(p.consent)}</td><td class="n">${p.alerts ? `<b style="color:var(--acc)">${p.alerts}</b>` : '0'}</td></tr>`).join('');
   $('#players').querySelectorAll('th').forEach(th => th.onclick = () => { const k = th.dataset.k; sortD = sortK === k ? -sortD : -1; sortK = k; table(); });
   $('#players').querySelectorAll('tr.p').forEach(tr => tr.onclick = () => fiche(P.find(p => p.uid === tr.dataset.u)));
 }
 const MS = [['niv10', 'Niv. 10'], ['niv20', 'Niv. 20'], ['maison10', 'Maison 10'], ['maison20', 'Maison 20'], ['sommet', 'Sommet']];
+// Jour où le suivi v95 commence à poser « vu ». Un joueur déjà avancé, vu après cette date, n'a pas « recréé » sa fiche : le suivi vient de commencer.
+const SUIVI_V95 = Date.UTC(2026, 10, 16);
 function raceTable(){
-  // « vu » est l'heure du serveur. « compteCree » vient du jeu (date Auth du compte) : le client officiel l'envoie telle quelle, un client modifié peut mentir.
-  // Fiche supprimée puis recréée : « vu » est récent, le compte est ancien. Un sommet 20 min après ce nouveau « vu » ne classe pas.
+  // « vu » est l'heure du serveur. « compteCree » vient du jeu (date Auth). Sans elle, pas de classement.
+  // Un client modifié peut mentir sur compteCree. Une fiche sans cette date n'est pas classée.
   const ecart = p => (p.compteCree && p.vu && p.compteCree < p.vu) ? p.vu - p.compteCree : 0;
-  const recree = (p, t) => ecart(p) > 30 * 60e3 && t - p.vu < ecart(p);
-  const utile = (p, t) => !!(t && p.vu && t >= p.vu && !recree(p, t));
-  const score = p => { const r = p.race; if (!p.vu) return [0, 0]; if (utile(p, r.sommet)) return [6, -(r.sommet - p.vu)]; for (let i = MS.length - 2; i >= 0; i--) if (utile(p, r[MS[i][0]])) return [i + 1, -(r[MS[i][0]] - p.vu)]; return [0, 0]; };
-  const L = [...P].filter(p => p.vu || p.created).sort((a, b) => { const x = score(a), y = score(b); return y[0] - x[0] || y[1] - x[1]; });
+  const court = (p, t) => !!(p.vu && t - p.vu < 30 * 60e3);
+  const dejaAvance = p => (p.lvl || 0) >= 8 || (p.hq || 0) >= 5;
+  const suiviV95 = p => !!(p.vu >= SUIVI_V95 && dejaAvance(p) && ecart(p) > 30 * 60e3);
+  const recree = (p, t) => !suiviV95(p) && ecart(p) > 30 * 60e3 && t - p.vu < ecart(p);
+  const utile = (p, t) => !!(p.compteCree && t && p.vu && !recree(p, t) && !(suiviV95(p) && court(p, t)) && !(p.wasGuest && court(p, t)));
+  const score = p => { const r = p.race; if (!p.vu || !p.compteCree) return [0, 0]; if (utile(p, r.sommet)) return [6, -(r.sommet - p.vu)]; for (let i = MS.length - 2; i >= 0; i--) if (utile(p, r[MS[i][0]])) return [i + 1, -(r[MS[i][0]] - p.vu)]; return [0, 0]; };
+  const L = [...P].filter(p => p.compteCree && (p.vu || p.created)).sort((a, b) => { const x = score(a), y = score(b); return y[0] - x[0] || y[1] - x[1]; });
   const cell = (p, k) => { const t = p.race[k], d = p.raceD[k];
-    if (t && p.vu && t < p.vu) return '<span class="mute">avant suivi</span>';
     if (t && p.vu && recree(p, t)) return '<span class="mute">fiche recréée</span>';
+    if (t && p.vu && suiviV95(p) && court(p, t)) return '<span class="mute">suivi commencé en v95</span>';
+    if (t && p.vu && p.wasGuest && court(p, t)) return '<span class="mute">ancien invité</span>';
     return t && p.vu ? `${dur((t - p.vu) / 1000)}${d?.eur != null ? `<br><span class="mute">${eur(d.eur)} · ${d.achats || 0} ach.</span>` : ''}` : '<span class="mute">—</span>'; };
   $('#race').innerHTML = `<tr><th>#</th><th>Joueur</th><th class="n">Niveau</th>${MS.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">€ affichés</th><th class="n">Achats</th></tr>` +
-    L.map((p, i) => `<tr class="p" data-u="${p.uid}"><td>${i + 1}</td><td>${esc(p.nom || p.village || p.email || p.uid.slice(0, 6))}${p.ancienCode ? ' <span class="mute">ancien code</span>' : ''}</td><td class="n">${p.lvl}</td>${MS.map(([k]) => `<td class="n">${cell(p, k)}</td>`).join('')}<td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td></tr>`).join('');
+    L.map((p, i) => `<tr class="p" data-u="${p.uid}"><td>${i + 1}</td><td>${esc(p.nom || p.village || p.email || p.uid.slice(0, 6))}${p.ancienCode ? ' <span class="mute">ancien code</span>' : ''}${p.wasGuest ? ' <span class="mute">ancien invité</span>' : ''}${suiviV95(p) ? ' <span class="mute">suivi v95</span>' : ''}</td><td class="n">${p.lvl}</td>${MS.map(([k]) => `<td class="n">${cell(p, k)}</td>`).join('')}<td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td></tr>`).join('');
   $('#race').querySelectorAll('tr.p').forEach(tr => tr.onclick = () => fiche(P.find(p => p.uid === tr.dataset.u)));
 }
 /* ---------- courbes (SVG simple) ---------- */
