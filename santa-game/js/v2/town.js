@@ -1397,6 +1397,8 @@ export function economyCap(s){
 /** Ramène un village à des valeurs jouables. `note(kind, data)` sert aux alertes du tableau de bord. Ne rejette pas la sauvegarde. */
 export function sanitizeTown(s, note = () => {}){
   if (!s || typeof s !== 'object') return s;
+  // Avant les alertes : sinon flag() (main.js) voit encore le drapeau et ne signale rien.
+  delete s.testEditeur;
   s.inv ||= {}; s.objs ||= [];
   for (const k of [...RES, 'stars', 'xp']) if (!Number.isFinite(+s[k]) || s[k] < 0){ note('valeur', {k, v: String(s[k]).slice(0, 20)}); s[k] = 0; }
   const lvl = Math.round(+s.lvl);
@@ -1428,8 +1430,9 @@ export function sanitizeTown(s, note = () => {}){
 
 /* ===================== SAUVEGARDE TRANSFÉRABLE (comme le compte Supercell ID, sans serveur) ===================== */
 // Le village tient dans un code (compressé quand le navigateur le permet) ou un fichier : on le recopie sur un autre appareil.
-// Chaque export officiel porte une somme de contrôle. Elle n'est pas un secret (le jeu est public) : elle rejette un fichier
-// abîmé ou un code modifié à la main. Les vieux codes, sans somme, restent acceptés, puis passent par les mêmes plafonds.
+// Anti-bricolage, pas une signature : la clé de la somme est dans ce fichier, donc chez le joueur. Ça refuse un fichier
+// abîmé ou un code modifié sans recalculer la somme. Quelqu'un qui lit le jeu peut la refaire. Les vrais plafonds sont ailleurs.
+// Les vieux codes, sans somme, restent acceptés (marqués ancienCode) et passent par les mêmes plafonds.
 const SIG_SALT = 'VillageDuPole.export.v1';
 const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(s); };
 const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
@@ -1444,7 +1447,7 @@ async function saveSig(s){
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 export async function exportCode(s){
-  const copy = JSON.parse(JSON.stringify(s)); delete copy.sig; delete copy.importNote;
+  const copy = JSON.parse(JSON.stringify(s)); delete copy.sig; delete copy.importNote; delete copy.testEditeur;
   copy.sig = await saveSig(copy);
   const json = JSON.stringify(copy), bytes = new TextEncoder().encode(json);
   if (typeof CompressionStream !== 'undefined'){
@@ -1479,12 +1482,18 @@ export async function importCode(code){
   } catch (e){ if (/Village du Pôle|version plus récente|illisible|Aucun code|trop gros/.test(e.message || '')) throw e; throw new Error('Ce code est illisible (fichier abîmé ou incomplet).'); }
   let s; try { s = JSON.parse(json); } catch (e){ throw new Error('Ce code est illisible (fichier abîmé ou incomplet).'); }
   const err = saveShapeError(s); if (err) throw new Error(err);
-  if (typeof s.sig === 'string'){ const got = s.sig, want = await saveSig(s);
+  const officiel = typeof s.sig === 'string';
+  if (officiel){ const got = s.sig, want = await saveSig(s);
     if (got !== want) throw new Error('Ce code a été modifié. Utilise un code copié depuis le jeu, sans rien changer.'); }
   else if (s.sig != null) throw new Error('Ce code a été modifié. Utilise un code copié depuis le jeu, sans rien changer.');
   delete s.sig;
+  delete s.testEditeur;
   let adjusted = false; sanitizeTown(s, () => { adjusted = true; });
-  if (adjusted) s.importNote = 'Certaines valeurs dépassaient le plafond du jeu : elles ont été ramenées à un niveau réaliste.';
+  if (!officiel) s.ancienCode = 1;
+  const notes = [];
+  if (!officiel) notes.push('Ancien code, sans somme : chargé quand même.');
+  if (adjusted) notes.push('Certaines valeurs dépassaient le plafond du jeu : elles ont été ramenées à un niveau réaliste.');
+  if (notes.length) s.importNote = notes.join(' ');
   return s;
 }
 export function replaceTown(s){ s = migrate(s); if (!s || s.tooNew) return false; saveTown(s); return true; }

@@ -70,10 +70,35 @@ const cg = (u, id) => fetch(FS.replace(/documents\/$/, 'documents:runQuery'), {m
   ok(niv5 === 200, 'niveau 5 accepté une fois le délai minimum passé');
   const niv5again = await commit(a, [{update: {name: `projects/village-du-pole/databases/(default)/documents/track/${a.uid}`, fields: {course: {mapValue: {fields: {niv5: {mapValue: {fields: {eur: {doubleValue: 0}, achats: {integerValue: '0'}, niv: {integerValue: '5'}, jeu: {integerValue: '0'}}}}}}}}}, updateMask: {fieldPaths: ['course.niv5.eur', 'course.niv5.achats', 'course.niv5.niv', 'course.niv5.jeu']}, updateTransforms: [{fieldPath: 'course.niv5.t', setToServerValue: 'REQUEST_TIME'}]}]);
   ok(niv5again === 403, 'un jalon déjà accepté ne se réécrit pas');
+  const docA = `projects/village-du-pole/databases/(default)/documents/track/${a.uid}`;
+  const ficheSeule = await commit(a, [{update: {name: docA, fields: fields({derniere: Date.now(), niveau: 6})}, updateMask: {fieldPaths: ['derniere', 'niveau']}}]);
+  ok(ficheSeule === 200, 'mettre à jour la fiche sans toucher à vu ni aux jalons : accepté');
+  const sansJalon = await commit(a, [{update: {name: docA, fields: {course: {mapValue: {fields: {}}}}}, updateMask: {fieldPaths: ['course']}}]);
+  ok(sansJalon === 403, 'retirer un jalon déjà enregistré : refusé');
+  const sansVu = await commit(a, [{update: {name: docA, fields: fields({derniere: Date.now()})}, updateMask: {fieldPaths: ['derniere', 'vu']}}]);
+  ok(sansVu === 403, 'retirer vu : refusé');
+  // client v94 encore en cache : derniere en nombre, creeLe, jalon dans une écriture à part
+  const v94 = await user('v94-' + Date.now() + '@example.com');
+  const creeLe = Date.now() - 3 * 864e5;
+  const fiche94 = {email: 'v94@example.com', nom: 'Ancien client', fournisseur: 'google.com', compteCree: Date.now() - 10 * 864e5, derniere: Date.now(), analyse: false, village: 'Ancien', creeLe, niveau: 4, maison: 2, eur: 0, achats: 0, inviteAvant: false};
+  ok(await put(v94, 'track/' + v94.uid, fiche94) === 200, 'client v94 : création de fiche (derniere en nombre, creeLe, sans vu) acceptée');
+  const doc94 = `projects/village-du-pole/databases/(default)/documents/track/${v94.uid}`;
+  const flush94 = await commit(v94, [{update: {name: doc94, fields: fields({derniere: Date.now(), niveau: 5, maison: 2, chapitre: 1, eur: 0, achats: 0, etoilesDepensees: 0, tempsGagne: 0, jeuTotal: 12, lvl: 5, village: 'Ancien', creeLe})}, updateMask: {fieldPaths: ['derniere', 'niveau', 'maison', 'chapitre', 'eur', 'achats', 'etoilesDepensees', 'tempsGagne', 'jeuTotal', 'lvl', 'village', 'creeLe']}, updateTransforms: [{fieldPath: 'tempsJeu', increment: {integerValue: '12'}}]}]);
+  ok(flush94 === 200, 'client v94 : mise à jour de la fiche sans jalon acceptée');
+  const sess94 = await commit(v94, [{update: {name: doc94, fields: fields({appareil: {os: 'Android', osv: '14', model: 'Pixel', br: 'Chrome', sw: 390, sh: 844, dpr: 2, vw: 390, vh: 844, lang: 'fr', tz: 'Europe/Paris', pwa: false, touch: true}, derniere: Date.now()})}, updateMask: {fieldPaths: ['appareil', 'derniere', 'sessions', 'jours.`2026-11-15`']}, updateTransforms: [{fieldPath: 'sessions', increment: {integerValue: '1'}}, {fieldPath: 'jours.`2026-11-15`', increment: {integerValue: '1'}}]}]);
+  ok(sess94 === 200, 'client v94 : session (sessions et jours en incrément, derniere en nombre) acceptée');
+  const geo94 = await commit(v94, [{update: {name: doc94, fields: fields({geo: {ip: '1.2.3.4', pays: 'France', cc: 'FR', region: 'IDF', ville: 'Paris', fai: 'exemple', src: 'geojs'}, ips: ['1.2.3.4']})}, updateMask: {fieldPaths: ['geo', 'ips']}}]);
+  ok(geo94 === 200, 'client v94 : lieu ajouté ensuite sur la fiche accepté');
+  const sid94 = await put(v94, `track/${v94.uid}/s/s94`, {debut: Date.now(), fin: Date.now(), duree: 1, jeu: 1, appareil: {os: 'Android', osv: '14', model: 'Pixel', br: 'Chrome', sw: 390, sh: 844, dpr: 2, vw: 390, vh: 844, lang: 'fr', tz: 'Europe/Paris', pwa: false, touch: true}, ev: [{t: 1, k: 'ecran'}], niv: 5});
+  ok(sid94 === 200, 'client v94 : document de session avec l’appareil complet accepté');
+  const jalon94 = await commit(v94, [{update: {name: doc94, fields: {course: {mapValue: {fields: {niv10: {mapValue: {fields: {t: {integerValue: String(Date.now())}, eur: {doubleValue: 0}, achats: {integerValue: '0'}, niv: {integerValue: '10'}, jeu: {integerValue: '20'}, depuisCreation: {integerValue: '1000'}}}}}}}}}, updateMask: {fieldPaths: ['course']}}]);
+  ok(jalon94 === 403, 'client v94 : jalon sans request.time refusé (écriture du jalon seule)');
+  const encore94 = await commit(v94, [{update: {name: doc94, fields: fields({derniere: Date.now(), niveau: 6})}, updateMask: {fieldPaths: ['derniere', 'niveau']}}]);
+  ok(encore94 === 200, 'client v94 : après le jalon refusé, la fiche s’écrit encore');
   // éditeur : custom claim « admin », plus l'adresse e-mail en clair
-  let adm = await google('better.ask.yannis@gmail.com');
+  let adm = await google('editeur-essai@example.com');
   ok(await claimAdmin(adm) === 200, 'claim admin posé sur le compte éditeur (émulateur)');
-  adm = await google('better.ask.yannis@gmail.com');
+  adm = await google('editeur-essai@example.com');
   const other = await google('quelqu-un@gmail.com');
   const lst = u => fetch(FS + 'users', {headers: {Authorization: 'Bearer ' + u.tok}}).then(r => r.status);
   ok(await lst(adm) === 200 && await get(adm, 'track/' + a.uid) === 200 && await get(adm, `track/${a.uid}/s/s1`) === 200, 'l\'éditeur lit les villages, les fiches et les sessions');

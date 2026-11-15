@@ -109,7 +109,8 @@ export async function setConsent(v){
   if (v === 'yes'){ if (!on){ F.setDoc(F.doc(base, 'track', uid), {provenance: REF}, {merge: true}).catch(() => {}); startSession(); } return; }
   on = false; sid = null; buf = []; clearInterval(timer);   // pas d'envoi final : tout est effacé
   try { const ss = await F.getDocs(F.collection(base, 'track', uid, 's')); ss.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {}));
-    const X = F.deleteField(); await F.updateDoc(F.doc(base, 'track', uid), {appareil: X, geo: X, ips: X, provenance: X, sessions: X, jours: X, tempsJeu: X, course: X, chapitre: X, etoilesDepensees: X, tempsGagne: X, jeuTotal: X}); } catch(e){}
+    // « course » et « vu » ne s'enlèvent pas par une mise à jour (règles) : pour tout effacer, le joueur supprime le document.
+    const X = F.deleteField(); await F.updateDoc(F.doc(base, 'track', uid), {appareil: X, geo: X, ips: X, provenance: X, sessions: X, jours: X, tempsJeu: X, chapitre: X, etoilesDepensees: X, tempsGagne: X, jeuTotal: X}); } catch(e){}
 }
 /** Trace de l'accord légal (date, version des textes, choix), gardée dans le compte avec l'historique */
 export function legalProof(rec){ const D = db(); if (!D || !uid) return; D.F.setDoc(D.F.doc(D.db, 'track', uid), {legal: rec, legalHist: D.F.arrayUnion(rec)}, {merge: true}).catch(() => {}); }

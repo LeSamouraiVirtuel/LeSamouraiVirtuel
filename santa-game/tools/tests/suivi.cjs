@@ -56,11 +56,11 @@ async function declareEditor(email){
   log.push('   attente de l\'envoi (65 s)…'); await p.waitForTimeout(65000);
   // Sora : le tableau de bord ne connaît plus l'adresse e-mail. Le compte doit avoir le claim admin
   // (ou le document admins/{uid}) avant la connexion.
-  await declareEditor('better.ask.yannis@gmail.com');
+  await declareEditor('editeur-essai@example.com');
   const c2 = await cr.newContext({viewport: {width: 1500, height: 950}}); await c2.addInitScript(emu);
   const d = await c2.newPage(); d.on('pageerror', e => log.push('PAGEERR tdb ' + e.message));
   await d.goto('http://localhost:8765/tdb-7q4x.html'); await d.waitForFunction(() => window.__emuLogin, null, {timeout: 20000});
-  await d.evaluate(() => __emuLogin('better.ask.yannis@gmail.com')); await d.waitForSelector('#players tr.p', {timeout: 20000}).catch(() => {});
+  await d.evaluate(() => __emuLogin('editeur-essai@example.com')); await d.waitForSelector('#players tr.p', {timeout: 20000}).catch(() => {});
   await d.waitForTimeout(1500); await d.screenshot({path: 'out/tdb-accueil.png', fullPage: true});
   const row = await d.evaluate(m => [...document.querySelectorAll('#players tr.p')].map(r => r.innerText).find(t => t.includes(m)) || '', mail);
   ok(!!row, 'Sora voit le joueur : ' + row.replace(/\s+/g, ' ').slice(0, 220));

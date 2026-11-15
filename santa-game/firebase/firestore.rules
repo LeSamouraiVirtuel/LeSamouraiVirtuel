@@ -69,12 +69,15 @@ service cloud.firestore {
             && (!had || !(resource.data[name] is timestamp)));
     }
     function vuOk() {
-      return !('vu' in request.resource.data)
-        || (resource != null && 'vu' in resource.data && request.resource.data.vu == resource.data.vu)
-        || (!(resource != null && 'vu' in resource.data) && request.resource.data.vu == request.time);
+      let had = resource != null && 'vu' in resource.data;
+      // Une mise à jour ne peut pas retirer « vu » ni le changer. L'effacement du document entier reste permis (vie privée).
+      return had
+        ? 'vu' in request.resource.data && request.resource.data.vu == resource.data.vu
+        : !('vu' in request.resource.data) || request.resource.data.vu == request.time;
     }
     // Un jalon de course déjà écrit ne change plus. Un jalon nouveau a l'heure du serveur,
     // et seulement si le joueur est « vu » depuis assez longtemps (temps impossible refusé).
+    // courseOk refuse aussi de retirer une clé déjà là (hasAll), classée ou non.
     // Le langage des règles plafonne à 1000 expressions par écriture : on ne détaille que les jalons
     // qui décident du classement. Les autres noms connus sont acceptés seulement s'ils sont dans la liste,
     // et une clé inconnue est refusée. sec = délai minimum en secondes après « vu » (0 = pas de délai en plus).
@@ -93,9 +96,14 @@ service cloud.firestore {
             && (sec == 0 || request.time.toMillis() >= resource.data.vu.toMillis() + sec * 1000));
     }
     function courseOk() {
-      return !('course' in request.resource.data)
-        || (request.resource.data.course is map
+      let had = resource != null && 'course' in resource.data;
+      let has = 'course' in request.resource.data;
+      // Retirer toute la carte, ou une clé déjà enregistrée, est refusé. Effacer le document entier reste permis.
+      // hasAll tient en une expression : appeler lock() pour chaque clé ferait dépasser 1000 expressions.
+      return (!had && !has)
+        || (has && request.resource.data.course is map
           && request.resource.data.course.size() <= 40
+          && (!had || request.resource.data.course.keys().hasAll(resource.data.course.keys()))
           && request.resource.data.course.keys().hasOnly([
             'niv5', 'niv10', 'niv15', 'niv20', 'niv25', 'niv30', 'niv40', 'niv50', 'niv60', 'niv75', 'niv100',
             'maison3', 'maison5', 'maison10', 'maison15', 'maison20', 'maison25', 'sommet',
@@ -106,38 +114,24 @@ service cloud.firestore {
           && lock('maison10', 60) && lock('maison20', 600) && lock('maison25', 1200) && lock('sommet', 1200));
     }
     function deviceOk(d) {
+      // Liste des clés seulement : un contrôle par champ ferait dépasser 1000 expressions sur une fiche déjà remplie.
       return d is map && d.size() >= 1 && d.size() <= 20
-        && d.keys().hasOnly(['os', 'osv', 'model', 'br', 'sw', 'sh', 'dpr', 'vw', 'vh', 'lang', 'tz', 'pwa', 'touch'])
-        && (!('os' in d) || (d.os is string && d.os.size() <= 40))
-        && (!('osv' in d) || (d.osv is string && d.osv.size() <= 40))
-        && (!('model' in d) || (d.model is string && d.model.size() <= 80))
-        && (!('br' in d) || (d.br is string && d.br.size() <= 40))
-        && (!('sw' in d) || (d.sw is number && d.sw >= 0 && d.sw <= 20000))
-        && (!('sh' in d) || (d.sh is number && d.sh >= 0 && d.sh <= 20000))
-        && (!('dpr' in d) || (d.dpr is number && d.dpr > 0 && d.dpr <= 10))
-        && (!('vw' in d) || (d.vw is number && d.vw >= 0 && d.vw <= 20000))
-        && (!('vh' in d) || (d.vh is number && d.vh >= 0 && d.vh <= 20000))
-        && (!('lang' in d) || (d.lang is string && d.lang.size() <= 40))
-        && (!('tz' in d) || (d.tz is string && d.tz.size() <= 80))
-        && (!('pwa' in d) || d.pwa is bool)
-        && (!('touch' in d) || d.touch is bool);
+        && d.keys().hasOnly(['os', 'osv', 'model', 'br', 'sw', 'sh', 'dpr', 'vw', 'vh', 'lang', 'tz', 'pwa', 'touch']);
     }
     function geoOk(d) {
       return d is map && d.size() <= 10
-        && d.keys().hasOnly(['ip', 'pays', 'cc', 'region', 'ville', 'fai', 'src'])
-        && (!('ip' in d) || (d.ip is string && d.ip.size() <= 64))
-        && (!('pays' in d) || (d.pays is string && d.pays.size() <= 80))
-        && (!('cc' in d) || (d.cc is string && d.cc.size() <= 8))
-        && (!('region' in d) || (d.region is string && d.region.size() <= 80))
-        && (!('ville' in d) || (d.ville is string && d.ville.size() <= 80))
-        && (!('fai' in d) || (d.fai is string && d.fai.size() <= 80))
-        && (!('src' in d) || (d.src is string && d.src.size() <= 20));
+        && d.keys().hasOnly(['ip', 'pays', 'cc', 'region', 'ville', 'fai', 'src']);
     }
     function numOk(name, max) {
       return !(name in request.resource.data)
         || (request.resource.data[name] is number && request.resource.data[name] >= 0 && request.resource.data[name] <= max);
     }
     // track/{uid} — fiche de suivi. Le joueur écrit la sienne ; l'éditeur lit ; le joueur peut tout effacer.
+    // Clients v93 et v94 encore en cache : « derniere » en nombre et « creeLe » restent acceptés,
+    // donc une écriture de fiche (sans jalon, ou qui laisse les jalons déjà là) passe.
+    // Un jalon de ces versions a une heure choisie par le jeu. Les règles ne peuvent pas retirer
+    // un seul champ : l'écriture qui pose ce jalon est refusée en entier. Le jeu v94 l'envoie
+    // à part, donc la fiche déjà enregistrée n'est pas perdue. Effacer le document entier reste permis.
     function validTrack(d) {
       return d.size() <= 80
         && d.keys().hasOnly([

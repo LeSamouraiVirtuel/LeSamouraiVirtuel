@@ -70,7 +70,10 @@ try { await T.importCode('{' + '"v":5}'); } catch (e) { threw = e.message; }
 ok(/illisible/.test(threw), `fichier incomplet refusé : ${threw}`);
 
 const round = await T.importCode(await T.exportCode(T.newTown()));
-ok(round.v === 5 && round.objs.some(o => o.type === 'santa') && !round.sig && !round.importNote, 'un export officiel se recharge tel quel');
+ok(round.v === 5 && round.objs.some(o => o.type === 'santa') && !round.sig && !round.importNote && !round.ancienCode, 'un export officiel se recharge tel quel');
+const marked = T.newTown(); marked.testEditeur = true;
+const stripped = await T.importCode(await T.exportCode(marked));
+ok(!stripped.testEditeur && !stripped.ancienCode, 'un export signé ne garde pas testEditeur et n’est pas marqué ancien code');
 
 const tampered = await T.exportCode(T.newTown());
 const body = JSON.parse(Buffer.from(tampered.slice(5), 'base64').toString('utf8').startsWith('{') ? Buffer.from(tampered.slice(5), 'base64').toString('utf8') : '{}');
@@ -84,11 +87,11 @@ ok(/modifié/.test(threw), `somme de contrôle fausse refusée : ${threw}`);
 const legacy = T.newTown(); legacy.coins = 1e15; legacy.lvl = 4;
 const legacyCode = 'VDP1:' + Buffer.from(JSON.stringify(legacy)).toString('base64');
 const loaded = await T.importCode(legacyCode);
-ok(loaded.coins < 1e12 && loaded.importNote, `vieux code sans somme : accepté et plafonné (${loaded.coins}) — ${loaded.importNote}`);
+ok(loaded.coins < 1e12 && loaded.ancienCode === 1 && /Ancien code/.test(loaded.importNote || ''), `vieux code sans somme : accepté, marqué, plafonné (${loaded.coins})`);
 
 const file = readFileSync(join(here, '../editeur/village-test-niveau20.txt'), 'utf8');
 const editor = await T.importCode(file);
-ok(editor.lvl === 20 && editor.testEditeur && T.hqLv(editor) === 13 && !editor.importNote, `code éditeur niveau 20 chargé (Maison ${T.hqLv(editor)}, pièces ${editor.coins})`);
+ok(editor.lvl === 20 && !editor.testEditeur && editor.ancienCode === 1 && T.hqLv(editor) === 13, `code éditeur niveau 20 : plus de testEditeur (Maison ${T.hqLv(editor)}, pièces ${editor.coins})`);
 
 console.log(log.join('\n'));
 console.log(bad ? `ÉCHECS : ${bad}` : 'TOUT EST BON');
