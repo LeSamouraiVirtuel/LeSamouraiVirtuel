@@ -37,9 +37,11 @@ service cloud.firestore {
       allow get: if isOwner(uid) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(uid) && validVillage(request.resource.data);
-      // le bonus de bienvenue ne se donne qu'une fois : « welcome » ne peut jamais repasser à faux
+      // le bonus de bienvenue ne se donne qu'une fois : « welcome » ne peut jamais repasser explicitement à faux.
+      // (Un ancien jeu resté ouvert, v80-v82, renvoie la sauvegarde sans ce champ : c'est accepté, sinon ses sauvegardes
+      // seraient refusées ; le jeu retrouve le bonus déjà reçu dans la sauvegarde elle-même, « welcomeGot ».)
       allow update: if isOwner(uid) && validVillage(request.resource.data)
-        && !(resource.data.get('welcome', false) == true && request.resource.data.get('welcome', false) != true);
+        && !(resource.data.get('welcome', false) == true && request.resource.data.get('welcome', true) == false);
       allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.t, 730));
     }
 

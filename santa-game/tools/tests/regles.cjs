@@ -42,6 +42,8 @@ const cg = (u, id) => fetch(FS.replace(/documents\/$/, 'documents:runQuery'), {m
   await put(a, 'users/' + a.uid, base);
   ok(await put(a, 'users/' + a.uid, {...base, zz: 'x'}) === 403, 'champ inconnu refusé');
   ok(await put(a, 'users/' + a.uid, {...base, welcome: false}) === 403, 'bonus de bienvenue : impossible de repasser à faux');
+  const {welcome, ...sans} = base; ok(await put(a, 'users/' + a.uid, sans) === 200, 'ancien jeu (v80-v82) resté ouvert, sauvegarde sans « welcome » après le bonus : acceptée');
+  ok(await put(a, 'users/' + a.uid, base) === 200, 'puis le nouveau jeu remet « welcome » : accepté');
   ok(await put(b, 'users/' + a.uid, base) === 403, 'écrire le village d\'un autre : refusé');
   ok(await get(b, 'users/' + a.uid) === 403, 'lire le village d\'un autre : refusé');
   ok(await get(b, 'track/' + a.uid) === 403, 'lire le suivi d\'un autre : refusé');

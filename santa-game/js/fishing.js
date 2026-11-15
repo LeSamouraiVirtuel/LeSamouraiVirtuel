@@ -26,14 +26,17 @@ export function openFishing(ctx){
   function cast(){
     const f = ctx.roll(); if (!f) return close();
     st = {ph: 'wait', f, t: 0, bite: 1.6 + Math.random() * 3.6, nib: [], dip: 0, tau: .45, p: .18, slack: 0, strain: 0, dir: 1, dirT: 0, pull: 0,
-      center: .55, perfect: true, net: false, fishA: Math.random() * 6, msg: ''};
+      center: .55, perfect: true, net: false, fishA: Math.random() * 6, msg: '', grace: 1, nibT: -9, flash: 0};
     const n = Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) st.nib.push(.5 + Math.random() * (st.bite - .8));
-    card.hidden = true; netBtn.hidden = true; say('Attends que ça morde… ne touche pas aux petites touches !');
+    card.hidden = true; netBtn.hidden = true; say('Attends le gros plouf et le «\u00a0!\u00a0». Les petites touches sont des pièges.');
     ctx.tone?.(330, .15, 'sine', .04);
   }
   function down(){
     if (!st || closed) return;
-    if (st.ph === 'wait'){ st.ph = 'miss'; say('Trop tôt ! Le poisson a eu peur.', '#ff9aa8'); ctx.sfx.err(); end(false, 'early'); return; }
+    if (st.ph === 'wait'){
+      if (st.t < .6) return;                                  // le doigt qui vient de lancer : ignoré
+      if (st.grace > 0){ st.grace--; st.bite += .6; say(st.t - st.nibT < .7 ? 'Pas encore ! C’était une petite touche. Attends le «\u00a0!\u00a0»' : 'Pas encore ! Attends le «\u00a0!\u00a0»', '#ffb36b'); ctx.tone?.(240, .12, 'triangle', .04); vib(15); return; }
+      st.ph = 'miss'; say('Trop tôt ! Le poisson a eu peur.', '#ff9aa8'); ctx.sfx.err(); end(false, 'early'); return; }
     if (st.ph === 'bite'){ st.ph = 'fight'; st.t = 0; ctx.sfx.collect(); vib(40); say('MAINTIENS pour remonter, RELÂCHE quand ça tire trop !', '#ffd84a'); netBtn.hidden = !(ctx.nets() > 0); return; }
     if (st.ph === 'fight') hold = true;
   }
@@ -66,8 +69,8 @@ export function openFishing(ctx){
     const r = st.f.r, nerv = NERV[r], gw = GREEN[r] + ctx.rod * .012;
     if (st.ph === 'wait'){
       st.dip = Math.max(0, st.dip - dt * 3);
-      while (st.nib.length && st.t >= st.nib[0]){ st.nib.shift(); st.dip = .35; ctx.tone?.(520, .05, 'sine', .03); }
-      if (st.t >= st.bite){ st.ph = 'bite'; st.t = 0; st.dip = 1; say('ÇA MORD ! Touche vite !', '#ffd84a'); ctx.tone?.(880, .12, 'square', .05); ctx.tone?.(660, .12, 'square', .05, .08); vib([60, 40, 60]); }
+      while (st.nib.length && st.t >= st.nib[0]){ st.nib.shift(); st.dip = .25; st.nibT = st.t; ctx.tone?.(300, .04, 'sine', .02); }
+      if (st.t >= st.bite){ st.ph = 'bite'; st.t = 0; st.dip = 1; st.flash = 1; say('ÇA MORD ! Touche vite !', '#ffd84a'); ctx.tone?.(880, .12, 'square', .05); ctx.tone?.(660, .12, 'square', .05, .08); vib([60, 40, 60]); }
     } else if (st.ph === 'bite'){
       st.dip = .8 + Math.sin(T * 30) * .2;
       if (st.t > WIN[r] + ctx.rod * .05){ st.ph = 'miss'; say('Trop tard…', '#ff9aa8'); ctx.sfx.err(); end(false, 'late'); }
@@ -104,10 +107,20 @@ export function openFishing(ctx){
     x.fillStyle = '#16365e'; x.beginPath(); x.ellipse(cx, cy, rw, rh, 0, 0, 7); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 5; x.stroke();
     x.fillStyle = 'rgba(80,140,210,.35)'; x.beginPath(); x.ellipse(cx - rw * .2, cy - rh * .3, rw * .5, rh * .25, 0, 0, 7); x.fill();
     // ligne et bouchon
-    const dip = st ? st.dip * 14 + (st.ph === 'fight' ? 10 + st.tau * 8 : 0) : 0, by = cy + dip;
+    const dip = st ? (st.ph === 'bite' ? 22 : st.dip * 14) + (st.ph === 'fight' ? 10 + st.tau * 8 : 0) : 0, by = cy + dip;
     x.strokeStyle = '#2a2a2a'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(cx + 40, 0); x.quadraticCurveTo(cx + 20, cy * .5, cx, by - 14); x.stroke();
     x.fillStyle = '#e8323f'; x.beginPath(); x.arc(cx, by - 8, 9, Math.PI, 0); x.fill(); x.fillStyle = '#fff'; x.beginPath(); x.arc(cx, by - 8, 9, 0, Math.PI); x.fill(); x.strokeStyle = INK; x.lineWidth = 2; x.beginPath(); x.arc(cx, by - 8, 9, 0, 7); x.stroke();
-    if (st && st.dip > .1){ x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 2; for (let k = 1; k <= 2; k++){ x.beginPath(); x.ellipse(cx, by, 14 * k + (T * 30 % 10), 5 * k + (T * 10 % 4), 0, 0, 7); x.stroke(); } }
+    if (st && st.ph === 'wait' && st.dip > .05){ x.strokeStyle = 'rgba(200,210,225,.8)'; x.lineWidth = 1.5; x.beginPath(); x.ellipse(cx, by, 16 + (1 - st.dip / .25) * 14, 5 + (1 - st.dip / .25) * 4, 0, 0, 7); x.stroke(); }
+    if (st && st.ph === 'wait' && st.t - st.nibT < .8){ x.font = '700 14px system-ui, sans-serif'; x.textAlign = 'center'; x.fillStyle = 'rgba(70,90,120,.85)'; x.fillText('petite touche…', cx, by + rh + 18); }
+    if (st && st.ph === 'bite'){
+      // GROS PLOUF : éclaboussures, anneaux jaunes, gros « ! » au-dessus du bouchon
+      x.strokeStyle = 'rgba(255,216,74,.95)'; x.lineWidth = 4; for (let k = 1; k <= 3; k++){ const g2 = (T * 2.2 + k / 3) % 1; x.globalAlpha = 1 - g2; x.beginPath(); x.ellipse(cx, by, 18 + g2 * rw * .9, 6 + g2 * rh * .9, 0, 0, 7); x.stroke(); } x.globalAlpha = 1;
+      x.fillStyle = '#fff'; for (let k = 0; k < 7; k++){ const a = k / 7 * Math.PI + Math.PI, d = 18 + (T * 60 % 18); x.beginPath(); x.arc(cx + Math.cos(a) * d * 1.4, by - 6 + Math.sin(a) * d * .9, 3, 0, 7); x.fill(); }
+      const s2 = 1 + Math.sin(T * 18) * .08; x.save(); x.translate(cx, by - 58); x.scale(s2, s2);
+      x.fillStyle = '#ffd84a'; x.strokeStyle = INK; x.lineWidth = 4; x.beginPath(); x.arc(0, 0, 26, 0, 7); x.fill(); x.stroke();
+      x.fillStyle = INK; x.font = '900 34px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('!', 0, 2); x.restore(); x.textBaseline = 'alphabetic';
+    }
+    if (st && st.flash > 0){ x.fillStyle = `rgba(255,236,150,${st.flash * .45})`; x.fillRect(0, 0, W, H); st.flash = Math.max(0, st.flash - .06); }
     // jauges du combat
     if (st && st.ph === 'fight'){
       const r = st.f.r, gw = GREEN[r] + ctx.rod * .012, bw = Math.min(W - 48, 380), bx = (W - bw) / 2, byy = H * .78, bh = 26;
