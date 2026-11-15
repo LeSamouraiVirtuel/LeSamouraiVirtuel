@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-const BASE = new URL('../assets/', import.meta.url).href;
+// essais/js/ est un cran plus bas que js/ : les .glb sont dans santa-game/assets, pas dans essais/assets.
+const BASE = new URL('../../assets/', import.meta.url).href;
 const loader = new GLTFLoader();
 const cache = {};
 const load = f => cache[f] ||= new Promise((ok, ko) => loader.load(BASE + f, ok, undefined, ko));

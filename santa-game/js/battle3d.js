@@ -9,7 +9,17 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 const BASE = new URL('../assets/', import.meta.url).href;
 const loader = new GLTFLoader();
 const cache = {};
-const load = f => cache[f] ||= new Promise((ok, ko) => loader.load(BASE + f, ok, undefined, ko));
+// Un fichier absent ne doit pas casser la bataille : on dessine une forme simple, une seule tentative de chargement.
+function foeShape(kind){
+  const g = new THREE.Group(), col = {yeti: '#e8eef6', runner: '#8fb3a0', chief: '#9b7db5', krampus: '#243056', troll: '#7d9bb5'}[kind] || '#7d9bb5';
+  const mat = new THREE.MeshStandardMaterial({color: col, roughness: .7});
+  const s = kind === 'yeti' || kind === 'chief' ? 1.25 : kind === 'krampus' ? 1.4 : kind === 'runner' ? .72 : 1;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(.42 * s, 12, 10), mat); body.scale.y = 1.35; body.position.y = .7 * s; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.28 * s, 12, 10), mat); head.position.y = 1.25 * s; g.add(head);
+  if (kind === 'krampus' || kind === 'chief'){ for (const sx of [-1, 1]){ const horn = new THREE.Mesh(new THREE.ConeGeometry(.08 * s, .45 * s, 6), mat); horn.position.set(sx * .16 * s, 1.55 * s, 0); horn.rotation.z = sx * -.5; g.add(horn); } }
+  return {scene: g, animations: []};
+}
+const load = f => cache[f] ||= loader.loadAsync(BASE + f).catch(() => null);
 
 // type : fichier, taille (m), points de vie, vitesse, dégâts sur la palissade, comportement
 const FOES = {
@@ -83,7 +93,8 @@ export async function openBattle(ctx){
   let heroG, heroA = [], models = {};
   try {
     const [h, a1, a2, ...ms] = await Promise.all([load('elf.glb'), load('battle/hero-anims-a.glb'), load('battle/hero-anims-b.glb'), ...kinds.map(k => load(FOES[k].f))]);
-    heroG = h; heroA = [...a1.animations, ...a2.animations]; kinds.forEach((k, i) => models[k] = ms[i]);
+    if (!h || !a1 || !a2) throw new Error('héros');
+    heroG = h; heroA = [...a1.animations, ...a2.animations]; kinds.forEach((k, i) => models[k] = ms[i] || foeShape(k));
   } catch(e){ root.querySelector('.b-load').textContent = 'Impossible de charger les monstres. Vérifie ta connexion.'; console.error(e); return; }
   root.querySelector('.b-load').remove(); root.querySelector('.mg-card').hidden = false;
 
@@ -295,7 +306,7 @@ const PORT = {};
 export function portrait3d(kind, size = 256){
   return PORT[kind] ||= (async () => {
     const D = FOES[kind]; if (!D) return null;
-    const g = await load(D.f), o = SkeletonUtils.clone(g.scene), r = new THREE.WebGLRenderer({antialias: true, alpha: true, preserveDrawingBuffer: true});
+    const g = (await load(D.f)) || foeShape(kind), o = SkeletonUtils.clone(g.scene), r = new THREE.WebGLRenderer({antialias: true, alpha: true, preserveDrawingBuffer: true});
     r.setSize(size, size, false); r.outputColorSpace = THREE.SRGBColorSpace;
     const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#ffffff', '#8090b0', 1.6)); const l = new THREE.DirectionalLight('#ffffff', 2.2); l.position.set(2, 4, 5); sc.add(l);
     const box = new THREE.Box3().setFromObject(o), h = box.max.y - box.min.y; o.scale.setScalar(2 / h); sc.add(o);

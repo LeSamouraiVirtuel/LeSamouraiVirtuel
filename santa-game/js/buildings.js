@@ -107,6 +107,68 @@ const sealGeo = new THREE.CylinderGeometry(.04, .04, .025, 10);
 // teinte des boiseries par type : [teinte HSL, saturation]
 const TRIM = {hq: [.985, 1.25], post: [.6, 1.1], workshop: [.13, 1.3], stable: [.08, 1], sawmill: [null], mill: [.8, 1.1], wrap: [.9, 1.2]};
 
+/* Silhouettes qui se lisent de loin et sur un téléphone (pas le même chalet avec d'autres bibelots).
+   Les niveaux ne changent pas : palier 1 jusqu'au niveau 4, palier 2 à partir de 5, palier 3 à partir de 12.
+   Seule la masse grandit. Géométrie simple (boîtes, cylindre, cône) : peu de triangles, même rendu que le reste. */
+const SOLID = {};
+function solidMat(hex){
+  if (!SOLID[hex]){ SOLID[hex] = new THREE.MeshStandardMaterial({color: hex, roughness: .74}); addRim(SOLID[hex], .22); }
+  return SOLID[hex];
+}
+function solid(g, geo, hex, x, y, z, rot){
+  const m = new THREE.Mesh(geo, solidMat(hex));
+  m.position.set(x, y, z); if (rot) m.rotation.set(rot[0] || 0, rot[1] || 0, rot[2] || 0);
+  m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+}
+/** Atelier : long hall, toit en dents de scie (shed). n dents selon le palier. */
+function workshopShape(g, T){
+  const n = 2 + T, len = 1.8 + T * .4, depth = 1.45, wallH = .9 + T * .1;
+  const wall = '#c9843e', roof = '#6b2c24', dark = '#3a2218';
+  solid(g, new THREE.BoxGeometry(len, wallH, depth), wall, 0, wallH / 2, -.05);
+  solid(g, new THREE.BoxGeometry(len * .7, wallH * .55, .06), dark, 0, wallH * .4, depth / 2 - .02);
+  const tw = len / n;
+  for (let i = 0; i < n; i++){
+    const x = -len / 2 + tw * (i + .5);
+    solid(g, new THREE.BoxGeometry(tw * 1.05, .07, depth + .12), roof, x, wallH + .2, -.05, [0, 0, .62]);
+    solid(g, new THREE.BoxGeometry(.06, .48, depth + .08), roof, x + tw * .4, wallH + .28, -.05);
+  }
+  if (T >= 2) solid(g, new THREE.BoxGeometry(.2, .4, .2), '#4a382c', len * .28, wallH + .62, -.35);
+  return wallH + .75;
+}
+/** Poste : tour ronde et toit conique. Le palier allonge la tour, il ne la rend pas rectangulaire. */
+function postShape(g, T){
+  const r = .82 + T * .05, h = 1.05 + T * .42, cone = .62 + T * .12;
+  solid(g, new THREE.CylinderGeometry(r, r * 1.06, h, 20), '#c01f32', 0, h / 2, 0);
+  solid(g, new THREE.ConeGeometry(r * 1.28, cone, 20), '#f6f3ec', 0, h + cone / 2, 0);
+  solid(g, new THREE.CylinderGeometry(.1, .12, .28, 8), '#f0c14a', 0, h + cone + .12, 0);
+  solid(g, new THREE.BoxGeometry(.36, .62, .08), '#f7f1e4', 0, .42, r + .02);
+  return h + cone + .35;
+}
+/** Hangar à traîneau : long, bas, sans mur sur le côté visible (+z). */
+function hangarShape(g, T){
+  const len = 2.35 + T * .38, h = .7 + T * .05, d = 1.45;
+  const wall = '#7c3028', roof = '#3a4658', hole = '#241612';
+  solid(g, new THREE.BoxGeometry(len, .08, d), '#6a5140', 0, .04, 0);
+  solid(g, new THREE.BoxGeometry(len, h, .1), wall, 0, h / 2, -d / 2);
+  solid(g, new THREE.BoxGeometry(.1, h, d), wall, -len / 2, h / 2, 0);
+  solid(g, new THREE.BoxGeometry(.1, h, d), wall, len / 2, h / 2, 0);
+  solid(g, new THREE.BoxGeometry(len + .18, .09, d + .22), roof, 0, h + .06, -.06, [.14, 0, 0]);
+  solid(g, new THREE.BoxGeometry(len * .84, h * .72, .05), hole, 0, h * .4, d / 2 - .22);
+  return h + .25;
+}
+/** Écurie : trois ailes en U, la cour ouverte vers le joueur. */
+function stableShape(g, T){
+  const h = .82 + T * .16, t = .4, span = 2.15 + T * .12, depth = 1.45 + T * .08;
+  const wood = '#e0ae55', roof = '#8a3428';
+  solid(g, new THREE.BoxGeometry(span, h, t), wood, 0, h / 2, -depth / 2);
+  solid(g, new THREE.BoxGeometry(span + .12, .09, t + .1), roof, 0, h + .04, -depth / 2);
+  solid(g, new THREE.BoxGeometry(t, h * .9, depth), wood, -span / 2, h * .45, .02);
+  solid(g, new THREE.BoxGeometry(t, h * .9, depth), wood, span / 2, h * .45, .02);
+  solid(g, new THREE.BoxGeometry(t + .1, .09, depth + .08), roof, -span / 2, h * .9, .02);
+  solid(g, new THREE.BoxGeometry(t + .1, .09, depth + .08), roof, span / 2, h * .9, .02);
+  return h + .15;
+}
+
 export function buildModel(type, lv, baseSkin = null){
   const T = tierOf(Math.max(1, lv));
   const root = new THREE.Group();
@@ -173,40 +235,19 @@ export function buildModel(type, lv, baseSkin = null){
     smoke.push(new THREE.Vector3(T === 3 ? .2 : .45, T === 1 ? 2.75 : 2.6, T === 3 ? -.3 : -.15));
   }
   else if (type === 'post'){
-    if (T === 1){
-      add('stall-red', {z: -.1, s: 1.9});
-      add('sock-red-cane', {x: -1.2, z: 1.2, s: 1.2});
-      presents(g, [[1.2, 1.1, 3], [.75, 1.35, 0, .5, .7]]);
-      top = 2.7;
-    } else {
-      addCabin({len: T === 3 ? 2 : 1, front: ['cabin-window-c', 'door'], chimney: T === 3 ? 2 : 0}, -.35, -.5, 0, 1.12);
-      add('stall-red', {x: 1.2, z: 1.0, s: 1.15, ry: -.4});
-      if (T === 3){ add('banner-red', {x: -1.6, z: .9, s: 1.3}); add('lantern', {x: -1.45, z: 1.4, s: .55}); }
-      top = T === 3 ? 3.1 : 2.9;
-    }
-    const n = Math.min(5, 1 + Math.ceil(lv / 2));
+    top = postShape(g, T);
+    add('sock-red-cane', {x: -1.15, z: 1.15, s: .85});
+    const n = Math.min(4, T + 1);
     for (let i = 0; i < n; i++){
       const l = new THREE.Group(); l.userData.live = true; const p = new THREE.Mesh(letterGeo, letterMat); const s = new THREE.Mesh(sealGeo, sealMat); s.rotation.x = HALF_PI; s.position.z = .015; l.add(p, s); l.traverse(o => o.castShadow = true); g.add(l);
-      const ph = i * (Math.PI * 2 / n);
-      anim.push(t => { const a = t * .9 + ph; l.position.set(Math.cos(a) * 1.25, 2.3 + Math.sin(a * 2) * .22, Math.sin(a) * 1.05); l.rotation.set(Math.sin(a * 3) * .4, -a, Math.cos(a * 2) * .3); });
+      const ph = i * (Math.PI * 2 / n), R = .95 + T * .08;
+      anim.push(t => { const a = t * .7 + ph; l.position.set(Math.cos(a) * R, top * .55 + Math.sin(a * 2) * .12, Math.sin(a) * R * .72); l.rotation.y = -a; });
     }
   }
   else if (type === 'workshop'){
-    if (T === 1){
-      addCabin({len: 1, front: ['cabin-window-a', 'door'], chimney: 0}, -.3, -.5, 0, 1.15);
-      presents(g, [[1.1, .9, 0], [1.45, .5, 1, .4, .8], [1.25, 1.35, 2, .2, .9], [-1.3, 1.2, 3]]);
-      top = 2.8;
-    } else {
-      addCabin({len: T === 3 ? 3 : 2, front: ['cabin-window-large', 'door'], sides: ['cabin-window-b'], chimney: 1}, -.45, -.4, 0, T === 3 ? 1.08 : 1.12);
-      presents(g, [[1.3, -.9, 0], [1.4, -.4, 4, .3, .8], [-1.35, 1.35, 5]]);
-      // petit train de jouets qui fait le tour
-      const train = new THREE.Group(); train.userData.live = true; g.add(train);
-      const parts = ['train_locomotive', 'train_tender_presents_A', T === 3 ? 'train_tender_presents_B' : null].filter(Boolean);
-      const cars = parts.map(n => { const c = prop(n, {s: .62}); train.add(c); return c; });
-      const R = 1.5;
-      anim.push(t => { cars.forEach((c, i) => { const a = -t * .55 - i * .36; c.position.set(.35 + Math.cos(a) * R, 0, .25 + Math.sin(a) * R * .85); c.rotation.y = -a + Math.PI; }); });
-      top = T === 3 ? 3.2 : 3;
-    }
+    top = workshopShape(g, T);
+    add('Parts_Cog', {x: 0, z: .85, s: .45 + T * .08}).position.y = .7;
+    if (T >= 2) add('train_locomotive', {x: .2, z: 1.25, s: .4, ry: .4});
   }
   else if (type === 'mill'){
     if (T === 1){
@@ -226,19 +267,9 @@ export function buildModel(type, lv, baseSkin = null){
     wheel.userData.live = true; anim.push((t, dt) => wheel.rotation.x += dt * 3);
   }
   else if (type === 'wrap'){
-    if (T === 1){
-      add('stall-red', {x: -.35, z: -.35, s: 1.8});
-      presents(g, [[1.1, .9, 0], [1.4, .4, 3, .4, .8], [.75, 1.35, 2], [-1.25, 1.2, 1, .3], [-1.0, 1.5, 5, 0, .8]]);
-      top = 2.7;
-    } else {
-      addCabin({len: T === 3 ? 2 : 1, front: ['cabin-window-large', 'door'], chimney: T === 3 ? 1 : 0}, -.45, -.5, 0, 1.12);
-      add('stall-red', {x: 1.25, z: -.2, s: 1.1, ry: -HALF_PI});
-      presents(g, [[1.15, 1.15, 0], [1.5, .85, 3, .4, .8], [-1.3, 1.3, 1], [-.9, 1.5, 4, .3, .7]]);
-      if (T === 3) add('christmas_tree_decorated', {x: 1.35, z: 1.25, s: .22});
-      top = T === 3 ? 3.1 : 2.9;
-    }
-    const bow = add('present_sphere_A_red', {x: 0, z: 1.3, s: .55});
-    bow.userData.live = true; anim.push(t => { bow.position.y = .15 + Math.abs(Math.sin(t * 2.4)) * .35; bow.rotation.y = t * 1.5; });
+    top = hangarShape(g, T);
+    add(T >= 3 ? 'sled-long' : 'sled', {x: 0, z: .15, s: .7 + T * .08, ry: 0});
+    if (T >= 2) add('present_A_red', {x: .35, z: .05, s: .32}).position.y = .45;
   }
   else if (type === 'storage'){
     add('Containers_Pile_Large', {x: -.75, z: -.55, s: T === 1 ? .7 : .85});
@@ -251,18 +282,15 @@ export function buildModel(type, lv, baseSkin = null){
     top = T === 1 ? 2.2 : 3;
   }
   else if (type === 'stable'){
-    if (T >= 2) addCabin({len: T === 3 ? 2 : 1, front: ['cabin-overhang-doorway', 'cabin-window-a'], chimney: 0}, -.45, -.65, 0, 1.05);
-    for (const [x, z, ry] of [[-1.6, 0, HALF_PI], [-1.6, 1.0, HALF_PI], [1.6, 0, -HALF_PI], [1.6, 1.0, -HALF_PI], [-1.1, 1.6, 0], [1.1, 1.6, 0]]) add('fence', {x, z, ry: ry + HALF_PI, s: 1});
-    const n = Math.min(5, 1 + Math.floor(lv / 2));
-    const spots = [[.6, .9, -.4], [-.6, 1.05, .5], [1.05, .1, -1.2], [-1.05, .2, 1.1], [0, .25, 3]];
+    top = stableShape(g, T);
+    const n = Math.min(3, T);
+    const spots = [[0, .15, .2], [-.45, .45, -.4], [.5, .4, .8]];
     for (let i = 0; i < n; i++){
       const [x, z, ry] = spots[i];
-      const r = add('reindeer', {x, z, ry, s: .62});
+      const r = add('reindeer', {x, z, ry, s: .5});
       const ph = i * 1.7;
-      r.userData.live = true; anim.push(t => { r.rotation.x = Math.max(0, Math.sin(t * 1.3 + ph)) * .12; r.position.y = Math.abs(Math.sin(t * 2.6 + ph)) * .03; });
+      r.userData.live = true; anim.push(t => { r.rotation.x = Math.max(0, Math.sin(t * 1.3 + ph)) * .1; r.position.y = Math.abs(Math.sin(t * 2.6 + ph)) * .03; });
     }
-    add(T === 3 ? 'sled-long' : 'sled', {x: T === 1 ? .5 : 1.2, z: T === 1 ? -.9 : -1.0, ry: .3, s: .9});
-    top = T === 1 ? 2 : 2.8;
   }
 
   // décorations de niveau

@@ -89,7 +89,7 @@ function dress(g, type, t){
   return g;
 }
 /** Modèle d'un bâtiment pour une apparence t (1, 2, 3). */
-function modelFor(type, t = 1){
+export function modelFor(type, t = 1){
   const lv = TIER_LV[t], mk = (k, s = .78) => scaled(buildModel(k, lv).group, s);
   switch (type){
     case 'santa': return dress(mk('hq', .95), 'santa', t);

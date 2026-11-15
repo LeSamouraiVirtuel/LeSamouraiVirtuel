@@ -25,7 +25,9 @@ RD.now = () => { const t = realNow() - clockOff; return !verified && trust && t 
 class VDate extends RD { constructor(...a){ if (a.length) super(...a); else super(RD.now()); } }
 globalThis.Date = VDate;
 const cheatQ = [];   // alertes relevées avant que le village soit chargé
-function checkClock(){ fetch('../version.json?c=' + realNow(), {cache: 'no-store'}).then(r => { const d = Date.parse(r.headers.get('date') || ''); verified = true; if (!d) return;
+// Depuis /essais/, « version.json » tout court cherche essais/version.json, qui n'existe pas.
+const VER = new URL('../../../version.json', import.meta.url);
+function checkClock(){ fetch(VER.href + '?c=' + realNow(), {cache: 'no-store'}).then(r => { const d = Date.parse(r.headers.get('date') || ''); verified = true; if (!d) return;
   const off = realNow() - d; clockOff = Math.abs(off) > 120e3 ? off : 0; try { localStorage.setItem('vdp-off', String(clockOff)); } catch(e){}
   if (Math.abs(off) > 10 * 60e3) cheatQ.push(['horloge', {minutes: Math.round(off / 60e3)}]); }).catch(() => { if (!verified) setTimeout(checkClock, 60e3); }); }
 checkClock();
@@ -1934,7 +1936,7 @@ try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
 const GAME_V = 94;
 async function checkUpdate(){
-  try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
+  try { const r = await fetch(VER.href + '?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
       reloadWhenCalm(async () => { toast('Mise à jour du jeu…');
         if ('caches' in window) for (const c of await caches.keys()) await caches.delete(c);

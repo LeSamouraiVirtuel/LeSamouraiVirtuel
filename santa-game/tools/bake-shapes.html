@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Rendu des silhouettes</title>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import {loadAssets} from '../js/assets.js';
+import {modelFor} from '../js/v2/baker.js';
+import {bake} from '../js/v2/bake.js';
+const types = ['workshop', 'letters', 'orders', 'stable'];
+try {
+  await loadAssets(new URL('../assets/', import.meta.url).href);
+  const out = {};
+  for (const type of types) for (const t of [1, 2, 3]){
+    const img = bake(modelFor(type, t), {density: 3, ss: 2});
+    out[`b:${type}:${t}`] = {ax: img.ax, ay: img.ay, w: img.w, h: img.h, png: img.canvas.toDataURL('image/webp', .9)};
+  }
+  window.__shapes = out;
+} catch (e){ window.__shapesErr = String(e && e.stack || e); }
+</script>
