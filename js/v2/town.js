@@ -1147,7 +1147,7 @@ export const campState = s => (s.camps ||= {at: 0, st: {}});
 // on le caresse toutes les 4 h. Chaque niveau donne +1 % de production (jusqu'à +30 %) ; aux niveaux 5 et 12 il donne
 // un cœur de plus dans la Campagne des Trolls.
 export const PET_STAGES = [[1, 'Faon'], [5, 'Jeune renne'], [10, 'Renne des neiges'], [15, 'Renne étoilé'], [20, 'Renne des aurores'], [30, 'Renne légendaire']];
-export const petNeed = lv => Math.round(100 * Math.pow(1.32, lv - 1));
+export const petNeed = lv => Math.round((100 + 40 * Math.pow(lv - 1, 1.5)) / 5) * 5;   // courbe douce : 100 au niv. 1, ~3 400 au niv. 20, ~11 800 au niv. 45
 export const petStage = lv => PET_STAGES.filter(([l]) => lv >= l).length - 1;
 export const petProd = s => s.pet ? Math.min(.3, (s.pet.lv - 1) * .01) : 0;
 export const petHearts = s => s.pet ? (s.pet.lv >= 5 ? 1 : 0) + (s.pet.lv >= 12 ? 1 : 0) : 0;

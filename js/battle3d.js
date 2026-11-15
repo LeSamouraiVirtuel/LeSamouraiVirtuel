@@ -42,7 +42,7 @@ export async function openBattle(ctx){
   R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#6fb0ff'); scene.fog = new THREE.Fog('#a9c6ea', 30, 70);
   const cam = new THREE.PerspectiveCamera(46, 1, .1, 100); cam.position.set(0, 9.5, 12.8);
-  const resize = () => { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); cv.style.width = w + 'px'; cv.style.height = h + 'px'; cam.aspect = w / h; cam.fov = w / h < .6 ? 52 : 44; cam.updateProjectionMatrix(); };
+  const resize = () => { const w = root.clientWidth || innerWidth, h = root.clientHeight || innerHeight; R.setSize(w, h, false); cv.style.width = w + 'px'; cv.style.height = h + 'px'; cam.aspect = w / h; cam.fov = w / h < .6 ? 52 : 44; cam.updateProjectionMatrix(); };
   resize(); addEventListener('resize', resize);
 
   // lumière d'hiver
@@ -169,7 +169,7 @@ export async function openBattle(ctx){
   const floats = []; function say(txt, col = '#fff', at){ const d = document.createElement('div'); d.className = 'b-float'; d.textContent = txt; d.style.color = col; root.appendChild(d); floats.push({d, t: 0, at: at?.clone()}); }
 
   // contrôles : on garde le doigt sur l'écran, le canon vise l'endroit touché (sur le sol) et tire en rafale
-  const setAim = e => { ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, cam); const p = new THREE.Vector3();
+  const setAim = e => { const rc = root.getBoundingClientRect(); ndc.set((e.clientX - rc.left) / rc.width * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(ndc, cam); const p = new THREE.Vector3();
     if (ray.ray.intersectPlane(groundP, p)){ aim.set(THREE.MathUtils.clamp(p.x, -6, 6), 0, THREE.MathUtils.clamp(p.z, -17, GATE_Z - 1)); } };
   let sid = null;
   cv.addEventListener('pointerdown', e => { if (state !== 'play') return; sid = e.pointerId; cv.setPointerCapture(sid); aiming = true; setAim(e); root.querySelector('.b-hint')?.remove(); });
@@ -285,7 +285,7 @@ export async function openBattle(ctx){
   }
   function loop(now){ raf = requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; update(dt); render(); }
   raf = requestAnimationFrame(loop);
-  window.__b3 = {screen: v => { const p = v.clone().project(cam); return {x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight}; }, get balls(){ return balls.length; }, get killed(){ return killed; }, get aim(){ return aim.toArray().map(v => +v.toFixed(1)); }, get state(){ return state; }, get hero(){ return hero; }, get foes(){ return foes; }, power};
+  window.__b3 = {screen: v => { const p = v.clone().project(cam); const rc = root.getBoundingClientRect(); return {x: rc.left + (p.x + 1) / 2 * rc.width, y: rc.top + (1 - p.y) / 2 * rc.height}; }, get balls(){ return balls.length; }, get killed(){ return killed; }, get aim(){ return aim.toArray().map(v => +v.toFixed(1)); }, get state(){ return state; }, get hero(){ return hero; }, get foes(){ return foes; }, power};
 }
 
 /** Portrait 3D d'un monstre (pour les cinématiques et le bestiaire) : rendu une fois, gardé en mémoire. */
