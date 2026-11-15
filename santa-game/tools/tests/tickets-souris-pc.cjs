@@ -2,7 +2,7 @@
 const {chromium} = require('playwright');
 (async () => { const b = await chromium.launch(process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {}); const p = await (await b.newContext({viewport: {width: 1440, height: 900}})).newPage(); const log = [];
   p.on('pageerror', e => log.push('PAGEERR ' + e.message));
-  await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
+  await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
   await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(800);
   await p.evaluate(() => { const S = __v2.S; S.lvl = 13; S.stars = 100; S.games = {tickets: 0, t: Date.now(), best: {}}; S.cookies = 9000; });
   await p.evaluate(() => __v2.openPanel('games')); await p.waitForTimeout(600); await p.screenshot({path: 'out/tix-panel.png'});

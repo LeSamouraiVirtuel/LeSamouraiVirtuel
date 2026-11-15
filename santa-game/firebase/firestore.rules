@@ -15,7 +15,7 @@ service cloud.firestore {
 
     // Un village valide : uniquement ces champs, avec des types et des tailles bornés (document < 1 Mo).
     function validVillage(d) {
-      return d.keys().hasOnly(['save', 'fmt', 'lvl', 't', 'name', 'stats', 'log'])
+      return d.keys().hasOnly(['save', 'fmt', 'lvl', 't', 'name', 'stats', 'log', 'welcome'])
         && d.keys().hasAll(['save', 'fmt', 'lvl', 't'])
         && d.save is string && d.save.size() <= 700000
         && d.fmt is int && d.fmt >= 5 && d.fmt <= 1000
@@ -23,14 +23,18 @@ service cloud.firestore {
         && d.t is int
         && (!('name' in d) || (d.name is string && d.name.size() <= 40))
         && (!('stats' in d) || (d.stats is map && d.stats.size() <= 80))
-        && (!('log' in d) || (d.log is string && d.log.size() <= 250000));
+        && (!('log' in d) || (d.log is string && d.log.size() <= 250000))
+        && (!('welcome' in d) || d.welcome is bool);
     }
 
     // users/{uid} : chaque joueur lit, écrit et supprime uniquement son propre village.
     match /users/{uid} {
       allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
-      allow create, update: if request.auth != null && request.auth.uid == uid && validVillage(request.resource.data);
+      allow create: if request.auth != null && request.auth.uid == uid && validVillage(request.resource.data);
+      // le bonus de bienvenue ne se touche qu'une fois : « welcome » ne peut jamais repasser à faux
+      allow update: if request.auth != null && request.auth.uid == uid && validVillage(request.resource.data)
+        && !(resource.data.get('welcome', false) == true && request.resource.data.get('welcome', false) != true);
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 

@@ -984,7 +984,7 @@ function closeSeeds(){}
 /* ---------- panneaux ---------- */
 let panel = null, panelArg = null, panelHtml = '', selOrder = 0;
 function openPanel(name, arg){ if (name !== 'craft'){ fromOrder = false; wantToy = ''; } closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
-function closePanel(){ const was = panel; panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
+function closePanel(){ const was = panel; if (was === 'account' && welcomeWait){ const f = welcomeWait; welcomeWait = null; setTimeout(f, 300); } panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
 const hd = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
 const need = req => Object.entries(req || {}).map(([k, n]) => `<span class="need ${haveOf(k) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${fmt(haveOf(k))}/${fmt(n)}</b></span>`).join('');
 const costChips = req => Object.entries(req || {}).map(([k, n]) => `<span class="chip ${haveOf(k) < n ? 'bad' : ''}">${k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join('');
@@ -1048,7 +1048,7 @@ function renderPanel(){
         <h3>Le nourrir</h3><div class="petfood">${T.petFoods(S).map(f => `<button class="pf ${f.k === 'fav' ? 'fav' : ''}" data-a="petfeed" data-k="${f.k}">${f.k === 'fav' ? `<span class="tag">Préféré du jour</span>` : ''}<span class="costs">${costChips(f.cost)}</span><b>+${fmt(f.xp)} XP</b></button>`).join('')}</div>
         <h3>Évolution</h3><div class="petevo">${T.PET_STAGES.map(([l, n], k) => `<div class="pe ${p.lv >= l ? 'on' : ''} ${T.petStage(p.lv) === k ? 'cur' : ''}"><img src="${petImg(k)}" alt=""><b>${n}</b><small>${p.lv >= l ? (T.petStage(p.lv) === k ? 'Maintenant' : '✓') : `Niv. ${l}`}</small></div>`).join('')}</div>
         <h3>Apparence</h3><div class="petskins">${M.PET_SKIN_LIST.map(d => { const own = M.hasSkin(S, d.k), wear = M.skinState(S).pet === d.k;
-          return `<div class="ps ${wear ? 'wear' : ''} ${own ? '' : 'lockd'}"><img src="${petImg(undefined, d.k)}" alt=""><b>${d.name}</b>${wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-k="${d.k}">Porter</button>` : d.event ? `<small class="ev">❄ Événement</small>` : `<button class="btn gold sm" data-a="skinbuy" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`}</div>`; }).join('')}</div>
+          return `<div class="ps ${wear ? 'wear' : ''} ${own ? '' : 'lockd'}"><img src="${petImg(undefined, d.k)}" alt=""><b>${d.name}</b>${wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-k="${d.k}">Porter</button>` : d.welcome ? `<small class="ev">🎁 Bienvenue</small>` : d.event ? `<small class="ev">❄ Événement</small>` : `<button class="btn gold sm" data-a="skinbuy" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`}</div>`; }).join('')}</div>
         <p class="meta">Les skins Doré et Aurore se gagnent dans la boutique de l’événement de la semaine.</p>`; }
   }
   else if (panel === 'lore'){
@@ -1085,7 +1085,7 @@ function renderPanel(){
   else if (panel === 'account'){
     const u = ACC.current(), pv = ACC.providers();
     if (!ACC.ready()) h = hd('', 'Mon compte') + '<p class="help">La connexion (Google ou e-mail) arrive très bientôt. En attendant, ton village est gardé sur ce téléphone : ne supprime pas l\'app.</p>';
-    else if (!u) h = hd('Garde ton village pour toujours', 'Mon compte') + `${accErr ? `<div class="accerr">${accErr}</div>` : ''}<p class="help">Connecte-toi : ton village est sauvegardé en ligne et tu le retrouves sur n'importe quel téléphone.</p>
+    else if (!u) h = hd('Garde ton village pour toujours', 'Mon compte') + `${accErr ? `<div class="accerr">${accErr}</div>` : ''}<p class="help">Connecte-toi : ton village est sauvegardé en ligne et tu le retrouves sur n'importe quel téléphone.</p>${M.welcomeLeft(S) ? `<div class="wbonus"><span>🎁</span><div><b>Bonus de bienvenue</b><small>${M.WELCOME_TXT}.</small></div></div>` : ''}
       ${ACC.googleUnavailable() ? '<p class="meta accnote">Sur iPhone, dans l’app de l’écran d’accueil, Google ne peut pas s’ouvrir : crée ton compte avec ton e-mail ci-dessous. Tu pourras relier Google plus tard depuis Safari (Mon compte → Relier).</p>' : '<button class="btn wide gbtn" data-a="accgoogle"><span class="g">G</span>Continuer avec Google</button>'}
       <h3>Ou avec ton e-mail</h3><div class="accform"><input id="accname" placeholder="Ton prénom (pour créer un compte)" autocomplete="nickname"><input id="accmail" type="email" placeholder="E-mail" autocomplete="email"><input id="accpass" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password"></div>
       <div class="savebtns"><button class="btn green" data-a="acclogin">Se connecter</button><button class="btn blue" data-a="accsignup">Créer un compte</button></div>
@@ -1250,21 +1250,23 @@ function renderPanel(){
       <button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
   }
   else if (panel === 'profile'){
-    const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Améliorations', S.cnt.upgrade || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Record de la grotte', 'étage ' + (S.mine?.best || 0)], ['Illuminations', 'niv. ' + T.lightsLv(S)], ['Camps de trolls vaincus', (S.camps?.at || 0)], ['Flocon, le renne magique', S.pet ? 'niv. ' + S.pet.lv : '—'], ['Espèces pêchées', Object.keys(S.fish || {}).length + ' / ' + T.FISH.length], ['Trouvailles du musée', T.RELICS.filter(x => (S.relics || {})[x.k]).length + ' / ' + T.RELICS.length], ['Succès', M.ACH.reduce((a, x) => a + (S.ach?.[x.k] || 0), 0) + ' / ' + M.ACH.length * 3 + ' ★']];
-    h = hd(M.titleOf(S.lvl), S.name || 'Mon village') + `<div class="prof"><img src="${portrait}" alt=""><div><b>Niveau ${S.lvl}</b><small>Maison du Père Noël niv. ${T.hqLv(S)}</small><button class="btn blue sm" data-a="rename">Renommer le village</button></div></div>
-      <div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div>
+    const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Camps de trolls vaincus', (S.camps?.at || 0)], ['Espèces pêchées', Object.keys(S.fish || {}).length + ' / ' + T.FISH.length], ['Trouvailles du musée', T.RELICS.filter(x => (S.relics || {})[x.k]).length + ' / ' + T.RELICS.length]];
+    const u = ACC.ready() && ACC.current();
+    h = hd(M.titleOf(S.lvl), S.name || 'Mon village') + `<h3>Mon village</h3><div class="prof"><img src="${portrait}" alt=""><div><b>Niveau ${S.lvl}</b><small>Maison du Père Noël niv. ${T.hqLv(S)}</small><button class="btn blue sm" data-a="rename">Renommer</button></div></div>
+      <details class="pdet"><summary>Mes exploits</summary><div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div></details>
+      <h3>Mon compte</h3>${ACC.ready() ? (u ? `<div class="mis acc-ok"><div><b>Village protégé</b><small>${u.email || u.displayName || ''}</small></div><button class="btn blue sm" data-a="account">Gérer</button></div>`
+        : `<div class="guestcard"><b>Ton village n'est que sur cet appareil</b><small>Crée un compte (Google ou e-mail) pour ne jamais le perdre${M.welcomeLeft(S) ? ` et reçois ${M.WELCOME_TXT}` : ''}.</small><button class="btn green wide" data-a="account">Protéger mon village</button></div>`) : '<p class="meta">Les comptes arrivent bientôt.</p>'}
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
-      <div class="mis"><div><b>Taille de l'interface</b><small>Boutons et textes plus petits ou plus grands</small></div><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
-      <div class="mis"><div><b>Animations réduites</b><small>Moins de neige et d'effets : économise la batterie</small></div><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Activées' : 'Non'}</button></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
-      <div class="mis"><div><b>Mon compte</b><small>${ACC.current() ? 'Connecté : ' + (ACC.current().email || '') : 'Google ou e-mail : ton village en sécurité'}</small></div><button class="btn green sm" data-a="account">${ACC.current() ? 'Gérer' : 'Se connecter'}</button></div>
-      <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
-      ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<div class="mis"><div><b>Dernier souci d'affichage</b><small style="word-break:break-all">${e.slice(0, 160).replace(/</g, '&lt;')}</small></div></div>` : ''; })()}
-      <div class="mis"><b>Version du jeu</b><span class="meta">${GAME_V}</span></div>
-      <div class="mis"><div><b>Diagnostic d'affichage</b><small>Si l'écran est flou : touche, puis envoie une capture</small></div><button class="btn blue sm" data-a="diag">Voir</button></div>
-      <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
-      <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
+      <div class="mis"><b>Taille des boutons</b><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
+      <div class="mis"><b>Moins d'animations</b><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Oui' : 'Non'}</button></div></div>
+      <h3>Aide et légal</h3><div class="mlist"><div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Revoir</button></div>
+      <div class="mis"><b>Changer d'appareil sans compte</b><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
+      <div class="mis"><b>Confidentialité</b><a class="btn blue sm" href="privacy.html" target="_blank" rel="noopener">Lire</a></div></div>
+      <details class="pdet pdet-help"><summary>Un problème ?</summary><p class="meta">Si quelque chose ne marche pas, envoie une capture de cet écran.</p>
+        ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<p class="meta" style="word-break:break-all">Dernier souci : ${e.slice(0, 160).replace(/</g, '&lt;')}</p>` : ''; })()}
+        <div class="mlist"><div class="mis"><b>Vérifier l'affichage</b><button class="btn blue sm" data-a="diag">Voir</button></div><div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div><p class="meta">Version ${GAME_V}</p></details>`;
   }
   else if (panel === 'lights'){
     const n = T.lightsLv(S), c = T.lightsCost(n), why = T.lightsBlock(S);
@@ -1687,7 +1689,7 @@ function skinImg(cat, k){
 function skinCard(cat, d){
   const own = M.hasSkin(S, d.k, cat), wear = M.skinState(S)[cat] === d.k;
   const act = wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-c="${cat}" data-k="${d.k}">Porter</button>`
-    : d.event ? '<small class="ev">❄ Événement</small>' : d.pack ? `<button class="btn green sm" data-a="pack" data-k="${d.pack}">Pack ${M.PACKS[d.pack].price}</button>`
+    : d.welcome ? '<small class="ev">🎁 Bienvenue</small>' : d.event ? '<small class="ev">❄ Événement</small>' : d.pack ? `<button class="btn green sm" data-a="pack" data-k="${d.pack}">Pack ${M.PACKS[d.pack].price}</button>`
     : `<button class="btn gold sm" data-a="skinbuy" data-c="${cat}" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`;
   return `<div class="ps ${wear ? 'wear' : ''} ${cat === 'elves' ? 'elf' : ''}">${d.pack && !own ? '<span class="excl">Exclusif</span>' : ''}<img src="${skinImg(cat, d.k)}" alt=""><b>${d.name}</b>${act}</div>`;
 }
@@ -1824,7 +1826,7 @@ let questFold = false; try { questFold = localStorage.getItem('vdp-qfold') === '
 $('#quest2').addEventListener('click', e => {
   if (e.target.closest('.qfold')){ e.stopPropagation(); questFold = !questFold; try { localStorage.setItem('vdp-qfold', questFold ? '1' : '0'); } catch(_){} sfx.tap(); $('#quest2').classList.toggle('fold', questFold); return; }
   const el = $('#quest2'), r = T.questClaim(S);
-  if (r){ const before = T.chapterOf(S.quest.i - 1), after = T.chapterOf(S.quest.i); bravo(r, 'Tâche terminée'); if (after !== before && T.CHAPTERS[after]) pendingStory = after; questHtml = ''; renderQuest(); }
+  if (r){ const before = T.chapterOf(S.quest.i - 1), after = T.chapterOf(S.quest.i); bravo(r, 'Tâche terminée'); if (after !== before && T.CHAPTERS[after]){ pendingStory = after; setTimeout(guestNudge, 9000); } questHtml = ''; renderQuest(); }
   else { sfx.tap(); const {q} = T.questProgress(S); questGo(q); }
 });
 /** Emmène vers ce que demande la tâche (comme les boutons « Aller » de Township). */
@@ -1886,7 +1888,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 82;
+const GAME_V = 83;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2120,17 +2122,20 @@ async function accAction(a){
 }
 // cloudOk : on n'écrit en ligne qu'une fois sûr de ne pas écraser un village plus avancé (nouvel appareil, autre compte…)
 let cloudOk = false;
-async function cloudPush(say, force){ if (!ACC.current() || saveLock || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); await ACC.cloudSave(S); if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
+async function cloudPush(say, force){ if (!ACC.current() || saveLock || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); const W = welcomeDone || S.welcomeGot === ACC.current().uid;
+    try { await ACC.cloudSave(S, W ? {welcome: true} : {}); }
+    catch(e){ if (!W || !/permission/i.test(e?.code || e?.message || '')) throw e; await ACC.cloudSave(S); } // règles pas encore à jour : le bonus reste noté dans la sauvegarde if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
 if (ACC.ready()){
   ACC.init().then(() => ACC.onChange(async u => {
     if (!u){ cloudOk = false; return; }
     let c = null; try { c = await ACC.cloudLoad(); } catch(e){ toast('Sauvegarde en ligne injoignable pour le moment'); return; }
-    const cs = c?.save ? JSON.parse(c.save) : null;
+    const cs = c?.save ? JSON.parse(c.save) : null; welcomeDone = c?.welcome === true || cs?.welcomeGot === u.uid || S.welcomeGot === u.uid; const needW = !welcomeDone;
+    if (needW && !cs){ grantWelcome(S, u.uid); welcomeDone = true; save(); welcomeBravo(); }
     if (!cs){ cloudOk = true; await cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Ton village est maintenant sauvegardé en ligne.`); if (panel) renderPanel(); return; }
     const sameish = (cs.lvl || 0) === (S.lvl || 0) && Math.abs((c.t || 0) - (S.cloudT || 0)) < 120e3;
-    if (sameish || ((cs.lvl || 0) <= (S.lvl || 0) && (S.cloudT || 0) >= (c.t || 0) - 60e3)){ cloudOk = true; cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Village synchronisé.`); if (panel) renderPanel(); return; }
+    if (sameish || ((cs.lvl || 0) <= (S.lvl || 0) && (S.cloudT || 0) >= (c.t || 0) - 60e3)){ if (needW){ grantWelcome(S, u.uid); welcomeDone = true; save(); welcomeBravo(); } cloudOk = true; cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Village synchronisé.`); if (panel) renderPanel(); return; }
     // deux villages différents : c'est le joueur qui choisit, rien n'est écrasé sans son accord
-    chooseVillage(cs, c.t, u);
+    chooseVillage(cs, c.t, u, needW);
   })).catch(() => {});
   setInterval(() => cloudPush(), 60e3); document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
 }
@@ -2153,7 +2158,46 @@ function restoreIap(){
   let n = 0; for (const k of Object.keys(S.iap || {})){ if (M.PACKS[k]) for (const [c, sk] of M.PACKS[k].skins) if (!M.hasSkin(S, sk, c)){ M.ownSkin(S, c, sk, false); n++; } if (k === 'pass' && !M.pass(S).premium){ M.pass(S).premium = true; n++; } }
   save(); sfx.collect(); toast(n ? `${n} achat${n > 1 ? 's' : ''} restauré${n > 1 ? 's' : ''}` : 'Tous tes achats sont déjà dans ton village.');
 }
-function chooseVillage(cs, t, u){
+/* ---------- écran d'accueil : Google, e-mail ou invité (un joueur déjà connecté passe directement) ---------- */
+let welcomeWait = null;
+function gateWelcome(go){
+  if (!ACC.ready() || S.guest || T.localTooNew) return go();
+  ACC.init().catch(() => {}); ACC.authReady.then(u => { if (u || ACC.current()) return go(); showWelcome(go); });
+}
+function showWelcome(go){
+  const w = document.createElement('div'); w.id = 'welcome';
+  w.innerHTML = `<div class="wcard"><img class="wlogo" src="${portrait}" alt=""><h1>Le Village du Pôle</h1><p>Garde ton village pour toujours et retrouve-le sur tous tes appareils.</p>
+    <div class="wbonus"><span>🎁</span><div><b>Bonus de bienvenue</b><small>${M.WELCOME_TXT}, en créant ton compte.</small></div></div>
+    ${ACC.googleUnavailable() ? '<p class="meta wnote">Sur iPhone, dans l’app de l’écran d’accueil, utilise ton e-mail.</p>' : '<button class="btn wide gbtn" data-w="google"><span class="g">G</span>Continuer avec Google</button>'}
+    <button class="btn blue wide" data-w="mail">Créer un compte / Se connecter par e-mail</button>
+    <div class="werr" hidden></div>
+    <button class="wguest" data-w="guest">Jouer en invité</button><small class="wfine">En invité, ton village reste sur cet appareil. <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></small></div>`;
+  document.body.appendChild(w);
+  const done = () => { w.remove(); go(); };
+  const off = ACC.onChange(u => { if (u && w.isConnected) done(); });
+  w.addEventListener('click', e => { const b = e.target.closest('[data-w]'); if (!b) return; sfx.tap();
+    if (b.dataset.w === 'guest'){ S.guest = 1; save(); return done(); }
+    if (b.dataset.w === 'mail'){ w.remove(); welcomeWait = go; return openPanel('account'); }
+    if (b.dataset.w === 'google') ACC.signInGoogle().catch(err => { const box = w.querySelector('.werr'); box.hidden = false; box.innerHTML = ACC.friendlyError(err); sfx.err(); });
+  });
+}
+// rappel discret aux invités : dans le profil, et après les grandes étapes (au plus une fois par jour)
+function guestNudge(){
+  if (!ACC.ready() || ACC.current() || (S.nudgeT && now() - S.nudgeT < 20 * 3600e3) || document.getElementById('nudge')) return;
+  S.nudgeT = now(); save();
+  const n = document.createElement('div'); n.id = 'nudge';
+  n.innerHTML = `<div><b>Protège ton village</b><small>Crée un compte pour ne jamais le perdre${M.welcomeLeft(S) ? ' · 🎁 bonus de bienvenue' : ''}</small></div><button class="btn green sm">Créer</button><button class="nx" aria-label="Plus tard">✕</button>`;
+  document.body.appendChild(n);
+  n.querySelector('.btn').onclick = () => { n.remove(); openPanel('account'); }; n.querySelector('.nx').onclick = () => n.remove(); setTimeout(() => n.remove(), 12000);
+}
+// bonus de bienvenue : une fois par compte (champ « welcome » du document en ligne), donné au village qui reste actif
+let welcomeDone = false;
+function grantWelcome(v, uid){
+  v.stars = (v.stars || 0) + M.WELCOME.stars; v.coins = (v.coins || 0) + M.WELCOME.coins; (v.parcels ||= []).push(1, 1);
+  v.skins ||= {pet: 'classic', own: {classic: 1}}; v.skins.own.star = 1; v.skins.pet = 'star'; v.welcomeGot = uid || 1;
+}
+function welcomeBravo(){ setTimeout(() => bravo({stars: M.WELCOME.stars, coins: M.WELCOME.coins}, 'Bonus de bienvenue : + 2 colis et le pelage « Nuit étoilée » pour Flocon !', 'BIENVENUE !'), 600); }
+function chooseVillage(cs, t, u, needW){
   const m = $('#modal'); m.className = 'glow rinfo';
   const when = t ? new Date(t).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '';
   m.querySelector('.mcard').innerHTML = `<small>Compte ${u.email || u.displayName || ''}</small><h2 class="stroke">Quel village garder ?</h2>
@@ -2162,8 +2206,8 @@ function chooseVillage(cs, t, u){
     <div class="acts" style="flex-direction:column"><button class="btn green wide" data-m="cloud">Reprendre le village du compte</button><button class="btn blue wide" data-m="local">Garder celui de cet appareil (remplace le compte)</button></div>`;
   m.hidden = false;
   m.onclick = async e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true;
-    if (b.dataset.m === 'cloud'){ if (!T.replaceTown({...cs, cloudT: t})) return toast('Ce village vient d’une version plus récente : recharge le jeu pour le récupérer.'); saveLock = true; location.reload(); return; }
-    cloudOk = true; await cloudPush(true, true); };
+    if (b.dataset.m === 'cloud'){ if (needW){ grantWelcome(cs, u.uid); try { sessionStorage.setItem('vdp-welcome', 1); } catch(_){} } if (!T.replaceTown({...cs, cloudT: t})) return toast('Ce village vient d’une version plus récente : recharge le jeu pour le récupérer.'); saveLock = true; location.reload(); return; }
+    if (needW){ grantWelcome(S, u.uid); welcomeDone = true; save(); welcomeBravo(); } cloudOk = true; await cloudPush(true, true); };
 }
 /* ---------- sauvegarde transférable ---------- */
 let saveCodeTxt = '';
@@ -2360,6 +2404,7 @@ function chapterCine(i){
 let lvQueue = [], lvShowing = false;
 function nextLevelUp(){ const L = lvQueue.shift(); if (L) levelUp(L); }
 function levelUp(L){
+  if (L % 4 === 0) setTimeout(guestNudge, 4000);
   lvShowing = true; const news = T.unlocksAt(L);
   sfx.level();
   const m = $('#modal'); m.className = 'cere';
@@ -2528,9 +2573,10 @@ function welcomeBack(){
   bravo(got, `Pendant ton absence (${h ? h + ' h ' : ''}${m} min), tes gardiens ont récolté`, 'BON RETOUR !');
 }
 setTimeout(welcomeBack, 1400);
+try { if (sessionStorage.getItem('vdp-welcome')){ sessionStorage.removeItem('vdp-welcome'); welcomeDone = true; welcomeBravo(); } } catch(e){}
 // v76-v77 : un colis ouvert pouvait rester bloqué (récompense jamais donnée) → on rend un colis rare, une seule fois
 if (!S.fixParcel77 && (S.lvl || 1) >= 3){ S.fixParcel77 = 1; (S.parcels ||= []).unshift(1); save(); setTimeout(() => toast('Un colis rare t’a été rendu (bug des colis corrigé)'), 2600); }
-setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }, 400);
+setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); gateWelcome(() => { if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } });}, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier

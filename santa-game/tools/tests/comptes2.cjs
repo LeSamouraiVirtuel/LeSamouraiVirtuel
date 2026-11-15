@@ -6,7 +6,7 @@ const mail = `vdp-test-${Date.now()}@example.com`, pass = 'Essai-' + Math.random
 const api = (path, body) => fetch(`https://identitytoolkit.googleapis.com/v1/${path}?key=${KEY}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
 (async () => { const b = await webkit.launch(); const log = [];
   const ctx = async () => (await b.newContext({...devices['iPhone 13']})).newPage();
-  const boot = async p => { p.on('pageerror', e => { if (!/access control|firestore/.test(e.message)) log.push('PAGEERR ' + e.message); }); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
+  const boot = async p => { p.on('pageerror', e => { if (!/access control|firestore/.test(e.message)) log.push('PAGEERR ' + e.message); }); await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
     await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(600); };
   // appareil A : un vieux village au format 5 (sans numéro de format, sans compte)
   // on fabrique le vieux village dans un premier onglet, puis on l'injecte AVANT le démarrage du jeu dans un appareil neuf

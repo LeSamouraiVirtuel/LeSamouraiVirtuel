@@ -1,7 +1,7 @@
 const {webkit, devices} = require('playwright');
 (async () => { const b = await webkit.launch(); const p = await (await b.newContext({...devices['iPhone SE'], deviceScaleFactor: 1})).newPage();
   p.on('pageerror', e => console.log('PAGEERR ' + e.message));
-  await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
+  await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
   await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(800); await p.evaluate(() => document.querySelector('.tskip')?.click());
   const ci = +process.argv[2];
   await p.evaluate(ci => { const S = __v2.S; S.cookies = 9000; S.camps = {at: ci, st: {}}; __v2.openPanel('camp'); }, ci); await p.waitForTimeout(400);

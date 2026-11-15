@@ -5,7 +5,7 @@ const PANELS = ['account','advent','album','auction','build','camp','event','exp
   for (const [tag, eng, opt] of [['se', webkit, devices['iPhone SE']], ['pc', chromium, {viewport: {width: 1440, height: 900}}]]){
     const b = await eng.launch(eng === chromium ? (process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {}) : {}); const p = await (await b.newContext({...opt, deviceScaleFactor: 1})).newPage();
     p.on('pageerror', e => out.push(`${tag} PAGEERR ${e.message}`));
-    await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(2000);
+    await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(2000);
     await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(500);
     await p.evaluate(() => { const S = __v2.S; S.lvl = 30; S.coins = 5e5; S.wood = 5e5; S.cookies = 2e5; S.stars = 900; S.objs.find(o => o.type === 'santa').lv = 18; S.pet = {lv: 22, xp: 0, pat: 0};
       const add = (type, x, y) => S.objs.push({id: 'a' + type, type, x, y, lv: 5, t: Date.now() - 9e6, q: []});

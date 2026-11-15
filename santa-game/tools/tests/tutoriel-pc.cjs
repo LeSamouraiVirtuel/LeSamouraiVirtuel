@@ -8,7 +8,7 @@ const D = process.argv[2] || 'out/';
   p.on('pageerror', e => log.push('PAGEERR ' + e.message));
   p.on('console', m => { if (m.type() === 'error') log.push('ERR ' + m.text().slice(0, 160)); });
   let i = 0; const shot = async n => { await p.screenshot({path: D + String(i++).padStart(2, '0') + '-' + n + '.png', timeout: 90000}).catch(e => log.push('shot fail ' + n)); };
-  await p.goto('http://localhost:8765/');
+  await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/');
   await p.waitForFunction(() => window.__v2, null, {timeout: 600000});
   await p.waitForTimeout(1800); await shot('accueil');
   await p.waitForSelector('#cine.on', {timeout: 6000}).catch(() => {}); await p.waitForTimeout(1500); await shot('cine-intro');

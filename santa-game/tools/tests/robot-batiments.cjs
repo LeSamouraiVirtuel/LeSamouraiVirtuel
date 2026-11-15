@@ -1,7 +1,7 @@
 const {webkit, devices} = require('playwright');
 (async () => { const b = await webkit.launch(); const p = await (await b.newContext({...devices['iPhone 13'], deviceScaleFactor: 1})).newPage(); const errs = new Set();
   p.on('pageerror', e => errs.add(e.message + ' @ ' + String(e.stack || '').split('\n').slice(0, 3).join(' | ')));
-  await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
+  await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
   await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(500);
   await p.evaluate(() => { const S = __v2.S, T = __v2.T, now = Date.now(); S.lvl = 13; S.tuto = 99; S.coins = 6200; S.wood = 382000; S.cookies = 369000; S.fabric = 384000; S.stars = 9100; S.objs.find(o => o.type === 'santa').lv = 17;
     S.pet = {lv: 45, xp: 769, pat: now - 1e3}; S.skins = {pet: 'gold', house: 'royal', elves: 'royal', own: {classic: 1, gold: 1, 'house:royal': 1, 'elves:royal': 1}};

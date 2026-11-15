@@ -9,7 +9,7 @@ const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.1
     const b = await eng.launch(eng === chromium && process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {}); const c = await b.newContext(opt);
     if (pwa) await c.addInitScript(() => { Object.defineProperty(navigator, 'standalone', {get: () => true}); });
     const p = await c.newPage(); const errs = []; p.on('pageerror', e => { if (!/access control|firestore/.test(e.message)) errs.push(e.message); });
-    await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
+    await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
     await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(400); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(2500);
     await p.evaluate(() => __v2.openPanel('account')); await p.waitForTimeout(600);
     const btn = await p.$('[data-a=accgoogle]');

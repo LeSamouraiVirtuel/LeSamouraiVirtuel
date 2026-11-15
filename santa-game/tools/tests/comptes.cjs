@@ -5,7 +5,7 @@ const KEY = require('fs').readFileSync(__dirname + '/../../js/firebase-config.js
 const mail = `vdp-test-${Date.now()}@example.com`, pass = 'Essai-' + Math.random().toString(36).slice(2, 10);
 (async () => { const b = await webkit.launch(); const log = [];
   const open = async (lvl) => { const p = await (await b.newContext({...devices['iPhone 13']})).newPage(); p.on('pageerror', e => log.push('PAGEERR ' + e.message));
-    await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
+    await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
     await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(600);
     if (lvl) await p.evaluate(l => { __v2.S.lvl = l; __v2.S.coins = 12345; }, lvl); return p; };
   // appareil A : création du compte

@@ -6,6 +6,8 @@ export const FIREBASE_CONFIG = CFG && /^AIza[\w-]{30,}$/.test(CFG.apiKey || '') 
 const V = '10.12.2', base = `https://www.gstatic.com/firebasejs/${V}/`;
 let A = null, F = null, auth = null, db = null, user = null, listeners = [];
 export let lastErr = null;
+// résolue dès que Firebase sait si le joueur est connecté (ou après 5 s sans réseau)
+let authRes; export const authReady = new Promise(r => { authRes = r; setTimeout(() => r(null), 5000); });
 export const ready = () => !!FIREBASE_CONFIG;
 export const current = () => user;
 export const onChange = f => { listeners.push(f); f(user); };
@@ -17,7 +19,7 @@ export async function init(){
   auth = A.getAuth(app); db = F.getFirestore(app);
   await A.setPersistence(auth, A.browserLocalPersistence).catch(() => {});
   A.getRedirectResult(auth).catch(e => { lastErr = e; listeners.forEach(f => f(user)); });
-  A.onAuthStateChanged(auth, u => { user = u; listeners.forEach(f => f(u)); });
+  A.onAuthStateChanged(auth, u => { user = u; authRes(u); listeners.forEach(f => f(u)); });
   return true;
 }
 const standalone = () => navigator.standalone || matchMedia('(display-mode: standalone)').matches;
