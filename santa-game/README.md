@@ -37,7 +37,7 @@ Jeu de gestion de village de Noël pour téléphone, tablette et PC, dans la lig
   - sessions d'analyse : 13 mois ;
   - comptes inactifs : 2 ans.
   Les comptes de connexion Firebase inactifs se suppriment dans la console Firebase.
-- **Règles Firestore** : `firebase/firestore.rules`, testées par `tools/tests/regles.cjs` sur l'émulateur contre les sauvegardes de chaque version.
+- **Règles Firestore** : `firebase/firestore.rules`, testées par `tools/tests/regles.cjs` sur l'émulateur contre les sauvegardes de chaque version. Pas de Cloud Functions. Avant de publier une nouvelle version des règles : dans la console Firebase, créer le document `admins/{uid}` de l'éditeur (Authentication → Users → copier l'uid ; un champ `ok` = true suffit). Sinon le tableau de bord ne s'ouvre plus. L'adresse e-mail n'est plus dans les règles.
 
 ## Tests de non-régression
 

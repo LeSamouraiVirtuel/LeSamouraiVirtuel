@@ -7,6 +7,18 @@ require('./emu.cjs');
 const {webkit, chromium, devices} = require('playwright');
 const log = []; let bad = 0; const ok = (c, m) => { log.push((c ? '✓ ' : '✗ ') + m); if (!c) bad++; };
 const emu = () => { localStorage.setItem('vdp-emu', '1'); };
+async function declareEditor(email){
+  const fs = require('fs'), path = require('path');
+  const AU = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/';
+  const r = await (await fetch(AU + 'accounts:signInWithIdp?key=x', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({postBody: `id_token=${encodeURIComponent(JSON.stringify({sub: 'g-' + email, email, email_verified: true}))}&providerId=google.com`, requestUri: 'http://localhost', returnSecureToken: true})})).json();
+  if (!r.localId){ log.push('compte éditeur émulateur introuvable'); return; }
+  await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/village-du-pole/accounts:update', {method: 'POST', headers: {Authorization: 'Bearer owner', 'Content-Type': 'application/json'}, body: JSON.stringify({localId: r.localId, customAttributes: JSON.stringify({admin: true})})});
+  const rules = fs.readFileSync(path.join(__dirname, '../../firebase/firestore.rules'), 'utf8');
+  const swap = content => fetch('http://127.0.0.1:8080/emulator/v1/projects/village-du-pole:securityRules', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ignore_errors: true, rules: {files: [{name: 'security.rules', content}]}})});
+  await swap("rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if true; } } }");
+  await fetch('http://127.0.0.1:8080/v1/projects/village-du-pole/databases/(default)/documents/admins/' + r.localId, {method: 'PATCH', headers: {Authorization: 'Bearer ' + r.idToken, 'Content-Type': 'application/json'}, body: JSON.stringify({fields: {ok: {booleanValue: true}}})});
+  await swap(rules);
+}
 (async () => {
   const wk = await webkit.launch(), cr = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
   const mail = `joueur-${Date.now()}@example.com`;
@@ -42,7 +54,9 @@ const emu = () => { localStorage.setItem('vdp-emu', '1'); };
   ok(/Aider à améliorer le jeu/i.test(txt), 'réglage « Aider à améliorer le jeu » dans le profil');
   log.push(`   étoiles : ${st0} → ${await p.evaluate(() => __v2.S.stars)}`);
   log.push('   attente de l\'envoi (65 s)…'); await p.waitForTimeout(65000);
-  // Sora
+  // Sora : le tableau de bord ne connaît plus l'adresse e-mail. Le compte doit avoir le claim admin
+  // (ou le document admins/{uid}) avant la connexion.
+  await declareEditor('better.ask.yannis@gmail.com');
   const c2 = await cr.newContext({viewport: {width: 1500, height: 950}}); await c2.addInitScript(emu);
   const d = await c2.newPage(); d.on('pageerror', e => log.push('PAGEERR tdb ' + e.message));
   await d.goto('http://localhost:8765/tdb-7q4x.html'); await d.waitForFunction(() => window.__emuLogin, null, {timeout: 20000});

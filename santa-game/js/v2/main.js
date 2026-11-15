@@ -137,19 +137,13 @@ const saved = T.loadTown();
 let S = saved || T.newTown();
 function flag(kind, data = {}){ if (S.testEditeur) return;   // village « test éditeur » : jamais d'alerte
   S.flagT ||= {}; if (Date.now() - (S.flagT[kind] || 0) < 864e5) return; S.flagT[kind] = Date.now(); S.flags ||= {}; S.flags[kind] = (S.flags[kind] || 0) + 1; T.logEv(S, 'anomalie', {kind, ...data}); try { TR.ev('anomalie', {kind, ...data}); } catch(e){} }
-{ // valeurs impossibles (sauvegarde modifiée à la main) : corrigées, et notées en silence pour le tableau de bord
-  for (const k of [...T.RES, 'stars', 'xp']) if (!Number.isFinite(+S[k]) || S[k] < 0){ flag('valeur', {k, v: String(S[k]).slice(0, 20)}); S[k] = 0; }
-  // étoiles : au plus ce qu'un joueur peut gagner à son niveau + ce qu'il a acheté (large marge) ; au-delà de 10 fois, ramenées
-  const bought = (S.log?.ev || []).filter(e => e[1] === 'iap').reduce((a, e) => a + (T.SHOP.find(x => x.k === e[2].k)?.stars || M.IAP[e[2].k]?.give?.stars || M.PACKS?.[e[2].k]?.give?.stars || 0), 0);
-  const plaus = 3000 + 250 * (S.lvl || 1) + bought * 1.1;
-  if (S.stars > plaus){ flag('etoiles', {n: S.stars, plausible: Math.round(plaus)}); if (S.stars > plaus * 10){ flag('etoiles_ramenees', {avant: S.stars, apres: Math.round(plaus)}); S.stars = Math.round(plaus); } }
-  // Maison et bâtiments : cohérents avec le niveau du joueur et le temps écoulé depuis la création du village (signalé, jamais retiré)
+{ // valeurs impossibles (sauvegarde modifiée à la main) : ramenées au plafond de l'économie, et notées en silence
+  T.sanitizeTown(S, (kind, data) => flag(kind, data));
+  // Maison trop en avance sur le niveau ou sur le temps : signalé, jamais retiré (un test peut accélérer)
   const hq = T.hqLv(S), age = (Date.now() - (S.created || Date.now())) / 1000;
   let need = 0; for (let l = 2; l <= hq; l++) need += T.upTime('santa', l);
   if (hq > (S.lvl || 1) + 3) flag('maison_niveau', {maison: hq, niveau: S.lvl});
   if (hq >= 8 && age < need / 2 * .5) flag('maison_trop_vite', {maison: hq, jours: +(age / 864e2).toFixed(1), minimum: +(need / 2 / 864e2).toFixed(1)});
-  const cap = T.maxLv(S); for (const o of S.objs) if (o.lv && T.BUILDINGS[o.type]?.kind !== 'hq' && o.lv > cap + 1){ flag('batiment_niveau', {type: o.type, lv: o.lv, max: cap}); break; }
-  if ((S.lvl || 1) > 300 || !Number.isFinite(+S.lvl)){ flag('niveau', {n: S.lvl}); S.lvl = Math.min(300, Math.max(1, +S.lvl || 1)); }
   const t = Date.now(); if (S.maxT && t < S.maxT - 10 * 60e3) flag('horloge_arriere', {minutes: Math.round((S.maxT - t) / 60e3)});
 }
 setInterval(() => { while (cheatQ.length) flag(...cheatQ.shift()); S.maxT = Math.max(S.maxT || 0, Date.now()); }, 5000);
@@ -1435,7 +1429,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
-  if (a === 'reset'){ if (confirm('Effacer ton village et tout recommencer ?')){ saveLock = true; T.clearTown(); location.reload(); } return; }
+  if (a === 'reset') return confirmReset();
   if (a === 'rinfo') return resInfo(b.dataset.k);
   if (a === 'goshop') return openPanel('shop', 'res');
   if (a === 'gocraft'){ const w = workshopOf(); return w ? goTo('workshop') : null; }
@@ -1928,7 +1922,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 94;
+const GAME_V = 95;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2298,7 +2292,7 @@ const minorNoParent = () => !!(S.legal?.mineur && !S.legal.parent);
 function trackStart(u){
   if (S.wasGuest == null){ const made = Date.parse(u.metadata?.creationTime || '') || now(); S.wasGuest = (S.guest || (S.created && S.created < made - 5 * 60e3)) ? 1 : 0; save(); }
   const i = trInfo(), need = {village: i.village, creeLe: i.creeLe, niveau: i.niveau, maison: i.maison, eur: i.eur, achats: i.achats, inviteAvant: i.inviteAvant, legal: S.legal || null};
-  TR.begin(u, need, trInfo).then(() => { if (S.legal) TR.legalProof(S.legal); if (analyseOk()){ for (const [k, t] of Object.entries(S.race || {})) TR.milestone(k, {t}); TR.ev('connexion', {}); } });
+  TR.begin(u, need, trInfo).then(() => { if (S.legal) TR.legalProof(S.legal); if (analyseOk()){ const i = trInfo(); for (const k of Object.keys(S.race || {})) TR.milestone(k, {eur: i.eur, achats: i.achats, niv: S.lvl, jeu: S.play || 0}); TR.ev('connexion', {}); } });
 }
 /* ---------- CONDITIONS ET CONFIDENTIALITÉ : premier lancement, et à chaque nouvelle version des textes ---------- */
 function legalGate(go){
@@ -2379,8 +2373,25 @@ async function saveFile(){
 }
 async function saveLoad(code){
   let s2; try { s2 = await T.importCode(code); } catch(e){ sfx.err(); return toast(e.message || 'Code invalide.'); }
-  if (!confirm(`Charger ce village (niveau ${s2.lvl}) ? Celui de ce téléphone sera remplacé.`)) return;
-  saveLock = true; T.replaceTown(s2); location.reload();
+  const note = s2.importNote ? '\n\n' + s2.importNote : ''; delete s2.importNote;
+  if (!confirm(`Charger ce village (niveau ${s2.lvl}, Maison ${T.hqLv(s2)}) ? Celui de ce téléphone sera remplacé.${note}`)) return;
+  saveLock = true; if (!T.replaceTown(s2)){ saveLock = false; sfx.err(); return toast('Ce village vient d’une version plus récente du jeu.'); }
+  location.reload();
+}
+function confirmReset(){
+  const cloud = ACC.ready() && ACC.current();
+  const m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Un problème ?</small><h2 class="stroke">Recommencer à zéro</h2>
+    <p>Le village <b>de cet appareil</b> sera effacé : niveau, ressources, bâtiments. On ne peut pas revenir en arrière.</p>
+    ${cloud ? '<p>La copie enregistrée sur ton compte <b>n’est pas effacée</b>. Elle reviendra à la prochaine connexion.</p>' : ''}
+    <p>Pour confirmer, écris <b>EFFACER</b> en majuscules.</p>
+    <input id="rst" autocomplete="off" autocapitalize="characters" spellcheck="false" style="font-size:18px;text-align:center;width:180px;margin:6px auto;display:block">
+    <div class="acts"><button class="btn red" data-m="go">Tout effacer</button><button class="btn blue" data-m="no">Annuler</button></div>`;
+  m.hidden = false; setTimeout(() => m.querySelector('#rst')?.focus(), 50);
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return;
+    if (b.dataset.m !== 'go'){ m.hidden = true; return; }
+    if ((m.querySelector('#rst')?.value || '').trim() !== 'EFFACER'){ sfx.err(); return toast('Écris EFFACER en majuscules pour confirmer.'); }
+    m.hidden = true; saveLock = true; T.clearTown(); location.reload(); };
 }
 /* ---------- musée des trouvailles ---------- */
 function museumEntry(){ const n = T.RELICS.filter(x => (S.relics || {})[x.k]).length; return `<div class="museumentry" role="button" data-a="museum"><span>🏛️</span><div><b>Musée des trouvailles</b><small>${n} / ${T.RELICS.length} objets rares · production +${Math.round(T.museumProd(S) * 100)} %</small></div><span class="btn blue sm">Visiter</span></div>`; }
@@ -2769,7 +2780,7 @@ function probe(on){
   if (!on){ ctx.drawImage = rawDraw; return; }
   ctx.drawImage = function(im, ...a){ const dw = a.length >= 4 ? a[a.length - 2] : (im.width || 0), dh = a.length >= 4 ? a[a.length - 1] : (im.height || 0);
     if (dw * dh > W * H * .35){ const st = (new Error().stack || '').split('\n').slice(1, 4).map(l => (l.match(/(\w+)@|at (\w+)/) || [])[1] || l.trim().slice(0, 30)).join('<');
-      const rec = `${Math.round(dw)}x${Math.round(dh)} a${ctx.globalAlpha.toFixed(2)} ${ctx.globalCompositeOperation} src${im.width || im.naturalWidth}x${im.height || im.naturalHeight} ${st}`; if (!DIAG.big.includes(rec)){ DIAG.big.push(rec); if (DIAG.big.length > 12) __big.shift(); } }
+      const rec = `${Math.round(dw)}x${Math.round(dh)} a${ctx.globalAlpha.toFixed(2)} ${ctx.globalCompositeOperation} src${im.width || im.naturalWidth}x${im.height || im.naturalHeight} ${st}`; if (!DIAG.big.includes(rec)){ DIAG.big.push(rec); if (DIAG.big.length > 12) DIAG.big.shift(); } }
     return rawDraw.call(this, im, ...a); };
 }
 function step(t, dt){

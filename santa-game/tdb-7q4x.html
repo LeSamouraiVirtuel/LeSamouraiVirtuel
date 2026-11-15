@@ -36,7 +36,7 @@
   <div id="app" hidden>
     <div class="kpis" id="kpis"></div>
     <section><h2>Courbes</h2><div class="grid2"><div><b>Niveau par jour (chaque joueur)</b><div id="c-lvl"></div></div><div><b>Sessions par jour (tous les joueurs)</b><div id="c-ses"></div></div><div><b>Euros affichés cumulés</b><div id="c-eur"></div></div></div></section>
-    <section><h2>Classement de la course <span class="mute">(de la création du village au sommet : Maison du Père Noël niveau 25)</span></h2><div class="tw"><table id="race"></table></div></section>
+    <section><h2>Classement de la course <span class="mute">(temps du serveur, depuis la première connexion suivie — un temps trop court est refusé)</span></h2><div class="tw"><table id="race"></table></div></section>
     <section><h2>Joueurs</h2><div class="tw"><table id="players"></table></div></section>
   </div>
 </main>
@@ -54,6 +54,10 @@ const fd = t => t ? new Date(t).toLocaleString('fr-FR', {day: '2-digit', month: 
 const dur = s => { s = Math.round(s || 0); if (s < 60) return s + ' s'; const m = Math.floor(s / 60), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? `${d} j ${h % 24} h` : h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
 const eur = n => (Math.round((n || 0) * 100) / 100).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'});
 const day = t => new Date(t).toLocaleDateString('sv-SE');
+// nombre (anciens envois) ou horodatage Firestore → millisecondes
+const msOf = v => { if (v == null || v === '') return 0; if (typeof v === 'number') return v; if (typeof v.toMillis === 'function') return v.toMillis(); if (typeof v.seconds === 'number') return v.seconds * 1000; return 0; };
+// Seule l'heure du serveur (timestamp) compte pour le classement. Un nombre écrit par le jeu est ignoré.
+const officialMs = v => (v && typeof v === 'object') ? msOf(v) : 0;
 const ACT = {ecran: 'Écran', achat: 'Achat', etoiles: 'Étoiles', niveau: 'Niveau', maison: 'Maison', chapitre: 'Chapitre', minijeu: 'Mini-jeu', minijeu_gain: 'Gain mini-jeu', bataille: 'Bataille', peche: 'Pêche', connexion: 'Connexion'};
 
 $('#go').onclick = () => A.signInWithPopup(auth, new A.GoogleAuthProvider()).catch(e => $('#lerr').textContent = e.code || e.message);
@@ -67,17 +71,20 @@ $('#purge').onclick = async () => {
   try {
     await q('secu', 't', 183); await q('s', 'debut', 396);
     const old = now - 731 * D;
-    for (const d of (await F.getDocs(F.query(F.collection(db, 'track'), F.where('derniere', '<', old)))).docs){ for (const sub of ['s', 'secu']) for (const x of (await F.getDocs(F.collection(db, 'track', d.id, sub))).docs){ await F.deleteDoc(x.ref).catch(() => {}); n++; } await F.deleteDoc(d.ref).catch(() => {}); n++; }
+    for (const borne of [old, F.Timestamp.fromMillis(old)]) for (const d of (await F.getDocs(F.query(F.collection(db, 'track'), F.where('derniere', '<', borne)))).docs){ for (const sub of ['s', 'secu']) for (const x of (await F.getDocs(F.collection(db, 'track', d.id, sub))).docs){ await F.deleteDoc(x.ref).catch(() => {}); n++; } await F.deleteDoc(d.ref).catch(() => {}); n++; }
     for (const d of (await F.getDocs(F.query(F.collection(db, 'users'), F.where('t', '<', old)))).docs){ await F.deleteDoc(d.ref).catch(() => {}); n++; }
     alert(`${n} élément(s) effacé(s). Les comptes de connexion (Firebase Authentication) inactifs se suppriment dans la console Firebase.`); load();
   } catch(e){ alert('Nettoyage impossible : ' + (e.code || e.message)); }
 };
-// contrôle côté page AVANT toute requête (la vraie protection reste les règles Firestore publiées) :
-// seul le compte Google de l'éditeur, adresse vérifiée, ouvre le tableau de bord ; sinon « accès refusé » et aucune lecture.
-const ADMIN = 'better.ask.yannis@gmail.com';
-const isAdmin = u => !!u && u.email === ADMIN && u.emailVerified && (u.providerData || []).some(p => p.providerId === 'google.com');
-A.onAuthStateChanged(auth, u => {
-  const ok = isAdmin(u);
+// contrôle côté page AVANT toute requête (la vraie protection reste les règles Firestore publiées).
+// Éditeur = custom claim « admin » OU document admins/{uid} (créé dans la console). L'adresse e-mail n'est plus écrite ici.
+const isAdmin = async u => {
+  if (!u) return false;
+  try { const t = await u.getIdTokenResult(); if (t.claims && t.claims.admin === true) return true; } catch(e){}
+  try { return (await F.getDoc(F.doc(db, 'admins', u.uid))).exists(); } catch(e){ return false; }
+};
+A.onAuthStateChanged(auth, async u => {
+  const ok = await isAdmin(u);
   $('#who').textContent = u ? u.email : ''; $('#out').hidden = !u; $('#reload').hidden = $('#purge').hidden = !ok;
   $('#login').hidden = ok; $('#app').hidden = !ok;
   $('#lerr').textContent = u && !ok ? 'Accès refusé : ce tableau de bord est réservé au compte Google de l’éditeur.' : '';
@@ -86,7 +93,7 @@ A.onAuthStateChanged(auth, u => {
 
 let P = [];
 async function load(){
-  if (!isAdmin(auth.currentUser)) return;
+  if (!(await isAdmin(auth.currentUser))) return;
   $('#kpis').innerHTML = '<p class="mute">Chargement…</p>';
   let us, ts;
   try { [us, ts] = await Promise.all([F.getDocs(F.collection(db, 'users')), F.getDocs(F.collection(db, 'track'))]); }
@@ -101,10 +108,10 @@ async function load(){
     return {...p, tr, email: tr.email || '', photo: tr.photo || '', prov: tr.fournisseur || '', village: tr.village || s.name || p.name || '', nom: tr.nom || p.name || '',
       lvl: Math.max(p.lvl || 1, tr.niveau || 0), hq: tr.maison || (s.objs || []).find(o => o.type === 'santa')?.lv || 1,
       eur: Math.max(ag.eur || 0, tr.eur || 0), achats: Math.max(ag.n_buy || 0, tr.achats || 0), iap,
-      play: Math.max(s.play || 0, tr.jeuTotal || 0, tr.tempsJeu || 0), sessions: tr.sessions || 0, last: Math.max(tr.derniere || 0, p.t || 0),
-      created: s.created || tr.creeLe || 0, geo: tr.geo || null, dev: tr.appareil || null, consent: tr.analyse === true ? 'oui' : tr.analyse === false ? 'non' : '—',
+      play: Math.max(s.play || 0, tr.jeuTotal || 0, tr.tempsJeu || 0), sessions: tr.sessions || 0, last: Math.max(msOf(tr.derniere), p.t || 0),
+      created: s.created || tr.creeLe || 0, vu: msOf(tr.vu), geo: tr.geo || null, dev: tr.appareil || null, consent: tr.analyse === true ? 'oui' : tr.analyse === false ? 'non' : '—',
       saved: Math.max(ag.saved || 0, tr.tempsGagne || 0), spent: Math.max(ag.stars_spent || 0, tr.etoilesDepensees || 0),
-      race: {...(s.race || {}), ...Object.fromEntries(Object.entries(tr.course || {}).map(([k, v]) => [k, v.t || v]))}, raceD: tr.course || {},
+      race: Object.fromEntries(Object.entries(tr.course || {}).map(([k, v]) => [k, officialMs(v?.t)])), raceD: tr.course || {},
       lvlEv: ev.filter(e => e[1] === 'lvl').map(e => [e[0], e[2].L]), test: !!s.testEditeur, alerts: s.testEditeur ? 0 : Object.values(s.flags || {}).reduce((a, b) => a + b, 0), alertEv: ev.filter(e => e[1] === 'anomalie'), jours: tr.jours || {}, wasGuest: tr.inviteAvant};
   });
   render();
@@ -133,11 +140,12 @@ function table(){
 }
 const MS = [['niv10', 'Niv. 10'], ['niv20', 'Niv. 20'], ['maison10', 'Maison 10'], ['maison20', 'Maison 20'], ['sommet', 'Sommet']];
 function raceTable(){
-  const score = p => { const r = p.race; if (r.sommet) return [6, -(r.sommet - p.created)]; for (let i = MS.length - 2; i >= 0; i--) if (r[MS[i][0]]) return [i + 1, -(r[MS[i][0]] - p.created)]; return [0, p.lvl]; };
-  const L = [...P].filter(p => p.created).sort((a, b) => { const x = score(a), y = score(b); return y[0] - x[0] || y[1] - x[1]; });
+  // Durée officielle = heure serveur du jalon − première fois que le serveur a vu le joueur. La sauvegarde du jeu n'entre pas dans le calcul.
+  const score = p => { const r = p.race; if (!p.vu) return [0, 0]; if (r.sommet) return [6, -(r.sommet - p.vu)]; for (let i = MS.length - 2; i >= 0; i--) if (r[MS[i][0]]) return [i + 1, -(r[MS[i][0]] - p.vu)]; return [0, 0]; };
+  const L = [...P].filter(p => p.vu || p.created).sort((a, b) => { const x = score(a), y = score(b); return y[0] - x[0] || y[1] - x[1]; });
   $('#race').innerHTML = `<tr><th>#</th><th>Joueur</th><th class="n">Niveau</th>${MS.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">€ affichés</th><th class="n">Achats</th></tr>` +
     L.map((p, i) => `<tr class="p" data-u="${p.uid}"><td>${i + 1}</td><td>${esc(p.nom || p.village || p.email || p.uid.slice(0, 6))}</td><td class="n">${p.lvl}</td>${MS.map(([k]) => { const t = p.race[k], d = p.raceD[k];
-      return `<td class="n">${t ? `${dur((t - p.created) / 1000)}${d?.eur != null ? `<br><span class="mute">${eur(d.eur)} · ${d.achats || 0} ach.</span>` : ''}` : '<span class="mute">—</span>'}</td>`; }).join('')}<td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td></tr>`).join('');
+      return `<td class="n">${t && p.vu ? `${dur((t - p.vu) / 1000)}${d?.eur != null ? `<br><span class="mute">${eur(d.eur)} · ${d.achats || 0} ach.</span>` : ''}` : '<span class="mute">—</span>'}</td>`; }).join('')}<td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td></tr>`).join('');
   $('#race').querySelectorAll('tr.p').forEach(tr => tr.onclick = () => fiche(P.find(p => p.uid === tr.dataset.u)));
 }
 /* ---------- courbes (SVG simple) ---------- */

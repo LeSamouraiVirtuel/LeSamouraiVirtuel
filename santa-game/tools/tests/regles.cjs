@@ -11,7 +11,10 @@ const val = v => v === null ? {nullValue: null} : typeof v === 'boolean' ? {bool
   : typeof v === 'string' ? {stringValue: v} : Array.isArray(v) ? {arrayValue: {values: v.map(val)}} : {mapValue: {fields: Object.fromEntries(Object.entries(v).filter(([, x]) => x !== undefined).map(([k, x]) => [k, val(x)]))}};
 const fields = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, val(v)]));
 const user = async email => { const r = await (await fetch(AU + 'accounts:signUp?key=x', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email, password: 'Essai-123456', returnSecureToken: true})})).json(); return {uid: r.localId, tok: r.idToken}; };
-const google = async email => { const r = await (await fetch(AU + 'accounts:signInWithIdp?key=x', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({postBody: `id_token=${encodeURIComponent(JSON.stringify({sub: 'g' + email, email, email_verified: true}))}&providerId=google.com`, requestUri: 'http://localhost', returnSecureToken: true})})).json(); return {uid: r.localId, tok: r.idToken}; };
+const google = async email => { const r = await (await fetch(AU + 'accounts:signInWithIdp?key=x', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({postBody: `id_token=${encodeURIComponent(JSON.stringify({sub: 'g' + email, email, email_verified: true}))}&providerId=google.com`, requestUri: 'http://localhost', returnSecureToken: true})})).json(); return {uid: r.localId, tok: r.idToken, raw: r}; };
+const claimAdmin = async u => { const r = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/village-du-pole/accounts:update', {method: 'POST', headers: {Authorization: 'Bearer owner', 'Content-Type': 'application/json'}, body: JSON.stringify({localId: u.uid, customAttributes: JSON.stringify({admin: true})})}); return r.status; };
+const commit = (u, writes) => fetch(FS.replace(/documents\/$/, 'documents:commit'), {method: 'POST', headers: {Authorization: 'Bearer ' + u.tok, 'Content-Type': 'application/json'}, body: JSON.stringify({writes})}).then(r => r.status);
+const serverTime = (u, name, fieldPath) => commit(u, [{transform: {document: `projects/village-du-pole/databases/(default)/documents/${name}`, fieldTransforms: [{fieldPath, setToServerValue: 'REQUEST_TIME'}]}}]);
 const put = (u, p, o) => fetch(FS + p, {method: 'PATCH', headers: {Authorization: 'Bearer ' + u.tok, 'Content-Type': 'application/json'}, body: JSON.stringify({fields: fields(o)})}).then(r => r.status);
 const get = (u, p) => fetch(FS + p, {headers: {Authorization: 'Bearer ' + u.tok}}).then(r => r.status);
 const del = (u, p) => fetch(FS + p, {method: 'DELETE', headers: {Authorization: 'Bearer ' + u.tok}}).then(r => r.status);
@@ -40,6 +43,10 @@ const cg = (u, id) => fetch(FS.replace(/documents\/$/, 'documents:runQuery'), {m
   const a = await user('a-' + Date.now() + '@example.com'), b = await user('b-' + Date.now() + '@example.com');
   const base = {save: '{}', fmt: 6, lvl: 1, t: Date.now(), name: 'A', welcome: true};
   await put(a, 'users/' + a.uid, base);
+  ok(await put(a, 'users/' + a.uid, {...base, lvl: 120}) === 200, 'niveau 120 (plafond réaliste) accepté');
+  ok(await put(a, 'users/' + a.uid, {...base, lvl: 151}) === 403, 'niveau 151 refusé (l’ancien plafond 100000 est fermé)');
+  ok(await put(a, 'users/' + a.uid, {...base, lvl: 100000}) === 403, 'niveau 100000 refusé');
+  ok(await put(a, 'users/' + a.uid, {...base, t: Date.now() + 864e5}) === 403, 'heure de sauvegarde dans le futur refusée');
   ok(await put(a, 'users/' + a.uid, {...base, zz: 'x'}) === 403, 'champ inconnu refusé');
   ok(await put(a, 'users/' + a.uid, {...base, welcome: false}) === 403, 'bonus de bienvenue : impossible de repasser à faux');
   const {welcome, ...sans} = base; ok(await put(a, 'users/' + a.uid, sans) === 200, 'ancien jeu (v80-v82) resté ouvert, sauvegarde sans « welcome » après le bonus : acceptée');
@@ -53,8 +60,21 @@ const cg = (u, id) => fetch(FS.replace(/documents\/$/, 'documents:runQuery'), {m
   ok(await put(a, `track/${a.uid}/secu/1`, {t: Date.now(), ip: '9.9.9.9'}) === 403, 'journal de sécurité : modification refusée');
   ok(await put(a, `track/${a.uid}/secu/2`, {t: Date.now(), ip: '1.2.3.4', ville: 'x'}) === 403, 'journal de sécurité : champ en plus refusé');
   ok(await put(a, 'purchases/' + a.uid, {pack: 'x'}) === 403, 'un joueur ne peut pas s\'attribuer un achat');
-  // éditeur
-  const adm = await google('better.ask.yannis@gmail.com'), other = await google('quelqu-un@gmail.com');
+  // course : l'heure officielle est celle du serveur, un temps choisi par le joueur est refusé
+  ok(await serverTime(a, 'track/' + a.uid, 'vu') === 200, 'le serveur note la première fois qu’il voit le joueur');
+  const summitNow = await commit(a, [{update: {name: `projects/village-du-pole/databases/(default)/documents/track/${a.uid}`, fields: {course: {mapValue: {fields: {sommet: {mapValue: {fields: {eur: {doubleValue: 0}, achats: {integerValue: '0'}, niv: {integerValue: '25'}, jeu: {integerValue: '0'}}}}}}}}}, updateMask: {fieldPaths: ['course.sommet.eur', 'course.sommet.achats', 'course.sommet.niv', 'course.sommet.jeu']}, updateTransforms: [{fieldPath: 'course.sommet.t', setToServerValue: 'REQUEST_TIME'}]}]);
+  ok(summitNow === 403, 'sommet dans la foulée refusé (temps impossible)');
+  ok(await put(a, 'track/' + a.uid, {course: {sommet: {t: Date.now() - 864e5, eur: 0, achats: 0, niv: 25, jeu: 0}}, derniere: Date.now()}) === 403, 'heure de course choisie par le joueur refusée');
+  await new Promise(r => setTimeout(r, 6000));
+  const niv5 = await commit(a, [{update: {name: `projects/village-du-pole/databases/(default)/documents/track/${a.uid}`, fields: {course: {mapValue: {fields: {niv5: {mapValue: {fields: {eur: {doubleValue: 1.5}, achats: {integerValue: '0'}, niv: {integerValue: '5'}, jeu: {integerValue: '30'}}}}}}}}}, updateMask: {fieldPaths: ['course.niv5.eur', 'course.niv5.achats', 'course.niv5.niv', 'course.niv5.jeu']}, updateTransforms: [{fieldPath: 'course.niv5.t', setToServerValue: 'REQUEST_TIME'}]}]);
+  ok(niv5 === 200, 'niveau 5 accepté une fois le délai minimum passé');
+  const niv5again = await commit(a, [{update: {name: `projects/village-du-pole/databases/(default)/documents/track/${a.uid}`, fields: {course: {mapValue: {fields: {niv5: {mapValue: {fields: {eur: {doubleValue: 0}, achats: {integerValue: '0'}, niv: {integerValue: '5'}, jeu: {integerValue: '0'}}}}}}}}}, updateMask: {fieldPaths: ['course.niv5.eur', 'course.niv5.achats', 'course.niv5.niv', 'course.niv5.jeu']}, updateTransforms: [{fieldPath: 'course.niv5.t', setToServerValue: 'REQUEST_TIME'}]}]);
+  ok(niv5again === 403, 'un jalon déjà accepté ne se réécrit pas');
+  // éditeur : custom claim « admin », plus l'adresse e-mail en clair
+  let adm = await google('better.ask.yannis@gmail.com');
+  ok(await claimAdmin(adm) === 200, 'claim admin posé sur le compte éditeur (émulateur)');
+  adm = await google('better.ask.yannis@gmail.com');
+  const other = await google('quelqu-un@gmail.com');
   const lst = u => fetch(FS + 'users', {headers: {Authorization: 'Bearer ' + u.tok}}).then(r => r.status);
   ok(await lst(adm) === 200 && await get(adm, 'track/' + a.uid) === 200 && await get(adm, `track/${a.uid}/s/s1`) === 200, 'l\'éditeur lit les villages, les fiches et les sessions');
   ok(await cg(adm, 's') === 200 && await cg(adm, 'secu') === 200, 'l\'éditeur cherche dans toutes les sessions et journaux');
@@ -62,7 +82,14 @@ const cg = (u, id) => fetch(FS.replace(/documents\/$/, 'documents:runQuery'), {m
   ok(await put(adm, 'users/' + a.uid, base) === 403, 'l\'éditeur ne peut rien écrire');
   ok(await del(adm, 'users/' + a.uid) === 403 && await del(adm, `track/${a.uid}/secu/1`) === 403, 'l\'éditeur ne peut pas effacer des données récentes');
   const c = await user('c-' + Date.now() + '@example.com'), longAgo = Date.now() - 800 * 864e5;
-  await put(c, 'users/' + c.uid, {...base, t: longAgo}); await put(c, 'track/' + c.uid, {derniere: longAgo}); await put(c, `track/${c.uid}/secu/1`, {t: Date.now() - 200 * 864e5, ip: '1.1.1.1'}); await put(c, `track/${c.uid}/s/old`, {debut: Date.now() - 400 * 864e5});
+  await put(c, 'users/' + c.uid, {...base, t: longAgo}); await put(c, 'track/' + c.uid, {derniere: longAgo}); await put(c, `track/${c.uid}/secu/1`, {t: Date.now() - 200 * 864e5, ip: '1.1.1.1'});
+  // une session déjà vieille ne peut pas être créée par le joueur (début = maintenant seulement) : on la pose règles ouvertes, comme un document qui a vieilli
+  const rulesTxt = fs.readFileSync(__dirname + '/../../firebase/firestore.rules', 'utf8');
+  const swap = content => fetch('http://127.0.0.1:8080/emulator/v1/projects/village-du-pole:securityRules', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ignore_errors: true, rules: {files: [{name: 'security.rules', content}]}})});
+  await swap("rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if true; } } }");
+  const oldS = Date.now() - 400 * 864e5;
+  await put(c, `track/${c.uid}/s/old`, {debut: oldS, fin: oldS + 5000, duree: 5, jeu: 4, ev: []});
+  await swap(rulesTxt);
   ok(await del(adm, `track/${c.uid}/secu/1`) === 200, 'nettoyage : journal de sécurité de plus de 6 mois');
   ok(await del(adm, `track/${c.uid}/s/old`) === 200, 'nettoyage : session de plus de 13 mois');
   ok(await del(adm, 'users/' + c.uid) === 200 && await del(adm, 'track/' + c.uid) === 200, 'nettoyage : compte inactif depuis plus de 2 ans');
