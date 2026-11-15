@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tableau de bord</title>
+<style>
+  :root{--bg:#f6f3ee;--card:#fff;--ink:#2a2420;--mute:#7a6e64;--line:#e6ded3;--acc:#b8122a;--a2:#1f6fd1;--ok:#1d7a44;--warn:#b86e00}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17151b;--card:#221f27;--ink:#efe9e1;--mute:#a59c93;--line:#3a3540;--acc:#ff6b7f;--a2:#6aa8ff;--ok:#5fd18f;--warn:#ffb648}}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;flex:1}main{padding:16px;max-width:1400px;margin:0 auto}
+  button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer}button.pri{background:var(--a2);color:#fff;border-color:var(--a2)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .kpi small{color:var(--mute);display:block}.kpi b{font-size:22px;font-variant-numeric:tabular-nums}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:16px}section h2{font-size:15px;margin:0 0 8px}
+  .tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+  th{color:var(--mute);font-weight:600;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--card)}tr.p{cursor:pointer}tr.p:hover td{background:color-mix(in srgb,var(--a2) 8%,transparent)}
+  td.n,th.n{text-align:right}.mute{color:var(--mute)}.tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+  .ava{width:26px;height:26px;border-radius:50%;vertical-align:middle;margin-right:6px;object-fit:cover;background:var(--line)}
+  #fiche{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10;overflow:auto;padding:16px}#fiche.on{display:block}
+  #fiche .in{max-width:1100px;margin:0 auto;background:var(--bg);border-radius:14px;padding:14px 16px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 12px;margin:0}dt{color:var(--mute)}dd{margin:0;word-break:break-word}
+  .ev{font-size:12.5px;max-height:320px;overflow:auto;border-top:1px solid var(--line);margin-top:6px}.ev div{padding:2px 0;border-bottom:1px dashed var(--line)}
+  svg text{fill:var(--mute);font-size:11px}.err{color:var(--acc);font-weight:600}
+  details>summary{cursor:pointer}#login{max-width:420px;margin:12vh auto;text-align:center}
+  @media (max-width:600px){main{padding:10px}.kpi b{font-size:18px}}
+</style>
+</head>
+<body>
+<header><h1>Le Village du Pôle · tableau de bord</h1><span id="who" class="mute"></span><button id="reload" hidden>Actualiser</button><button id="purge" hidden title="Applique les durées de conservation">Nettoyage</button><button id="out" hidden>Se déconnecter</button></header>
+<main>
+  <div id="login"><p>Accès réservé à l'éditeur du jeu.</p><button class="pri" id="go">Se connecter avec Google</button><p id="lerr" class="err"></p></div>
+  <div id="app" hidden>
+    <div class="kpis" id="kpis"></div>
+    <section><h2>Courbes</h2><div class="grid2"><div><b>Niveau par jour (chaque joueur)</b><div id="c-lvl"></div></div><div><b>Sessions par jour (tous les joueurs)</b><div id="c-ses"></div></div><div><b>Euros affichés cumulés</b><div id="c-eur"></div></div></div></section>
+    <section><h2>Classement de la course <span class="mute">(de la création du village au sommet : Maison du Père Noël niveau 25)</span></h2><div class="tw"><table id="race"></table></div></section>
+    <section><h2>Joueurs</h2><div class="tw"><table id="players"></table></div></section>
+  </div>
+</main>
+<div id="fiche"><div class="in" id="fin"></div></div>
+<script type="module">
+import {FIREBASE_CONFIG as CFG} from './js/firebase-config.js';
+const V = '10.12.2', base = `https://www.gstatic.com/firebasejs/${V}/`;
+const [{initializeApp}, A, F] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+const app = initializeApp(CFG), auth = A.getAuth(app), db = F.getFirestore(app);
+const EMU = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && localStorage.getItem('vdp-emu');
+if (EMU){ A.connectAuthEmulator(auth, 'http://127.0.0.1:9099', {disableWarnings: true}); F.connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  window.__emuLogin = (email) => A.signInWithCredential(auth, A.GoogleAuthProvider.credential(JSON.stringify({sub: 'g-' + email, email, email_verified: true}))); }
+const $ = s => document.querySelector(s), esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+const fd = t => t ? new Date(t).toLocaleString('fr-FR', {day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'}) : '—';
+const dur = s => { s = Math.round(s || 0); if (s < 60) return s + ' s'; const m = Math.floor(s / 60), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? `${d} j ${h % 24} h` : h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
+const eur = n => (Math.round((n || 0) * 100) / 100).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'});
+const day = t => new Date(t).toLocaleDateString('sv-SE');
+const ACT = {ecran: 'Écran', achat: 'Achat', etoiles: 'Étoiles', niveau: 'Niveau', maison: 'Maison', chapitre: 'Chapitre', minijeu: 'Mini-jeu', minijeu_gain: 'Gain mini-jeu', bataille: 'Bataille', peche: 'Pêche', connexion: 'Connexion'};
+
+$('#go').onclick = () => A.signInWithPopup(auth, new A.GoogleAuthProvider()).catch(e => $('#lerr').textContent = e.code || e.message);
+$('#out').onclick = () => A.signOut(auth);
+$('#reload').onclick = () => load();
+// durées de conservation (Confidentialité) : journal de sécurité 6 mois, sessions d'analyse 13 mois, comptes inactifs 2 ans
+$('#purge').onclick = async () => {
+  if (!confirm('Effacer : journaux de sécurité de plus de 6 mois, sessions de plus de 13 mois, villages et fiches inactifs depuis plus de 2 ans ?')) return;
+  const D = 864e5, now = Date.now(); let n = 0;
+  const q = async (id, field, days) => { const r = await F.getDocs(F.query(F.collectionGroup(db, id), F.where(field, '<', now - days * D))); for (const d of r.docs){ await F.deleteDoc(d.ref).catch(() => {}); n++; } };
+  try {
+    await q('secu', 't', 183); await q('s', 'debut', 396);
+    const old = now - 731 * D;
+    for (const d of (await F.getDocs(F.query(F.collection(db, 'track'), F.where('derniere', '<', old)))).docs){ for (const sub of ['s', 'secu']) for (const x of (await F.getDocs(F.collection(db, 'track', d.id, sub))).docs){ await F.deleteDoc(x.ref).catch(() => {}); n++; } await F.deleteDoc(d.ref).catch(() => {}); n++; }
+    for (const d of (await F.getDocs(F.query(F.collection(db, 'users'), F.where('t', '<', old)))).docs){ await F.deleteDoc(d.ref).catch(() => {}); n++; }
+    alert(`${n} élément(s) effacé(s). Les comptes de connexion (Firebase Authentication) inactifs se suppriment dans la console Firebase.`); load();
+  } catch(e){ alert('Nettoyage impossible : ' + (e.code || e.message)); }
+};
+A.onAuthStateChanged(auth, u => { $('#who').textContent = u ? u.email : ''; $('#out').hidden = $('#reload').hidden = $('#purge').hidden = !u; $('#login').hidden = !!u; $('#app').hidden = !u; if (u) load(); });
+
+let P = [];
+async function load(){
+  $('#kpis').innerHTML = '<p class="mute">Chargement…</p>';
+  let us, ts;
+  try { [us, ts] = await Promise.all([F.getDocs(F.collection(db, 'users')), F.getDocs(F.collection(db, 'track'))]); }
+  catch(e){ $('#app').hidden = true; $('#login').hidden = false; $('#lerr').textContent = 'Accès refusé : ce compte n\'est pas celui de l\'éditeur (ou les règles Firestore ne sont pas encore publiées).'; return; }
+  const by = {};
+  for (const d of us.docs){ const x = d.data(); let s = null; try { s = JSON.parse(x.save || 'null'); } catch(e){}
+    by[d.id] = {uid: d.id, cloud: x, s, name: x.name || s?.name || '', lvl: x.lvl || s?.lvl || 1, t: x.t}; }
+  for (const d of ts.docs){ (by[d.id] ||= {uid: d.id}).tr = d.data(); }
+  P = Object.values(by).map(p => {
+    const s = p.s || {}, tr = p.tr || {}, ev = s.log?.ev || [], ag = s.log?.agg || {};
+    const iap = ev.filter(e => e[1] === 'iap').map(e => ({t: e[0], ...e[2]}));
+    return {...p, tr, email: tr.email || '', photo: tr.photo || '', prov: tr.fournisseur || '', village: tr.village || s.name || p.name || '', nom: tr.nom || p.name || '',
+      lvl: Math.max(p.lvl || 1, tr.niveau || 0), hq: tr.maison || (s.objs || []).find(o => o.type === 'santa')?.lv || 1,
+      eur: Math.max(ag.eur || 0, tr.eur || 0), achats: Math.max(ag.n_buy || 0, tr.achats || 0), iap,
+      play: Math.max(s.play || 0, tr.jeuTotal || 0, tr.tempsJeu || 0), sessions: tr.sessions || 0, last: Math.max(tr.derniere || 0, p.t || 0),
+      created: s.created || tr.creeLe || 0, geo: tr.geo || null, dev: tr.appareil || null, consent: tr.analyse === true ? 'oui' : tr.analyse === false ? 'non' : '—',
+      saved: Math.max(ag.saved || 0, tr.tempsGagne || 0), spent: Math.max(ag.stars_spent || 0, tr.etoilesDepensees || 0),
+      race: {...(s.race || {}), ...Object.fromEntries(Object.entries(tr.course || {}).map(([k, v]) => [k, v.t || v]))}, raceD: tr.course || {},
+      lvlEv: ev.filter(e => e[1] === 'lvl').map(e => [e[0], e[2].L]), jours: tr.jours || {}, wasGuest: tr.inviteAvant};
+  });
+  render();
+}
+function render(){
+  const now = Date.now(), act = d => P.filter(p => now - p.last < d * 864e5).length;
+  const K = [['Joueurs (comptes)', P.length], ['Actifs 24 h', act(1)], ['Actifs 7 jours', act(7)], ['Euros affichés', eur(P.reduce((a, p) => a + p.eur, 0))],
+    ['Achats', P.reduce((a, p) => a + p.achats, 0)], ['Payeurs', P.filter(p => p.eur > 0).length], ['Temps de jeu total', dur(P.reduce((a, p) => a + p.play, 0))],
+    ['Temps gagné (accélérations)', dur(P.reduce((a, p) => a + p.saved, 0))], ['Étoiles dépensées', P.reduce((a, p) => a + p.spent, 0)], ['Anciens invités', P.filter(p => p.wasGuest).length]];
+  $('#kpis').innerHTML = K.map(([l, v]) => `<div class="kpi"><small>${l}</small><b>${v}</b></div>`).join('');
+  table(); raceTable(); charts();
+}
+let sortK = 'last', sortD = -1;
+const COLS = [['nom', 'Joueur'], ['prov', 'Compte'], ['lvl', 'Niveau', 1], ['hq', 'Maison', 1], ['eur', '€ affichés', 1], ['achats', 'Achats', 1], ['play', 'Temps de jeu', 1], ['sessions', 'Sessions', 1], ['last', 'Dernière connexion'], ['geo', 'Lieu'], ['dev', 'Appareil'], ['consent', 'Analyse']];
+function table(){
+  const v = p => sortK === 'geo' ? (p.geo?.ville || '') : sortK === 'dev' ? (p.dev?.model || '') : p[sortK];
+  const L = [...P].sort((a, b) => { const x = v(a), y = v(b); return (x > y ? 1 : x < y ? -1 : 0) * sortD; });
+  $('#players').innerHTML = `<tr>${COLS.map(([k, l, n]) => `<th class="${n ? 'n' : ''}" data-k="${k}">${l}${sortK === k ? (sortD > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr>` + L.map(p => `<tr class="p" data-u="${p.uid}">
+    <td>${p.photo ? `<img class="ava" src="${esc(p.photo)}" referrerpolicy="no-referrer" alt="">` : ''}<b>${esc(p.nom || p.village || '(sans nom)')}</b><br><span class="mute">${esc(p.email)}</span></td>
+    <td>${esc(p.prov || '—')}</td><td class="n">${p.lvl}</td><td class="n">${p.hq}</td><td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td><td class="n">${dur(p.play)}</td><td class="n">${p.sessions}</td>
+    <td>${fd(p.last)}</td><td>${p.geo ? esc([p.geo.ville, p.geo.pays].filter(Boolean).join(', ')) : '—'}</td><td>${p.dev ? esc(`${p.dev.model || p.dev.os} · ${p.dev.br}`) : '—'}</td><td>${esc(p.consent)}</td></tr>`).join('');
+  $('#players').querySelectorAll('th').forEach(th => th.onclick = () => { const k = th.dataset.k; sortD = sortK === k ? -sortD : -1; sortK = k; table(); });
+  $('#players').querySelectorAll('tr.p').forEach(tr => tr.onclick = () => fiche(P.find(p => p.uid === tr.dataset.u)));
+}
+const MS = [['niv10', 'Niv. 10'], ['niv20', 'Niv. 20'], ['maison10', 'Maison 10'], ['maison20', 'Maison 20'], ['sommet', 'Sommet']];
+function raceTable(){
+  const score = p => { const r = p.race; if (r.sommet) return [6, -(r.sommet - p.created)]; for (let i = MS.length - 2; i >= 0; i--) if (r[MS[i][0]]) return [i + 1, -(r[MS[i][0]] - p.created)]; return [0, p.lvl]; };
+  const L = [...P].filter(p => p.created).sort((a, b) => { const x = score(a), y = score(b); return y[0] - x[0] || y[1] - x[1]; });
+  $('#race').innerHTML = `<tr><th>#</th><th>Joueur</th><th class="n">Niveau</th>${MS.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">€ affichés</th><th class="n">Achats</th></tr>` +
+    L.map((p, i) => `<tr class="p" data-u="${p.uid}"><td>${i + 1}</td><td>${esc(p.nom || p.village || p.email || p.uid.slice(0, 6))}</td><td class="n">${p.lvl}</td>${MS.map(([k]) => { const t = p.race[k], d = p.raceD[k];
+      return `<td class="n">${t ? `${dur((t - p.created) / 1000)}${d?.eur != null ? `<br><span class="mute">${eur(d.eur)} · ${d.achats || 0} ach.</span>` : ''}` : '<span class="mute">—</span>'}</td>`; }).join('')}<td class="n">${eur(p.eur)}</td><td class="n">${p.achats}</td></tr>`).join('');
+  $('#race').querySelectorAll('tr.p').forEach(tr => tr.onclick = () => fiche(P.find(p => p.uid === tr.dataset.u)));
+}
+/* ---------- courbes (SVG simple) ---------- */
+const PAL = ['#1f6fd1', '#d1491f', '#1d9a5a', '#9a3fd1', '#c99a00', '#d11f7a', '#1fa6b8', '#6b6b6b'];
+function lineChart(series, {w = 520, h = 200, yfmt = v => v} = {}){
+  const pts = series.flatMap(s => s.pts); if (!pts.length) return '<p class="mute">Pas encore de données.</p>';
+  const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])) || x0 + 1, y1 = Math.max(1, ...pts.map(p => p[1]));
+  const X = x => 40 + (x - x0) / ((x1 - x0) || 1) * (w - 50), Y = y => h - 22 - y / y1 * (h - 34);
+  const ax = `<line x1="40" y1="${h - 22}" x2="${w - 10}" y2="${h - 22}" stroke="currentColor" opacity=".2"/><text x="40" y="${h - 6}">${new Date(x0).toLocaleDateString('fr-FR')}</text><text x="${w - 10}" y="${h - 6}" text-anchor="end">${new Date(x1).toLocaleDateString('fr-FR')}</text><text x="34" y="${Y(y1) + 4}" text-anchor="end">${yfmt(y1)}</text><text x="34" y="${h - 22}" text-anchor="end">0</text>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${ax}${series.slice(0, 40).map((s, i) => `<polyline fill="none" stroke="${PAL[i % PAL.length]}" stroke-width="2" points="${s.pts.map(p => X(p[0]) + ',' + Y(p[1])).join(' ')}"><title>${esc(s.name)}</title></polyline>${s.pts.length < 3 ? s.pts.map(p => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.5" fill="${PAL[i % PAL.length]}"/>`).join('') : ''}`).join('')}</svg>`;
+}
+function charts(){
+  $('#c-lvl').innerHTML = lineChart(P.filter(p => p.lvlEv.length || p.created).map(p => ({name: p.nom || p.email, pts: [[p.created || p.lvlEv[0]?.[0], 1], ...p.lvlEv]})).filter(s => s.pts[0][0]));
+  const ses = {}; for (const p of P) for (const [d, n] of Object.entries(p.jours)) ses[d] = (ses[d] || 0) + n;
+  $('#c-ses').innerHTML = lineChart([{name: 'Sessions', pts: Object.keys(ses).sort().map(d => [Date.parse(d), ses[d]])}]);
+  const all = P.flatMap(p => p.iap).sort((a, b) => a.t - b.t); let c = 0;
+  $('#c-eur').innerHTML = lineChart([{name: '€', pts: all.map(e => [e.t, c += e.eur || 0])}], {yfmt: v => Math.round(v) + ' €'});
+}
+/* ---------- fiche joueur ---------- */
+async function fiche(p){
+  const tr = p.tr, d = p.dev, g = p.geo, ev = p.s?.log?.ev || [];
+  $('#fin').innerHTML = `<div style="display:flex;gap:12px;align-items:center">${p.photo ? `<img class="ava" style="width:56px;height:56px" src="${esc(p.photo)}" referrerpolicy="no-referrer" alt="">` : ''}<div style="flex:1"><h2 style="margin:0">${esc(p.nom || p.village || '(sans nom)')}</h2><span class="mute">${esc(p.email)} · ${esc(p.uid)}</span></div><button id="fx">Fermer</button></div>
+  <div class="grid2" style="margin-top:12px">
+    <section><h2>Identité</h2><dl><dt>E-mail</dt><dd>${esc(p.email || '—')}</dd><dt>Nom du compte</dt><dd>${esc(tr.nom || '—')}</dd><dt>Compte</dt><dd>${esc(p.prov || '—')}</dd><dt>Village</dt><dd>${esc(p.village || '—')}</dd>
+      <dt>Village créé</dt><dd>${fd(p.created)}</dd><dt>Compte créé</dt><dd>${fd(tr.compteCree)}</dd><dt>Dernière connexion</dt><dd>${fd(p.last)}</dd><dt>Invité devenu compte</dt><dd>${p.wasGuest == null ? '—' : p.wasGuest ? 'oui' : 'non'}</dd><dt>Accord suivi détaillé</dt><dd>${esc(p.consent)}</dd>
+      <dt>Provenance</dt><dd>${tr.provenance ? esc(tr.provenance.ref || 'directe') + (tr.provenance.q ? ' ' + esc(tr.provenance.q) : '') : '—'}</dd>
+      <dt>Accord légal</dt><dd>${tr.legal ? `textes du ${esc(tr.legal.v)}, accepté le ${fd(tr.legal.t)} · analyse ${tr.legal.analyse ? 'oui' : 'non'} · né(e) en ${esc(tr.legal.annee)}${tr.legal.mineur ? ` · mineur (< ${tr.legal.seuil} ans), parent ${tr.legal.parent ? 'd’accord' : 'non'}` : ''}` : '—'}</dd>
+      <dt>Historique des accords</dt><dd>${(tr.legalHist || []).map(l => `${fd(l.t)} (${esc(l.v)}, analyse ${l.analyse ? 'oui' : 'non'})`).join('<br>') || '—'}</dd></dl>
+      <h2 style="margin-top:10px">Journal de sécurité (6 mois)</h2><div class="ev" id="secu">…</div></section>
+    <section><h2>Appareil et connexion</h2><dl>${d ? `<dt>Système</dt><dd>${esc(d.os)} ${esc(d.osv || '')}</dd><dt>Modèle</dt><dd>${esc(d.model || '—')}</dd><dt>Navigateur</dt><dd>${esc(d.br)}</dd><dt>Écran</dt><dd>${d.sw}×${d.sh} @${d.dpr} (fenêtre ${d.vw}×${d.vh})</dd>
+      <dt>Langue</dt><dd>${esc(d.lang)}</dd><dt>Fuseau</dt><dd>${esc(d.tz)}</dd><dt>Appli écran d'accueil</dt><dd>${d.pwa ? 'oui' : 'non'}</dd>` : '<dt>Appareil</dt><dd class="mute">pas encore (accord ou règles)</dd>'}
+      ${g ? `<dt>IP</dt><dd>${esc(g.ip)}</dd><dt>Lieu</dt><dd>${esc([g.ville, g.region, g.pays].filter(Boolean).join(', '))}</dd><dt>Opérateur</dt><dd>${esc(g.fai || '—')}</dd><dt>Toutes les IP</dt><dd>${esc((tr.ips || []).join(', '))}</dd>` : ''}</dl></section>
+    <section><h2>Progression et dépenses</h2><dl><dt>Niveau</dt><dd>${p.lvl}</dd><dt>Maison</dt><dd>${p.hq}</dd><dt>Temps de jeu réel</dt><dd>${dur(p.play)}</dd><dt>Sessions</dt><dd>${p.sessions}</dd>
+      <dt>€ affichés</dt><dd>${eur(p.eur)} (${p.achats} achats)</dd><dt>Étoiles dépensées</dt><dd>${p.spent}</dd><dt>Temps gagné</dt><dd>${dur(p.saved)}</dd></dl>
+      <h2 style="margin-top:10px">Sessions par jour</h2><dl>${Object.entries(p.jours).sort().reverse().slice(0, 14).map(([k, n]) => `<dt>${k}</dt><dd>${n}</dd>`).join('') || '<dd class="mute">—</dd>'}</dl></section>
+    <section><h2>Achats (dans l'ordre)</h2><div class="ev">${p.iap.map(e => `<div>${fd(e.t)} · <b>${esc(e.name || e.k)}</b> · ${eur(e.eur)} · niv. ${e.lvl ?? '?'}</div>`).join('') || '<span class="mute">Aucun achat.</span>'}</div>
+      <h2 style="margin-top:10px">Étoiles dépensées</h2><div class="ev">${ev.filter(e => e[1] === 'star').reverse().slice(0, 200).map(e => `<div>${fd(e[0])} · ${e[2].n} ⭐ · ${esc(e[2].quoi || e[2].what || '')}${e[2].tempsGagne ? ' · ' + dur(e[2].tempsGagne) + ' évitées' : ''}</div>`).join('') || '<span class="mute">—</span>'}</div></section>
+  </div>
+  <section><h2>Courbe de niveau</h2>${lineChart([{name: p.nom, pts: [[p.created || p.lvlEv[0]?.[0] || Date.now(), 1], ...p.lvlEv]}])}</section>
+  <section><h2>Sessions et actions</h2><div id="sess" class="mute">Chargement…</div></section>`;
+  $('#fiche').classList.add('on'); $('#fx').onclick = () => $('#fiche').classList.remove('on');
+  F.getDocs(F.collection(db, 'track', p.uid, 'secu')).then(r => { $('#secu').innerHTML = r.docs.map(d => d.data()).sort((a, b) => b.t - a.t).map(x => `<div>${fd(x.t)} · ${esc(x.ip)}</div>`).join('') || '<span class="mute">—</span>'; }).catch(e => { $('#secu').textContent = e.code; });
+  try {
+    const ss = (await F.getDocs(F.collection(db, 'track', p.uid, 's'))).docs.map(x => ({id: x.id, ...x.data()})).sort((a, b) => b.debut - a.debut);
+    $('#sess').classList.remove('mute');
+    $('#sess').innerHTML = ss.length ? ss.map(s => `<details><summary>${fd(s.debut)} → ${fd(s.fin)} · ${dur(s.duree)} (jeu ${dur(s.jeu)}) · ${esc(s.geo ? [s.geo.ville, s.geo.pays, s.geo.ip].filter(Boolean).join(', ') : '')} · ${esc(s.appareil?.model || s.appareil?.os || '')} · ${(s.ev || []).length} actions${s.arrivee?.ref ? ' · venu de ' + esc(s.arrivee.ref) : ''}</summary>
+      <div class="ev">${(s.ev || []).map(e => `<div>${new Date(e.t).toLocaleTimeString('fr-FR')} · <b>${ACT[e.k] || esc(e.k)}</b> ${esc(Object.entries(e).filter(([k]) => k !== 't' && k !== 'k').map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' '))}</div>`).join('')}</div></details>`).join('') : 'Aucune session enregistrée (pas d\'accord du joueur, ou règles pas encore publiées).';
+  } catch(e){ $('#sess').textContent = 'Lecture impossible : ' + (e.code || e.message); }
+}
+addEventListener('keydown', e => { if (e.key === 'Escape') $('#fiche').classList.remove('on'); });
+</script>
+</body>
+</html>

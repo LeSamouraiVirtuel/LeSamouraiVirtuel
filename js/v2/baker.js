@@ -220,7 +220,7 @@ export async function bakeSkins({DPR, BD, base, only = ''}){
   return {SPR, thumbs};
 }
 /* ---------- Flocon : un modèle par stade d'évolution (accessoires) et par skin (pelage recoloré) ---------- */
-export const PET_SKINS = {classic: null, frost: [.56, .45, 1.55, .2], mint: [.42, .5, 1.25, .1], ruby: [.98, .62, 1.05, .02], gold: [.125, .95, 1.12, .06], aurora: [.76, .55, 1.25, .1], choco: [.06, .45, .7, 0]};
+export const PET_SKINS = {classic: null, frost: [.56, .45, 1.55, .2], mint: [.42, .5, 1.25, .1], ruby: [.98, .62, 1.05, .02], gold: [.125, .95, 1.12, .06], aurora: [.76, .55, 1.25, .1], choco: [.06, .45, .7, 0], star: [.63, .75, .62, .04]};
 const furCache = new Map();
 function furTex(tex, sk){
   const k = tex.uuid + sk; if (furCache.has(k)) return furCache.get(k);

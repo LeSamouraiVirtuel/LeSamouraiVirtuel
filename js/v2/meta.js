@@ -282,6 +282,7 @@ export const PET_SKIN_LIST = [
   {k: 'ruby', name: 'Rubis', stars: 200},
   {k: 'gold', name: 'Doré', event: 'Boutique de l’événement (❄ 400)'},
   {k: 'aurora', name: 'Aurore', event: 'Boutique de l’événement (❄ 700)'},
+  {k: 'star', name: 'Nuit étoilée', welcome: true},
 ];
 export const skinState = s => { const k = (s.skins ||= {pet: 'classic', own: {classic: 1}}); k.house ||= 'classic'; k.elves ||= 'classic'; return k; };
 const skKey = (cat, k) => !cat || cat === 'pet' ? k : cat + ':' + k;
@@ -306,7 +307,7 @@ export const SKIN_LISTS = {house: HOUSE_SKIN_LIST, elves: ELF_OUTFIT_LIST};
 SKIN_LISTS.pet = PET_SKIN_LIST;
 export function buySkin(s, k, cat = 'pet'){
   const d = SKIN_LISTS[cat].find(x => x.k === k); if (!d) return 'Skin inconnu';
-  if (d.event) return 'Ce skin se gagne en événement'; if (d.pack) return 'Ce skin est dans un pack exclusif';
+  if (d.event) return 'Ce skin se gagne en événement'; if (d.pack) return 'Ce skin est dans un pack exclusif'; if (d.welcome) return 'C’est le cadeau de bienvenue des comptes';
   if (hasSkin(s, k, cat)) return null; if ((s.stars || 0) < d.stars) return {stars: d.stars};
   s.stars -= d.stars; ownSkin(s, cat, k); return null;
 }
@@ -321,3 +322,10 @@ export function featuredPack(t = Date.now()){
   return {k: ks[((id % 3) + 3) % 3], end: Date.UTC(2026, 0, 5) + (id + 1) * 7 * 864e5};
 }
 export const packOwned = (s, k) => PACKS[k].skins.every(([c, sk]) => hasSkin(s, sk, c));
+
+/* ===================== BONUS DE BIENVENUE (une fois par compte) =====================
+   Donné quand on crée ou relie un compte. Il est lié au COMPTE (champ « welcome » du document Firestore, que les règles
+   empêchent de remettre à faux), pas à l'appareil : impossible de le toucher deux fois avec le même compte. */
+export const WELCOME = {stars: 150, coins: 5000, parcel: 2};
+export const WELCOME_TXT = '150 étoiles, 5 000 pièces, 2 colis et le pelage exclusif « Nuit étoilée » pour Flocon';
+export const welcomeLeft = s => !s.welcomeGot;

@@ -9,6 +9,8 @@ import {openMinigame, GAMES} from '../minigames.js';
 let b3p = null; const B3 = () => (b3p ||= import('../battle3d.js'));
 import {portrait as villainPortrait} from '../villains.js';
 import * as ACC from '../account.js';
+import * as TR from '../track.js';
+import {LEGAL_V, ageMin} from '../legal.js';
 import * as T from './town.js';
 import * as M from './meta.js';
 
@@ -983,8 +985,8 @@ function closeSeeds(){}
 
 /* ---------- panneaux ---------- */
 let panel = null, panelArg = null, panelHtml = '', selOrder = 0;
-function openPanel(name, arg){ if (name !== 'craft'){ fromOrder = false; wantToy = ''; } closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
-function closePanel(){ const was = panel; panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
+function openPanel(name, arg){ TR.ev('ecran', {n: name, ...(typeof arg === 'string' ? {a: arg} : {})}); if (name !== 'craft'){ fromOrder = false; wantToy = ''; } closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
+function closePanel(){ const was = panel; if (was === 'account' && welcomeWait){ const f = welcomeWait; welcomeWait = null; setTimeout(f, 300); } panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
 const hd = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
 const need = req => Object.entries(req || {}).map(([k, n]) => `<span class="need ${haveOf(k) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${fmt(haveOf(k))}/${fmt(n)}</b></span>`).join('');
 const costChips = req => Object.entries(req || {}).map(([k, n]) => `<span class="chip ${haveOf(k) < n ? 'bad' : ''}">${k === 'stars' ? '<i class="i star"></i>' : icon(k)}${fmt(n)}</span>`).join('');
@@ -1028,7 +1030,7 @@ function renderPanel(){
     const bonus = [x.rod ? `Canne niv. ${x.rod}` : '', x.bait > 0 ? `Appâts dorés : ${x.bait} lancers` : '', x.charm > now() ? `Porte-bonheur : <b data-until="${x.charm}"></b>` : '', x.net ? `${x.net} filet${x.net > 1 ? 's' : ''}` : ''].filter(Boolean);
     h = hd(`Carnet : ${got} / ${T.FISH.length} espèces`, 'Pêche sur glace') + `<div class="fishtop"><button class="btn green wide big" data-a="fishcast"><span class="costs">${costChips(c)}</span>Lancer la ligne</button>
         <p class="meta">Attends la vraie touche, ferre, puis garde la tension dans le <b style="color:#2fae48">vert</b> : maintiens pour remonter, relâche quand il tire.</p></div>
-      <h3>Chances de chaque prise</h3><div class="fodds">${od.map((v, r) => `<div class="fo" style="--rc:${T.RARITY[r].c}"><b>${String(v).replace('.', ',')} %</b><small>${T.RARITY[r].name}${v !== base[r] && r ? ` <em>(base ${base[r]} %)</em>` : ''}</small></div>`).join('')}</div>
+      <h3>Chances de chaque prise ${oddsBtn('peche')}</h3><div class="fodds">${od.map((v, r) => `<div class="fo" style="--rc:${T.RARITY[r].c}"><b>${String(v).replace('.', ',')} %</b><small>${T.RARITY[r].name}${v !== base[r] && r ? ` <em>(base ${base[r]} %)</em>` : ''}</small></div>`).join('')}</div>
       <p class="meta">Plafonds avec bonus : rare ${T.FISH_CAP[1]} %, épique ${T.FISH_CAP[2]} %, légendaire ${T.FISH_CAP[3]} % (jamais plus du double).</p>
       <h3>Garanties</h3><div class="fpity">${[1, 2, 3].map(r => `<div><small>${T.RARITY[r].name} ou mieux</small><div class="bar"><i style="width:${(1 - pity.left[r] / (T.FISH_PITY[r] - 1)) * 100}%;background:${T.RARITY[r].c}"></i></div><b>${pity.left[r] ? `dans ${pity.left[r]} prise${pity.left[r] > 1 ? 's' : ''} au plus` : 'assuré à la prochaine prise !'}</b></div>`).join('')}</div>
       ${bonus.length ? `<p class="fbon">Actif : ${bonus.join(' · ')}</p>` : ''}
@@ -1048,7 +1050,7 @@ function renderPanel(){
         <h3>Le nourrir</h3><div class="petfood">${T.petFoods(S).map(f => `<button class="pf ${f.k === 'fav' ? 'fav' : ''}" data-a="petfeed" data-k="${f.k}">${f.k === 'fav' ? `<span class="tag">Préféré du jour</span>` : ''}<span class="costs">${costChips(f.cost)}</span><b>+${fmt(f.xp)} XP</b></button>`).join('')}</div>
         <h3>Évolution</h3><div class="petevo">${T.PET_STAGES.map(([l, n], k) => `<div class="pe ${p.lv >= l ? 'on' : ''} ${T.petStage(p.lv) === k ? 'cur' : ''}"><img src="${petImg(k)}" alt=""><b>${n}</b><small>${p.lv >= l ? (T.petStage(p.lv) === k ? 'Maintenant' : '✓') : `Niv. ${l}`}</small></div>`).join('')}</div>
         <h3>Apparence</h3><div class="petskins">${M.PET_SKIN_LIST.map(d => { const own = M.hasSkin(S, d.k), wear = M.skinState(S).pet === d.k;
-          return `<div class="ps ${wear ? 'wear' : ''} ${own ? '' : 'lockd'}"><img src="${petImg(undefined, d.k)}" alt=""><b>${d.name}</b>${wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-k="${d.k}">Porter</button>` : d.event ? `<small class="ev">❄ Événement</small>` : `<button class="btn gold sm" data-a="skinbuy" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`}</div>`; }).join('')}</div>
+          return `<div class="ps ${wear ? 'wear' : ''} ${own ? '' : 'lockd'}"><img src="${petImg(undefined, d.k)}" alt=""><b>${d.name}</b>${wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-k="${d.k}">Porter</button>` : d.welcome ? `<small class="ev">🎁 Bienvenue</small>` : d.event ? `<small class="ev">❄ Événement</small>` : `<button class="btn gold sm" data-a="skinbuy" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`}</div>`; }).join('')}</div>
         <p class="meta">Les skins Doré et Aurore se gagnent dans la boutique de l’événement de la semaine.</p>`; }
   }
   else if (panel === 'lore'){
@@ -1085,7 +1087,7 @@ function renderPanel(){
   else if (panel === 'account'){
     const u = ACC.current(), pv = ACC.providers();
     if (!ACC.ready()) h = hd('', 'Mon compte') + '<p class="help">La connexion (Google ou e-mail) arrive très bientôt. En attendant, ton village est gardé sur ce téléphone : ne supprime pas l\'app.</p>';
-    else if (!u) h = hd('Garde ton village pour toujours', 'Mon compte') + `${accErr ? `<div class="accerr">${accErr}</div>` : ''}<p class="help">Connecte-toi : ton village est sauvegardé en ligne et tu le retrouves sur n'importe quel téléphone.</p>
+    else if (!u) h = hd('Garde ton village pour toujours', 'Mon compte') + `${accErr ? `<div class="accerr">${accErr}</div>` : ''}<p class="help">Connecte-toi : ton village est sauvegardé en ligne et tu le retrouves sur n'importe quel téléphone.</p>${M.welcomeLeft(S) ? `<div class="wbonus"><span>🎁</span><div><b>Bonus de bienvenue</b><small>${M.WELCOME_TXT}.</small></div></div>` : ''}
       ${ACC.googleUnavailable() ? '<p class="meta accnote">Sur iPhone, dans l’app de l’écran d’accueil, Google ne peut pas s’ouvrir : crée ton compte avec ton e-mail ci-dessous. Tu pourras relier Google plus tard depuis Safari (Mon compte → Relier).</p>' : '<button class="btn wide gbtn" data-a="accgoogle"><span class="g">G</span>Continuer avec Google</button>'}
       <h3>Ou avec ton e-mail</h3><div class="accform"><input id="accname" placeholder="Ton prénom (pour créer un compte)" autocomplete="nickname"><input id="accmail" type="email" placeholder="E-mail" autocomplete="email"><input id="accpass" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password"></div>
       <div class="savebtns"><button class="btn green" data-a="acclogin">Se connecter</button><button class="btn blue" data-a="accsignup">Créer un compte</button></div>
@@ -1135,7 +1137,7 @@ function renderPanel(){
       h = hd(`Étage ${M.floor} · record ${M.best || M.floor}`, 'Grotte aux cristaux') + `<div class="minebar"><span class="picks"><i class="pk"></i><b>${M.picks} / ${max}</b></span><small>${next ? `+1 pioche dans <b data-until="${next}"></b>` : 'Pioches au maximum'}</small>${M.picks < max ? `<button class="btn gold sm" data-a="refill">Remplir <i class="i star"></i>${T.PICK_REFILL}</button>` : ''}</div>
         <div class="mgrid f${Math.min(5, Math.ceil(M.floor / 10))}">${M.cells.map((c, i) => c.open ? `<div class="mc open k-${c.k}">${cellIcon(c)}</div>` : `<button class="mc" data-a="dig" data-i="${i}" aria-label="Creuser"></button>`).join('')}</div>
         ${M.stairs ? `<button class="btn green wide" data-a="down">Descendre à l'étage ${M.floor + 1}</button>` : '<p class="meta">Chaque case coûte une pioche. Trouve l’<b>escalier</b> pour descendre : plus profond, plus de cristaux, de lingots et de colis rares.</p>'}
-        <div class="acts"><button class="btn blue sm" data-a="bldinfo">Améliorer la grotte (niv. ${o.lv})</button></div>`;
+        <div class="acts wrap2"><button class="btn blue sm" data-a="bldinfo">Améliorer la grotte (niv. ${o.lv})</button>${oddsBtn('grotte')}</div>`;
     }
   }
   else if (panel === 'exp'){
@@ -1147,7 +1149,7 @@ function renderPanel(){
       return `<div class="dest ${lock ? 'locked' : ''}"><div class="dt"><b>${d.name}</b><small>${fmtTime(d.time * T.deerSpeed(S, now()) / 1000)} · ${d.n} colis</small></div><div class="odds">${d.odds.map((p, r) => p ? `<i style="flex:${p};background:${T.RARITY[r].c}" title="${T.RARITY[r].name} ${p} %"></i>` : '').join('')}</div><div class="oddl">${d.odds.map((p, r) => p ? `<span style="color:${T.RARITY[r].c}">${T.RARITY[r].name} ${p} %</span>` : '').join('')}</div>
         ${lock ? `<span class="why">Écurie niv. ${d.lv}</span>` : `<div class="acts"><span class="costs">${costChips(T.expCost(S, d))}</span><button class="btn green sm" data-a="expgo" data-k="${d.k}" ${why && why !== 'Pas assez de biscuits pour les rennes' ? 'disabled' : ''}>Partir</button></div>`}</div>`; }).join('')}</div>
       <p class="meta">Les rennes rapportent des <b>colis mystère</b> : plus la destination est lointaine, plus les colis rares sont fréquents.</p>
-      <div class="acts wrap2"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Fiche de l'écurie</button></div>`;
+      <div class="acts wrap2"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Fiche de l'écurie</button>${oddsBtn('exped')}</div>`;
   }
   else if (panel === 'shop'){
     const tab = panelArg || 'offers', tabs = [['offers', 'Offres'], ['skins', 'Skins'], ['stars', 'Étoiles'], ['res', '<span class="tl">Ressources</span><span class="ts">Ress.</span>'], ['chests', 'Coffres']];
@@ -1166,8 +1168,8 @@ function renderPanel(){
       <h3>Packs exclusifs</h3>${Object.keys(M.PACKS).map(k => packCard(k)).join('')}`;
     if (tab === 'stars') h += `<p class="help">Les étoiles d'or terminent un chantier tout de suite, engagent des bâtisseurs, achètent des ressources et des coffres.</p><div class="packs">${['p1', 'p2', 'p3', 'p4', 'p5'].map(k => { const p = M.IAP[k]; return `<button class="pack" data-a="iap" data-k="${k}">${p.tag ? `<span class="ptag">${p.tag}</span>` : ''}<i class="i star"></i><b>${fmt(p.give.stars)}</b><small>${p.name}</small><span class="btn green sm">${p.price}</span></button>`; }).join('')}</div>`;
     if (tab === 'res') h += `<p class="help">Il te manque quelque chose ? Achète-le en étoiles d'or. Plus le paquet est gros, moins c'est cher à l'unité.</p>${['wood', 'cookies', 'fabric', 'coins', 'ice', 'gold'].map(k => `<div class="rshop"><div class="rsh">${resImg(k)}<b>${RINFO[k].name}</b><small>${qty(k)}</small></div><div class="rpacks">${M.resPacks(S, k).map((p, i) => `<button class="rpack" data-a="rbuy" data-k="${k}" data-i="${i}" ${p.n ? '' : 'disabled'}><small>${p.name}</small><b>${p.n ? '+' + fmt(p.n) : 'Stock plein'}</b>${p.n ? `<span><i class="i star"></i>${p.stars}</span>` : ''}</button>`).join('')}</div></div>`).join('')}`;
-    if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture.</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
-    h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p><button class="btn blue wide" data-a="restoreiap">Restaurer mes achats</button><p class="meta"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
+    if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture. ${oddsBtn('colis')}</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
+    h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p><button class="btn blue wide" data-a="restoreiap">Restaurer mes achats</button><p class="meta">${oddsBtn('all')} <a href="cgu.html" target="_blank" rel="noopener">Conditions</a> · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
   }
   else if (panel === 'event'){
     const E = M.eventState(S), top = M.EV_STEPS[M.EV_STEPS.length - 1], next = M.EV_STEPS.find(p => p > E.pts);
@@ -1247,24 +1249,31 @@ function renderPanel(){
     const A = M.auction(S);
     h = hd(`${A.lots.length} lot${A.lots.length > 1 ? 's' : ''} à vendre`, 'Salle des ventes') + `<p class="help">Des rivaux veulent les mêmes lots. Tu ne vois qu'une partie du contenu : l'estimation peut mentir ! Paie l'entrée, surenchéris, puis découvre ce que tu as gagné.</p>
       <div class="lots">${A.lots.map((l, i) => lotCard(l, i)).join('') || '<p class="meta">Tous les lots sont partis.</p>'}</div>${A.next ? `<p class="meta">Nouveau lot dans <b data-until="${A.next}"></b></p>` : ''}
-      <button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
+      <div class="acts">${oddsBtn('ventes')}</div><button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
   }
   else if (panel === 'profile'){
-    const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Améliorations', S.cnt.upgrade || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Record de la grotte', 'étage ' + (S.mine?.best || 0)], ['Illuminations', 'niv. ' + T.lightsLv(S)], ['Camps de trolls vaincus', (S.camps?.at || 0)], ['Flocon, le renne magique', S.pet ? 'niv. ' + S.pet.lv : '—'], ['Espèces pêchées', Object.keys(S.fish || {}).length + ' / ' + T.FISH.length], ['Trouvailles du musée', T.RELICS.filter(x => (S.relics || {})[x.k]).length + ' / ' + T.RELICS.length], ['Succès', M.ACH.reduce((a, x) => a + (S.ach?.[x.k] || 0), 0) + ' / ' + M.ACH.length * 3 + ' ★']];
-    h = hd(M.titleOf(S.lvl), S.name || 'Mon village') + `<div class="prof"><img src="${portrait}" alt=""><div><b>Niveau ${S.lvl}</b><small>Maison du Père Noël niv. ${T.hqLv(S)}</small><button class="btn blue sm" data-a="rename">Renommer le village</button></div></div>
-      <div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div>
+    const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Camps de trolls vaincus', (S.camps?.at || 0)], ['Espèces pêchées', Object.keys(S.fish || {}).length + ' / ' + T.FISH.length], ['Trouvailles du musée', T.RELICS.filter(x => (S.relics || {})[x.k]).length + ' / ' + T.RELICS.length]];
+    const u = ACC.ready() && ACC.current();
+    h = hd(M.titleOf(S.lvl), S.name || 'Mon village') + `<h3>Mon village</h3><div class="prof"><img src="${portrait}" alt=""><div><b>Niveau ${S.lvl}</b><small>Maison du Père Noël niv. ${T.hqLv(S)}</small><button class="btn blue sm" data-a="rename">Renommer</button></div></div>
+      <details class="pdet"><summary>Mes exploits</summary><div class="mlist">${st.map(([l, v]) => `<div class="mis"><b>${l}</b><span class="pts">${typeof v === 'number' ? fmt(v) : v}</span></div>`).join('')}</div></details>
+      <h3>Mon compte</h3>${ACC.ready() ? (u ? `<div class="mis acc-ok"><div><b>Village protégé</b><small>${u.email || u.displayName || ''}</small></div><button class="btn blue sm" data-a="account">Gérer</button></div>`
+        : `<div class="guestcard"><b>Ton village n'est que sur cet appareil</b><small>Crée un compte (Google ou e-mail) pour ne jamais le perdre${M.welcomeLeft(S) ? ` et reçois ${M.WELCOME_TXT}` : ''}.</small><button class="btn green wide" data-a="account">Protéger mon village</button></div>`) : '<p class="meta">Les comptes arrivent bientôt.</p>'}
       <h3>Réglages</h3><div class="mlist"><div class="mis"><b>Sons</b><button class="btn ${S.mute ? 'blue' : 'green'} sm" data-a="mute">${S.mute ? 'Coupés' : 'Activés'}</button></div>
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
-      <div class="mis"><div><b>Taille de l'interface</b><small>Boutons et textes plus petits ou plus grands</small></div><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
-      <div class="mis"><div><b>Animations réduites</b><small>Moins de neige et d'effets : économise la batterie</small></div><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Activées' : 'Non'}</button></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
-      <div class="mis"><div><b>Mon compte</b><small>${ACC.current() ? 'Connecté : ' + (ACC.current().email || '') : 'Google ou e-mail : ton village en sécurité'}</small></div><button class="btn green sm" data-a="account">${ACC.current() ? 'Gérer' : 'Se connecter'}</button></div>
-      <div class="mis"><div><b>Sauvegarde</b><small>Pour retrouver ton village sur un autre téléphone</small></div><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
-      ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<div class="mis"><div><b>Dernier souci d'affichage</b><small style="word-break:break-all">${e.slice(0, 160).replace(/</g, '&lt;')}</small></div></div>` : ''; })()}
-      <div class="mis"><b>Version du jeu</b><span class="meta">${GAME_V}</span></div>
-      <div class="mis"><div><b>Diagnostic d'affichage</b><small>Si l'écran est flou : touche, puis envoie une capture</small></div><button class="btn blue sm" data-a="diag">Voir</button></div>
-      <div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Relancer</button></div>
-      <div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div>`;
+      <div class="mis"><b>Taille des boutons</b><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
+      <div class="mis"><b>Moins d'animations</b><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Oui' : 'Non'}</button></div>
+      <div class="mis"><div><b>Aider à améliorer le jeu</b><small>Analyse : appareil, ville approximative et activité (avec un compte)</small></div><button class="btn ${analyseOk() ? 'green' : 'blue'} sm" data-a="consent">${analyseOk() ? 'Oui' : 'Non'}</button></div></div>
+      <h3>Aide et légal</h3><div class="mlist"><div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Revoir</button></div>
+      <div class="mis"><b>Changer d'appareil sans compte</b><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
+      <div class="mis"><b>Conditions d'utilisation</b><a class="btn blue sm" href="cgu.html" target="_blank" rel="noopener">Lire</a></div>
+      <div class="mis"><b>Confidentialité</b><a class="btn blue sm" href="privacy.html" target="_blank" rel="noopener">Lire</a></div>
+      <div class="mis"><b>Mentions légales</b><a class="btn blue sm" href="mentions.html" target="_blank" rel="noopener">Lire</a></div>
+      <div class="mis"><b>Chances des colis et de la pêche</b><button class="btn blue sm" data-a="odds" data-k="all">Voir</button></div>
+      <div class="mis"><b>Mes choix de confidentialité</b><button class="btn blue sm" data-a="legalagain">Revoir</button></div></div>
+      <details class="pdet pdet-help"><summary>Un problème ?</summary><p class="meta">Si quelque chose ne marche pas, envoie une capture de cet écran.</p>
+        ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<p class="meta" style="word-break:break-all">Dernier souci : ${e.slice(0, 160).replace(/</g, '&lt;')}</p>` : ''; })()}
+        <div class="mlist"><div class="mis"><b>Vérifier l'affichage</b><button class="btn blue sm" data-a="diag">Voir</button></div><div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div><p class="meta">Version ${GAME_V}</p></details>`;
   }
   else if (panel === 'lights'){
     const n = T.lightsLv(S), c = T.lightsCost(n), why = T.lightsBlock(S);
@@ -1398,6 +1407,11 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'aucgo') return aucOpen(+b.dataset.i);
   if (a === 'aucpeek'){ const l = M.auction(S).lots[+b.dataset.i]; if (S.stars < M.AUC_PEEK){ sfx.err(); return openPanel('shop'); } if (l && M.aucPeek(S, l)){ sfx.tap(); save(); } return renderPanel(); }
   if (a === 'aucrefill'){ if (!M.aucRefill(S)){ sfx.err(); return openPanel('shop'); } sfx.level(); save(); return renderPanel(); }
+  if (a === 'consent'){ S.legal ||= {v: LEGAL_V, t: now(), cgu: true};
+    const flip = () => { S.legal = {...S.legal, analyse: !analyseOk(), parent: S.legal.mineur ? true : S.legal.parent, t: now()}; save(); TR.legalProof(S.legal); TR.setConsent(analyseOk() ? 'yes' : 'no'); renderPanel(); };
+    return !analyseOk() && minorNoParent() ? parentGate(flip) : flip(); }
+  if (a === 'odds') return showOdds(b.dataset.k);
+  if (a === 'legalagain'){ closePanel(); S.legal = {...S.legal, v: 'revoir'}; return legalGate(() => {}); }
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
@@ -1687,7 +1701,7 @@ function skinImg(cat, k){
 function skinCard(cat, d){
   const own = M.hasSkin(S, d.k, cat), wear = M.skinState(S)[cat] === d.k;
   const act = wear ? '<span class="tagw">Porté</span>' : own ? `<button class="btn blue sm" data-a="skinwear" data-c="${cat}" data-k="${d.k}">Porter</button>`
-    : d.event ? '<small class="ev">❄ Événement</small>' : d.pack ? `<button class="btn green sm" data-a="pack" data-k="${d.pack}">Pack ${M.PACKS[d.pack].price}</button>`
+    : d.welcome ? '<small class="ev">🎁 Bienvenue</small>' : d.event ? '<small class="ev">❄ Événement</small>' : d.pack ? `<button class="btn green sm" data-a="pack" data-k="${d.pack}">Pack ${M.PACKS[d.pack].price}</button>`
     : `<button class="btn gold sm" data-a="skinbuy" data-c="${cat}" data-k="${d.k}"><i class="i star"></i>${d.stars}</button>`;
   return `<div class="ps ${wear ? 'wear' : ''} ${cat === 'elves' ? 'elf' : ''}">${d.pack && !own ? '<span class="excl">Exclusif</span>' : ''}<img src="${skinImg(cat, d.k)}" alt=""><b>${d.name}</b>${act}</div>`;
 }
@@ -1699,7 +1713,7 @@ function packCard(k, featured = false){
     ${owned ? '<span class="tagw">Acheté ✓</span>' : `<button class="btn green" data-a="pack" data-k="${k}">${P.price}</button>`}</div>`;
 }
 // journal silencieux d'un achat (prix affiché en euros, niveau du joueur, Maison) : lu seulement par le tableau de bord de l'éditeur
-function logIap(k, name, price){ const eur = parseFloat(String(price).replace(',', '.').replace(/[^\d.]/g, '')) || 0; T.logEv(S, 'iap', {k, name, eur, lvl: S.lvl, hq: T.hqLv(S)}); T.logAdd(S, 'eur', eur); T.logAdd(S, 'n_buy', 1); save(); }
+function logIap(k, name, price){ const eur = parseFloat(String(price).replace(',', '.').replace(/[^\d.]/g, '')) || 0; T.logEv(S, 'iap', {k, name, eur, lvl: S.lvl, hq: T.hqLv(S)}); T.logAdd(S, 'eur', eur); T.logAdd(S, 'n_buy', 1); save(); TR.ev('achat', {pack: k, nom: name, eur, niv: S.lvl, maison: T.hqLv(S)}); }
 function buyPack(k){
   const P = M.PACKS[k]; if (!P || M.packOwned(S, k)){ sfx.err(); return toast('Déjà à toi'); }
   const m = $('#modal'); m.className = 'glow rinfo';
@@ -1710,7 +1724,8 @@ function buyPack(k){
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'buy') return;
     S.iap ||= {}; S.iap[k] = (S.iap[k] || 0) + 1; logIap(k, P.name, P.price); for (const [c, s2] of P.skins) M.ownSkin(S, c, s2); closePanel(); save(); bravo(P.give, P.name + ' : apparences débloquées', 'MERCI !'); };
 }
-function buyIap(k){
+function buyIap(k, gated){
+  if (!gated && minorNoParent()) return parentGate(() => buyIap(k, true));
   const p = M.IAP[k]; if (!p) return; S.iap ||= {};
   if (p.once && S.iap[k]){ sfx.err(); return toast('Déjà acheté'); }
   const m = $('#modal'); m.className = 'glow rinfo';
@@ -1824,7 +1839,7 @@ let questFold = false; try { questFold = localStorage.getItem('vdp-qfold') === '
 $('#quest2').addEventListener('click', e => {
   if (e.target.closest('.qfold')){ e.stopPropagation(); questFold = !questFold; try { localStorage.setItem('vdp-qfold', questFold ? '1' : '0'); } catch(_){} sfx.tap(); $('#quest2').classList.toggle('fold', questFold); return; }
   const el = $('#quest2'), r = T.questClaim(S);
-  if (r){ const before = T.chapterOf(S.quest.i - 1), after = T.chapterOf(S.quest.i); bravo(r, 'Tâche terminée'); if (after !== before && T.CHAPTERS[after]) pendingStory = after; questHtml = ''; renderQuest(); }
+  if (r){ const before = T.chapterOf(S.quest.i - 1), after = T.chapterOf(S.quest.i); bravo(r, 'Tâche terminée'); if (after !== before && T.CHAPTERS[after]){ pendingStory = after; setTimeout(guestNudge, 9000); } questHtml = ''; renderQuest(); }
   else { sfx.tap(); const {q} = T.questProgress(S); questGo(q); }
 });
 /** Emmène vers ce que demande la tâche (comme les boutons « Aller » de Township). */
@@ -1886,7 +1901,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 82;
+const GAME_V = 85;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2085,8 +2100,8 @@ function playGame(k){
     icons: {sleigh: ICON.mg_sleigh, gift: ICON.mg_gift, elf: ICON.mg_elf, deer: ICON.mg_deer, gold: ICON.mg_gold},
     sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, tone, best: kk => S.games.best[kk] || 0, setBest: (kk, v) => { S.games.best[kk] = v; save(); },
     chipsHtml: rewardChips, reward: gameReward,
-    grant: (rw, el) => { giveReward(rw, el); T.track(S, 'games'); },
-    onScore: () => {}, onClose: () => { document.body.classList.remove('in-game'); },
+    grant: (rw, el) => { giveReward(rw, el); T.track(S, 'games'); TR.ev('minijeu_gain', {jeu: k, rw}); },
+    onScore: sc => TR.ev('minijeu', {jeu: k, score: sc}), onClose: () => { document.body.classList.remove('in-game'); },
   });
 }
 
@@ -2120,17 +2135,25 @@ async function accAction(a){
 }
 // cloudOk : on n'écrit en ligne qu'une fois sûr de ne pas écraser un village plus avancé (nouvel appareil, autre compte…)
 let cloudOk = false;
-async function cloudPush(say, force){ if (!ACC.current() || saveLock || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); await ACC.cloudSave(S); if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
+// sans accord d'analyse, la sauvegarde en ligne ne garde du journal que les achats (nécessaires) : ni temps de jeu, ni chrono, ni actions
+function cloudCopy(){ if (analyseOk()) return S; const L = S.log || {ev: [], agg: {}};
+  return {...S, play: 0, race: undefined, log: {ev: L.ev.filter(e => e[1] === 'iap'), agg: {eur: L.agg.eur || 0, n_buy: L.agg.n_buy || 0}}}; }
+async function cloudPush(say, force){ if (!ACC.current() || saveLock || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); const W = welcomeDone || S.welcomeGot === ACC.current().uid;
+    const C = cloudCopy(), X = {...(W ? {welcome: true} : {}), ...(S.legal ? {legal: S.legal} : {})};
+    try { await ACC.cloudSave(C, X); }
+    catch(e){ if (!W || !/permission/i.test(e?.code || e?.message || '')) throw e; await ACC.cloudSave(C); } /* règles pas encore à jour : le bonus reste noté dans la sauvegarde */
+    if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
 if (ACC.ready()){
   ACC.init().then(() => ACC.onChange(async u => {
     if (!u){ cloudOk = false; return; }
     let c = null; try { c = await ACC.cloudLoad(); } catch(e){ toast('Sauvegarde en ligne injoignable pour le moment'); return; }
-    const cs = c?.save ? JSON.parse(c.save) : null;
+    const cs = c?.save ? JSON.parse(c.save) : null; welcomeDone = c?.welcome === true || cs?.welcomeGot === u.uid || S.welcomeGot === u.uid; const needW = !welcomeDone;
+    if (needW && !cs){ grantWelcome(S, u.uid); welcomeDone = true; save(); welcomeBravo(); }
     if (!cs){ cloudOk = true; await cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Ton village est maintenant sauvegardé en ligne.`); if (panel) renderPanel(); return; }
     const sameish = (cs.lvl || 0) === (S.lvl || 0) && Math.abs((c.t || 0) - (S.cloudT || 0)) < 120e3;
-    if (sameish || ((cs.lvl || 0) <= (S.lvl || 0) && (S.cloudT || 0) >= (c.t || 0) - 60e3)){ cloudOk = true; cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Village synchronisé.`); if (panel) renderPanel(); return; }
+    if (sameish || ((cs.lvl || 0) <= (S.lvl || 0) && (S.cloudT || 0) >= (c.t || 0) - 60e3)){ if (needW){ grantWelcome(S, u.uid); welcomeDone = true; save(); welcomeBravo(); } cloudOk = true; cloudPush(); toast(`Bonjour ${u.displayName || ''} ! Village synchronisé.`); if (panel) renderPanel(); return; }
     // deux villages différents : c'est le joueur qui choisit, rien n'est écrasé sans son accord
-    chooseVillage(cs, c.t, u);
+    chooseVillage(cs, c.t, u, needW);
   })).catch(() => {});
   setInterval(() => cloudPush(), 60e3); document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
 }
@@ -2153,7 +2176,48 @@ function restoreIap(){
   let n = 0; for (const k of Object.keys(S.iap || {})){ if (M.PACKS[k]) for (const [c, sk] of M.PACKS[k].skins) if (!M.hasSkin(S, sk, c)){ M.ownSkin(S, c, sk, false); n++; } if (k === 'pass' && !M.pass(S).premium){ M.pass(S).premium = true; n++; } }
   save(); sfx.collect(); toast(n ? `${n} achat${n > 1 ? 's' : ''} restauré${n > 1 ? 's' : ''}` : 'Tous tes achats sont déjà dans ton village.');
 }
-function chooseVillage(cs, t, u){
+/* ---------- écran d'accueil : Google, e-mail ou invité (un joueur déjà connecté passe directement) ---------- */
+let welcomeWait = null;
+function gateWelcome(go){
+  if (!ACC.ready() || S.guest || T.localTooNew) return go();
+  ACC.init().catch(() => {}); ACC.authReady.then(u => { if (u || ACC.current()) return go(); showWelcome(go); });
+}
+function showWelcome(go){
+  const w = document.createElement('div'); w.id = 'welcome';
+  w.innerHTML = `<div class="wcard"><img class="wlogo" src="${portrait}" alt=""><h1>Le Village du Pôle</h1><p>Garde ton village pour toujours et retrouve-le sur tous tes appareils.</p>
+    <div class="wbonus"><span>🎁</span><div><b>Bonus de bienvenue</b><small>${M.WELCOME_TXT}, en créant ton compte.</small></div></div>
+    ${ACC.googleUnavailable() ? '<p class="meta wnote">Sur iPhone, dans l’app de l’écran d’accueil, utilise ton e-mail.</p>' : '<button class="btn wide gbtn" data-w="google"><span class="g">G</span>Continuer avec Google</button>'}
+    <button class="btn blue wide" data-w="mail">Créer un compte / Se connecter par e&#8209;mail</button>
+    <div class="werr" hidden></div>
+    <button class="wguest" data-w="guest">Jouer en invité</button><small class="wfine">En invité, ton village reste sur cet appareil.<br><a href="cgu.html" target="_blank" rel="noopener">Conditions</a> · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="mentions.html" target="_blank" rel="noopener">Mentions légales</a></small></div>`;
+  document.body.appendChild(w);
+  const done = () => { w.remove(); go(); };
+  const off = ACC.onChange(u => { if (u && w.isConnected) done(); });
+  w.addEventListener('click', e => { const b = e.target.closest('[data-w]'); if (!b) return; sfx.tap();
+    if (b.dataset.w === 'guest'){ S.guest = 1; save(); return done(); }
+    if (b.dataset.w === 'mail'){ w.remove(); welcomeWait = go; return openPanel('account'); }
+    if (b.dataset.w === 'google') ACC.signInGoogle().catch(err => { const box = w.querySelector('.werr'); box.hidden = false; box.innerHTML = ACC.friendlyError(err); sfx.err(); });
+  });
+}
+// rappel discret aux invités : dans le profil, et après les grandes étapes (au plus une fois par jour)
+function guestNudge(){
+  if (!ACC.ready() || ACC.current() || (S.nudgeT && now() - S.nudgeT < 20 * 3600e3) || document.getElementById('nudge')) return;
+  S.nudgeT = now(); save();
+  const n = document.createElement('div'); n.id = 'nudge';
+  n.innerHTML = `<div><b>Protège ton village</b><small>Crée un compte pour ne jamais le perdre${M.welcomeLeft(S) ? ' · 🎁 bonus de bienvenue' : ''}</small></div><button class="btn green sm">Créer</button><button class="nx" aria-label="Plus tard">✕</button>`;
+  document.body.appendChild(n);
+  n.querySelector('.btn').onclick = () => { n.remove(); openPanel('account'); }; n.querySelector('.nx').onclick = () => n.remove(); setTimeout(() => n.remove(), 12000);
+}
+// bonus de bienvenue : une fois par compte (champ « welcome » du document en ligne), donné au village qui reste actif
+let welcomeDone = false;
+function grantWelcome(v, uid){
+  v.stars = (v.stars || 0) + M.WELCOME.stars; v.coins = (v.coins || 0) + M.WELCOME.coins; (v.parcels ||= []).push(1, 1);
+  v.skins ||= {pet: 'classic', own: {classic: 1}}; v.skins.own.star = 1; v.skins.pet = 'star'; v.welcomeGot = uid || 1;
+}
+// attendre que le joueur soit libre : ni cinématique, ni tutoriel, ni fenêtre ouverte
+function whenFree(fn){ const t = setInterval(() => { if (calm() && !tuto.active() && !document.body.classList.contains('cine') && !document.getElementById('welcome')){ clearInterval(t); fn(); } }, 800); }
+function welcomeBravo(){ whenFree(() => bravo({stars: M.WELCOME.stars, coins: M.WELCOME.coins}, 'Bonus de bienvenue : + 2 colis et le pelage « Nuit étoilée » pour Flocon !', 'BIENVENUE !')); }
+function chooseVillage(cs, t, u, needW){
   const m = $('#modal'); m.className = 'glow rinfo';
   const when = t ? new Date(t).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '';
   m.querySelector('.mcard').innerHTML = `<small>Compte ${u.email || u.displayName || ''}</small><h2 class="stroke">Quel village garder ?</h2>
@@ -2162,9 +2226,112 @@ function chooseVillage(cs, t, u){
     <div class="acts" style="flex-direction:column"><button class="btn green wide" data-m="cloud">Reprendre le village du compte</button><button class="btn blue wide" data-m="local">Garder celui de cet appareil (remplace le compte)</button></div>`;
   m.hidden = false;
   m.onclick = async e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true;
-    if (b.dataset.m === 'cloud'){ if (!T.replaceTown({...cs, cloudT: t})) return toast('Ce village vient d’une version plus récente : recharge le jeu pour le récupérer.'); saveLock = true; location.reload(); return; }
-    cloudOk = true; await cloudPush(true, true); };
+    if (b.dataset.m === 'cloud'){ if (needW){ grantWelcome(cs, u.uid); try { sessionStorage.setItem('vdp-welcome', 1); } catch(_){} } if (!T.replaceTown({...cs, cloudT: t})) return toast('Ce village vient d’une version plus récente : recharge le jeu pour le récupérer.'); saveLock = true; location.reload(); return; }
+    if (needW){ grantWelcome(S, u.uid); welcomeDone = true; save(); welcomeBravo(); } cloudOk = true; await cloudPush(true, true); };
 }
+
+/* ---------- SUIVI SILENCIEUX (js/track.js) : rien n'est affiché au joueur ---------- */
+// dernière action touchée : sert à dire à quoi ont servi les étoiles dépensées, et le temps d'attente évité
+let lastAct = {a: '', k: '', t: 0, saved: 0, panel: ''};
+document.addEventListener('click', e => { const b = e.target.closest('[data-a],[data-m],[data-x]'); if (!b) return;
+  const a = b.dataset.a || (b.dataset.m ? 'm:' + b.dataset.m : 'x:' + b.dataset.x); let left = 0;
+  try { if (a === 'jobspeed') left = panelArg.job.end - now(); else if (a === 'speed') left = workEnd(panelArg) - now(); else if (a === 'tspeed') left = S.train.back - now();
+    else if (a === 'rsspeed') left = S.rsRun.end - now(); else if (a === 'expspeed') left = S.exps[+b.dataset.i].end - now(); } catch(_){}
+  lastAct = {a, k: b.dataset.k || '', t: now(), saved: Math.max(0, Math.round(left / 1000)) || 0, panel: panel || ''};
+}, true);
+const RACE_LV = new Set([5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100]), RACE_HQ = new Set([3, 5, 10, 15, 20, 25]);
+const trInfo = () => ({village: S.name || '', creeLe: S.created || 0, niveau: S.lvl || 1, maison: T.hqLv(S), chapitre: T.chapterOf(S.quest?.i || 0),
+  eur: Math.round((S.log?.agg?.eur || 0) * 100) / 100, achats: S.log?.agg?.n_buy || 0, etoilesDepensees: S.log?.agg?.stars_spent || 0,
+  tempsGagne: S.log?.agg?.saved || 0, jeuTotal: S.play || 0, inviteAvant: !!S.wasGuest, lvl: S.lvl || 1});
+function race(key){ S.race ||= {}; if (S.race[key]) return; const t = now(); S.race[key] = t; T.logEv(S, 'race', {key});
+  TR.milestone(key, {eur: trInfo().eur, achats: trInfo().achats, niv: S.lvl, jeu: S.play || 0, depuisCreation: t - (S.created || t)}); }
+let wSt = null, wLv = 0, wHq = 0, wCh = -1;
+setInterval(() => {
+  if (!document.hidden) S.play = (S.play || 0) + 1;
+  if (wSt === null) wSt = S.stars;
+  if (S.stars < wSt){ const n = wSt - S.stars, fresh = now() - lastAct.t < 20e3;
+    const d = {quoi: fresh ? lastAct.a + (lastAct.k ? ':' + lastAct.k : '') : '?', ecran: fresh ? lastAct.panel : '', n, niv: S.lvl, tempsGagne: fresh ? lastAct.saved : 0};
+    T.logAdd(S, 'stars_spent', n); if (d.tempsGagne) T.logAdd(S, 'saved', d.tempsGagne); if (!d.quoi.startsWith('x:')) T.logEv(S, 'star', d);
+    TR.ev('etoiles', d); if (fresh) lastAct.saved = 0; }
+  wSt = S.stars;
+  if (S.lvl !== wLv){ if (wLv && S.lvl > wLv){ T.logEv(S, 'lvl', {L: S.lvl, jeu: S.play}); TR.ev('niveau', {L: S.lvl}); } if (RACE_LV.has(S.lvl)) race('niv' + S.lvl); wLv = S.lvl; }
+  const h = T.hqLv(S); if (h !== wHq){ if (wHq && h > wHq){ T.logEv(S, 'hq', {L: h}); TR.ev('maison', {L: h}); } if (RACE_HQ.has(h)) race('maison' + h); if (h >= T.BUILDINGS.santa.max) race('sommet'); wHq = h; }
+  const ch = T.chapterOf(S.quest?.i || 0); if (ch !== wCh){ if (wCh >= 0 && ch > wCh){ T.logEv(S, 'chap', {ch}); TR.ev('chapitre', {ch}); } if (ch > 0) race('chapitre' + ch); wCh = ch; }
+}, 1000);
+// accord du joueur pour l'analyse (fenêtre « Conditions et confidentialité ») ; un mineur sous l'âge légal a besoin d'un parent
+const analyseOk = () => !!(S.legal?.analyse && (!S.legal.mineur || S.legal.parent));
+TR.setConsentSource(analyseOk);
+const minorNoParent = () => !!(S.legal?.mineur && !S.legal.parent);
+// à la connexion : fiche du joueur (nécessaire) + (avec son accord) sessions, appareil, ville et actions
+function trackStart(u){
+  if (S.wasGuest == null){ const made = Date.parse(u.metadata?.creationTime || '') || now(); S.wasGuest = (S.guest || (S.created && S.created < made - 5 * 60e3)) ? 1 : 0; save(); }
+  const i = trInfo(), need = {village: i.village, creeLe: i.creeLe, niveau: i.niveau, maison: i.maison, eur: i.eur, achats: i.achats, inviteAvant: i.inviteAvant, legal: S.legal || null};
+  TR.begin(u, need, trInfo).then(() => { if (S.legal) TR.legalProof(S.legal); if (analyseOk()){ for (const [k, t] of Object.entries(S.race || {})) TR.milestone(k, {t}); TR.ev('connexion', {}); } });
+}
+/* ---------- CONDITIONS ET CONFIDENTIALITÉ : premier lancement, et à chaque nouvelle version des textes ---------- */
+function legalGate(go){
+  if (S.legal?.v === LEGAL_V) return go();
+  const prev = S.legal, Y = new Date().getFullYear(), seuil = ageMin();
+  const w = document.createElement('div'); w.id = 'legal';
+  w.innerHTML = `<div class="wcard lcard"><h2>${prev ? 'Nos conditions ont changé' : 'Conditions et confidentialité'}</h2>
+    <p>Pour jouer, accepte les <a href="cgu.html" target="_blank" rel="noopener">Conditions d'utilisation</a>. Lis aussi la <a href="privacy.html" target="_blank" rel="noopener">Politique de confidentialité</a> et les <a href="mentions.html" target="_blank" rel="noopener">Mentions légales</a>.</p>
+    <label class="lage"><b>Ton année de naissance</b><select id="lyear"><option value="">Choisir…</option>${Array.from({length: 95}, (_, k) => Y - 3 - k).map(y => `<option ${prev?.annee === y ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
+    <div class="lbox"><b>Nécessaire</b> <span class="lon">toujours actif</span><small>Ta sauvegarde, ton compte si tu en crées un (e-mail, nom), tes achats, et un journal de sécurité (adresse IP des connexions, gardé 6 mois).</small></div>
+    <div class="lbox"><b>Analyse</b> <span class="meta">au choix</span><small>Ton appareil, ta ville approximative, ce que tu fais dans le jeu et ton temps de jeu, pour améliorer le jeu. Seulement avec un compte. Tu peux changer d'avis dans Profil → Réglages.</small>
+      <label class="lpar" hidden><input type="checkbox" id="lpar"> Un parent ou tuteur a lu ces informations et est d'accord</label>
+      <div class="lch"><button class="btn blue" data-l="non">Refuser</button><button class="btn blue" data-l="oui">Accepter</button></div></div>
+    <p class="meta">Pas de publicité dans le jeu.</p>
+    <p class="lerr" hidden></p>
+    <button class="btn green wide" data-l="go">J'accepte les conditions et je joue</button></div>`;
+  document.body.appendChild(w);
+  let choix = null; const yr = w.querySelector('#lyear'), par = w.querySelector('.lpar'), err = w.querySelector('.lerr');
+  const age = () => yr.value ? Y - +yr.value : null;
+  const upd = () => { const a = age(), minor = a != null && a < seuil; par.hidden = !minor;
+    w.querySelectorAll('[data-l=oui],[data-l=non]').forEach(b => b.classList.toggle('on', b.dataset.l === choix)); };
+  yr.onchange = upd; upd();
+  w.addEventListener('click', e => { const b = e.target.closest('[data-l]'); if (!b) return; sfx.tap();
+    if (b.dataset.l === 'oui' || b.dataset.l === 'non'){ choix = b.dataset.l; err.hidden = true; return upd(); }
+    const a = age(); if (a == null){ err.hidden = false; err.textContent = 'Choisis ton année de naissance.'; return; }
+    if (!choix){ err.hidden = false; err.textContent = 'Choisis « Accepter » ou « Refuser » pour l’analyse.'; return; }
+    const minor = a < seuil, parent = minor && w.querySelector('#lpar').checked;
+    if (minor && choix === 'oui' && !parent){ err.hidden = false; err.textContent = `Moins de ${seuil} ans : il faut l'accord d'un parent pour l'analyse. Coche la case avec lui, ou choisis « Refuser ».`; return; }
+    S.legal = {v: LEGAL_V, t: now(), cgu: true, analyse: choix === 'oui', annee: +yr.value, mineur: minor, seuil, parent};
+    save(); TR.legalProof(S.legal); TR.setConsent(analyseOk() ? 'yes' : 'no'); w.remove(); go();
+  });
+}
+// porte parentale : avant un achat, un joueur sous l'âge légal sans accord parental doit faire répondre un adulte
+function parentGate(ok){
+  if (!minorNoParent()) return ok();
+  const x = 6 + Math.floor(Math.random() * 4), y = 6 + Math.floor(Math.random() * 4), m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Achat</small><h2 class="stroke">Demande à un parent</h2><p>Un adulte doit être d'accord pour cet achat. Combien font ${x} × ${y} ?</p>
+    <input id="pg" inputmode="numeric" autocomplete="off" style="font-size:20px;text-align:center;width:120px;margin:6px auto;display:block"><div class="acts"><button class="btn blue" data-m="no">Annuler</button><button class="btn green" data-m="ok">Valider</button></div>`;
+  m.hidden = false; setTimeout(() => m.querySelector('#pg')?.focus(), 50);
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; if (b.dataset.m === 'ok' && +m.querySelector('#pg').value !== x * y){ sfx.err(); return toast('Ce n’est pas la bonne réponse'); } m.hidden = true; if (b.dataset.m === 'ok') ok(); };
+}
+/* ---------- chances affichées partout où l'on achète du hasard (exigence Apple et Google) ---------- */
+function oddsTables(){
+  const p = n => `${Math.round(n * 10) / 10} %`, rar = o => o.map((n, r) => n ? `<tr><td style="color:${T.RARITY[r].c}"><b>${T.RARITY[r].name}</b></td><td>${p(n)}</td></tr>` : '').join('');
+  const fo = T.fishOdds(S);
+  return {
+    colis: ['Contenu des colis (et des coffres de la boutique)', `<p class="meta">La rareté d'un colis acheté est garantie. Son contenu est tiré à l'ouverture :</p><table class="otab"><tr><th></th><th>Commun</th><th>Rare</th><th>Épique</th><th>Légendaire</th></tr>
+      <tr><td>Pièces + une ressource</td><td>100 %</td><td>100 %</td><td>100 %</td><td>100 %</td></tr><tr><td>Cristaux de glace</td><td>0 %</td><td>100 %</td><td>100 %</td><td>100 %</td></tr>
+      <tr><td>Lingots d'or (dès le niveau 8)</td><td>0 %</td><td>0 %</td><td>100 %</td><td>100 %</td></tr><tr><td>Étoiles d'or</td><td>0 %</td><td>0 %</td><td>8 % (1)</td><td>100 % (1 ou 2)</td></tr>
+      <tr><td>Hache</td><td>0 %</td><td>21 %</td><td>21 %</td><td>21 %</td></tr><tr><td>Scie</td><td>0 %</td><td>14 %</td><td>14 %</td><td>14 %</td></tr></table>`],
+    grotte: ['Grotte aux cristaux : chaque case', `<table class="otab"><tr><th></th><th>Étages 1-2</th><th>Étage 3 et plus</th></tr><tr><td>Cristaux de glace</td><td>40 %</td><td>40 %</td></tr><tr><td>Pièces</td><td>15 %</td><td>15 %</td></tr><tr><td>Ressource</td><td>6 %</td><td>6 %</td></tr>
+      <tr><td>Lingots d'or</td><td>0 %</td><td>11 %</td></tr><tr><td>Colis mystère</td><td>9 %</td><td>0 %</td></tr><tr><td>+2 pioches</td><td>3 %</td><td>1 %</td></tr><tr><td>Rien (roche)</td><td>27 %</td><td>27 %</td></tr></table>
+      <p class="meta">Un escalier est caché sous une des 25 cases de chaque étage. Rareté d'un colis trouvé :</p><table class="otab">${rar([60, 30, 9, 1])}</table>`],
+    ventes: ['Salle des ventes : rareté des lots', `<table class="otab"><tr><th></th><th>Lots qui arrivent seuls</th><th>3 lots achetés avec des étoiles</th></tr>${[0, 1, 2, 3].map(r => `<tr><td style="color:${T.RARITY[r].c}"><b>${T.RARITY[r].name}</b></td><td>${[55, 30, 12, 3][r]} %</td><td>${[50, 32, 14, 4][r]} %</td></tr>`).join('')}</table>`],
+    exped: ['Expéditions des rennes : rareté des colis', `<table class="otab"><tr><th></th>${[0, 1, 2, 3].map(r => `<th style="color:${T.RARITY[r].c}">${T.RARITY[r].name}</th>`).join('')}</tr>${T.EXP_DEST.map(d => `<tr><td>${d.name}</td>${d.odds.map(n => `<td>${n} %</td>`).join('')}</tr>`).join('')}</table>`],
+    peche: ['Pêche : chances à chaque prise', `<table class="otab"><tr><th></th><th>De base</th><th>Pour toi maintenant</th></tr>${[0, 1, 2, 3].map(r => `<tr><td style="color:${T.RARITY[r].c}"><b>${T.RARITY[r].name}</b></td><td>${T.FISH_ODDS[r]} %</td><td>${p(fo[r])}</td></tr>`).join('')}</table>
+      <p class="meta">Garanties : un poisson rare ou mieux au plus tard après ${T.FISH_PITY[1]} prises sans rare, épique ou mieux après ${T.FISH_PITY[2]}, légendaire après ${T.FISH_PITY[3]}. Les bonus (canne, porte-bonheur) ne font jamais plus que doubler une chance, avec un plafond affiché.</p>`],
+  };
+}
+const oddsBtn = k => `<button class="btn blue sm oddsb" data-a="odds" data-k="${k}">Chances</button>`;
+function showOdds(k){ const all = oddsTables(), L = k === 'all' ? Object.values(all) : [all[k]]; const m = $('#modal'); m.className = 'glow rinfo oddsm';
+  m.querySelector('.mcard').innerHTML = `<small>Chances</small>${L.map(([t, h]) => `<h3>${t}</h3>${h}`).join('')}<div class="acts"><button class="btn green" data-m="ok">OK</button></div>`;
+  m.hidden = false; m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; }; }
+if (ACC.ready()) ACC.init().then(() => ACC.onChange(u => { if (u) trackStart(u); else TR.stop(); })).catch(() => {});
+
 /* ---------- sauvegarde transférable ---------- */
 let saveCodeTxt = '';
 async function saveCopy(){
@@ -2199,12 +2366,12 @@ function fishCast(){
   openFishing({
     roll: () => T.fishRoll(S), rod: x.rod, sfx, tone, fishSvg,
     nets: () => x.net, useNet: () => { if (x.net <= 0) return false; x.net--; T.logAdd(S, 'fish_nets_used', 1); save(); return true; },
-    onCatch: (f, {perfect, combo}) => { const r = T.fishCatch(S, f), bonus = perfect ? Math.min(1.5, 1.2 + .1 * (combo - 1)) : 1; if (bonus > 1) r.rw.coins = Math.round(r.rw.coins * bonus);
+    onCatch: (f, {perfect, combo}) => { TR.ev('peche', {ok: 1, r: f.r, poisson: f.name || f.k || '', parfait: !!perfect});const r = T.fishCatch(S, f), bonus = perfect ? Math.min(1.5, 1.2 + .1 * (combo - 1)) : 1; if (bonus > 1) r.rw.coins = Math.round(r.rw.coins * bonus);
       T.logAdd(S, 'fish_r' + f.r, 1); if (perfect) T.logAdd(S, 'fish_perfect', 1);
       if (f.r >= 2 && Math.random() < (f.r === 3 ? .5 : .12)) setTimeout(() => relicFound(f.r), 1500);
       giveReward(r.rw, null); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save();
       return `<div class="costs" style="justify-content:center">${rewardChips(r.rw)}</div>${bonus > 1 ? `<p class="meta">Bonus prise parfaite : pièces ×${bonus.toFixed(1).replace('.', ',')}</p>` : ''}${r.first ? '<p><b>Nouvelle espèce dans le carnet !</b></p>' : ''}`; },
-    onMiss: (f, why) => { T.logAdd(S, 'fish_miss_' + why, 1); save(); return fishOffer(why); },
+    onMiss: (f, why) => { T.logAdd(S, 'fish_miss_' + why, 1); TR.ev('peche', {ok: 0, r: f?.r, pourquoi: why}); save(); return fishOffer(why); },
     canRecast: () => T.has(S, T.baitCost(S)), recast: () => { const c2 = T.baitCost(S); if (!T.has(S, c2)) return false; T.take(S, c2); T.logAdd(S, 'fish_casts', 1); save(); return true; },
     buy: k => fishBuy(k, true),
     onClose: () => { document.body.classList.remove('in-game'); save(); openPanel('fish'); },
@@ -2265,7 +2432,7 @@ function campGo(i){
   B3().then(m => { warmPortraits(); m.openBattle({
     pet: (S.pet?.lv || 0) >= 5, extraHearts: T.petHearts(S), camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, tone, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
-    result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
+    result: ({win, hearts}) => { TR.ev('bataille', {camp: i, gagne: !!win, coeurs: hearts}); if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
       if (first && c.boss) relicFound(Math.min(3, 1 + c.ch)); C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
     grant: (rw, el) => { giveReward(rw, el); if (rw.xp) gainXp(rw.xp, el); },
     onClose: () => { document.body.classList.remove('in-game'); openPanel('camp'); },
@@ -2360,6 +2527,7 @@ function chapterCine(i){
 let lvQueue = [], lvShowing = false;
 function nextLevelUp(){ const L = lvQueue.shift(); if (L) levelUp(L); }
 function levelUp(L){
+  if (L % 4 === 0) setTimeout(guestNudge, 4000);
   lvShowing = true; const news = T.unlocksAt(L);
   sfx.level();
   const m = $('#modal'); m.className = 'cere';
@@ -2528,9 +2696,10 @@ function welcomeBack(){
   bravo(got, `Pendant ton absence (${h ? h + ' h ' : ''}${m} min), tes gardiens ont récolté`, 'BON RETOUR !');
 }
 setTimeout(welcomeBack, 1400);
+try { if (sessionStorage.getItem('vdp-welcome')){ sessionStorage.removeItem('vdp-welcome'); welcomeDone = true; welcomeBravo(); } } catch(e){}
 // v76-v77 : un colis ouvert pouvait rester bloqué (récompense jamais donnée) → on rend un colis rare, une seule fois
 if (!S.fixParcel77 && (S.lvl || 1) >= 3){ S.fixParcel77 = 1; (S.parcels ||= []).unshift(1); save(); setTimeout(() => toast('Un colis rare t’a été rendu (bug des colis corrigé)'), 2600); }
-setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }, 400);
+setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); legalGate(() => gateWelcome(() => { if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }));}, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier
