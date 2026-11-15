@@ -336,7 +336,7 @@ export async function openMinigame(kind, ctx){
       if (t > .55){ x.globalAlpha = Math.min(.55, (t - .55) * 2); const a = x.createLinearGradient(0, H * .1, W, H * .35); a.addColorStop(0, 'rgba(63,224,160,0)'); a.addColorStop(.5, 'rgba(63,224,160,.8)'); a.addColorStop(1, 'rgba(160,110,255,0)');
         x.fillStyle = a; x.beginPath(); x.moveTo(0, H * .2); for (let k = 0; k <= 10; k++) x.lineTo(k * W / 10, H * (.16 + Math.sin(T * .8 + k * .7) * .04)); for (let k = 10; k >= 0; k--) x.lineTo(k * W / 10, H * (.3 + Math.sin(T * .6 + k * .9) * .04)); x.fill(); x.globalAlpha = 1; }
     }
-    reset(); window.__stack = {cur: () => cur, top: () => tower[tower.length - 1], n: () => tower.length};
+    reset(); if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__stack = {cur: () => cur, top: () => tower[tower.length - 1], n: () => tower.length};
     return {
       good: 15, great: 30,
       tap(){ drop(); },

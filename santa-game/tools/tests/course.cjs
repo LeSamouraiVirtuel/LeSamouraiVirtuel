@@ -8,15 +8,16 @@ const log = []; let bad = 0; const ok = (c, m) => { log.push((c ? '✓ ' : '✗ 
   await p.evaluate(() => { const S = __v2.S, h = S.objs.find(o => o.type === 'santa'); h.lv = 13; S.lvl = 40; Object.assign(S, {coins: 9e7, wood: 9e6, cookies: 9e6, fabric: 9e6, stars: 99999}); S.inv.ice = 9e4; S.inv.gold = 9e4; __v2.openPanel('bld', h); });
   await p.waitForTimeout(600); await p.screenshot({path: 'out/course-defi.png', fullPage: false});
   const txt = await p.evaluate(() => document.querySelector('#sheet').innerText);
-  ok(/Défi de la Maison niv\. 14/i.test(txt) && /Cloche|bell/i.test(txt) && /espèces de poissons/i.test(txt) && /camps de trolls/i.test(txt), 'défi de la Maison niv. 14 affiché (jouets, poissons, camps)');
+  ok(/Défi de la Maison niv\. 14/i.test(txt) && /jouets fabriqués/i.test(txt) && /points d'aventure/i.test(txt) && /Pêcher/i.test(txt) && /camp de trolls/i.test(txt) && /expédition/i.test(txt) && /lettres/i.test(txt) && /il en manque/i.test(txt), 'défi niv. 14 affiché : jouets + points d\'aventure par 4 chemins, ce qui manque');
   await p.evaluate(() => { const h = __v2.S.objs.find(o => o.type === 'santa'); document.querySelector('#sheet [data-a=upgrade]')?.click(); });
   await p.waitForTimeout(500);
+  await p.waitForTimeout(700); await p.screenshot({path: 'out/course-defi-scroll.png'});
   ok(await p.evaluate(() => !__v2.S.objs.find(o => o.type === 'santa').up), 'sans le défi, la Maison ne s\'améliore pas (même avec 99 999 étoiles)');
-  await p.evaluate(() => { const S = __v2.S; S.inv.bell = 3; S.fish = {cod: {n: 1}, herring: {n: 1}, perch: {n: 1}}; S.camps = {at: 5, st: {}}; __v2.openPanel('bld', S.objs.find(o => o.type === 'santa')); });
+  await p.evaluate(() => { const S = __v2.S; S.inv.bell = 1; S.inv.ginger = 2; S.cnt.orders = 30; S.cnt.exp = 4; __v2.openPanel('bld', S.objs.find(o => o.type === 'santa')); });
   await p.waitForTimeout(500); await p.screenshot({path: 'out/course-defi-ok.png'});
   await p.evaluate(() => document.querySelector('#sheet [data-a=upgrade]')?.click()); await p.waitForTimeout(800);
-  const st = await p.evaluate(() => ({up: !!__v2.S.objs.find(o => o.type === 'santa').up, bell: __v2.S.inv.bell}));
-  ok(st.up && st.bell === 1, `défi rempli → chantier lancé, 2 cloches consommées (reste ${st.bell})`);
+  const st = await p.evaluate(() => ({up: !!__v2.S.objs.find(o => o.type === 'santa').up, bell: __v2.S.inv.bell, ginger: __v2.S.inv.ginger}));
+  ok(st.up && st.bell === 1 && st.ginger === 0, `défi rempli SANS pêche ni combat (lettres + expéditions) → chantier lancé, 2 jouets consommés, les moins chers d'abord (cloches ${st.bell}, pain d'épices ${st.ginger})`);
   // plafond : 23 h 30 déjà accélérées aujourd'hui, le chantier de 4 jours ne peut pas être accéléré
   await p.evaluate(() => { __v2.S.spd = {d: new Date().toDateString(), sec: 23.5 * 3600}; __v2.openPanel('site', __v2.S.objs.find(o => o.type === 'santa')); }); await p.waitForTimeout(500);
   const s0 = await p.evaluate(() => __v2.S.stars);

@@ -354,24 +354,37 @@ export function buildBlock(s, type){
   return null;
 }
 /* ===================== FIN DE PARTIE : la course vers le sommet ne s'achète pas ===================== */
-// Les derniers niveaux de la Maison du Père Noël demandent des « défis » actifs : des jouets fabriqués à l'atelier
-// (consommés), des espèces de poissons pêchées et des camps de trolls battus. Ni les uns ni les autres ne s'achètent.
+// Les derniers niveaux de la Maison du Père Noël demandent des « défis » actifs, qui ne s'achètent pas, avec toujours
+// PLUSIEURS chemins pour les remplir :
+//   - des jouets fabriqués à l'atelier : N jouets de niveau ≥ X, n'importe lesquels (les moins chers partent en premier) ;
+//   - des points d'aventure, au choix : chaque espèce de poisson = 3 pts, chaque camp de trolls battu = 2 pts,
+//     chaque expédition des rennes revenue = 1 pt, chaque lettre livrée = 0,2 pt. Pêche, combats, rennes ou lettres : à chacun son chemin.
 export const HQ_CHALLENGE = {
-  14: {toys: {bell: 2}, fish: 3, camps: 5},       15: {toys: {ginger: 3}, fish: 4, camps: 8},
-  16: {toys: {choco: 3}, fish: 5, camps: 10},     17: {toys: {wagon: 2}, fish: 5, camps: 12},
-  18: {toys: {wreath: 2}, fish: 6, camps: 15},    19: {toys: {ball: 2}, fish: 7, camps: 18},
-  20: {toys: {lamp: 2}, fish: 8, camps: 20},      21: {toys: {minitree: 2}, fish: 8, camps: 24},
-  22: {toys: {snowball: 2}, fish: 9, camps: 28},  23: {toys: {gbhouse: 2}, fish: 10, camps: 32},
-  24: {toys: {bigsled: 1, gbhouse: 1}, fish: 11, camps: 36}, 25: {toys: {bigsled: 2}, fish: 12, camps: 40},
+  14: {toy: [12, 2], pts: 10},  15: {toy: [12, 3], pts: 14},  16: {toy: [14, 3], pts: 18},  17: {toy: [16, 3], pts: 23},
+  18: {toy: [18, 3], pts: 28},  19: {toy: [21, 3], pts: 34},  20: {toy: [24, 3], pts: 40},  21: {toy: [27, 3], pts: 47},
+  22: {toy: [31, 3], pts: 54},  23: {toy: [35, 3], pts: 62},  24: {toy: [40, 3], pts: 70},  25: {toy: [40, 4], pts: 80},
 };
-/** Ce qui manque pour le défi de la Maison au niveau lv : [{k: 'toy'|'fish'|'camps', item, have, need}] (vide = prêt) */
+export const PTS = {fish: 3, camp: 2, exp: 1, orders: .2};
+export function adventurePts(s){
+  const fish = Object.keys(s.fish || {}).length, camp = s.camps?.at || 0, exp = s.cnt?.exp || 0, orders = s.cnt?.orders || 0;
+  const parts = {fish: fish * PTS.fish, camp: camp * PTS.camp, exp: exp * PTS.exp, orders: Math.floor(orders * PTS.orders)};
+  return {parts, total: parts.fish + parts.camp + parts.exp + parts.orders, n: {fish, camp, exp, orders}};
+}
+/** jouets de niveau ≥ min possédés, du moins cher au plus cher */
+export function challengeToys(s, min){ return Object.keys(TOYS).filter(k => !TOYS[k].wrap && TOYS[k].lvl >= min && (s.inv[k] || 0) > 0).sort((a, b) => TOYS[a].value - TOYS[b].value); }
+export function challengeToyCount(s, min){ return challengeToys(s, min).reduce((a, k) => a + (s.inv[k] || 0), 0); }
+/** Ce qui manque pour le défi de la Maison au niveau lv : [{k: 'toy'|'pts', have, need}] (vide = prêt) */
 export function hqNeeds(s, lv){
   const c = HQ_CHALLENGE[lv]; if (!c) return [];
-  const out = [];
-  for (const [k, n] of Object.entries(c.toys)) if ((s.inv[k] || 0) < n) out.push({k: 'toy', item: k, have: s.inv[k] || 0, need: n});
-  const sp = Object.keys(s.fish || {}).length; if (sp < c.fish) out.push({k: 'fish', have: sp, need: c.fish});
-  const cp = s.camps?.at || 0; if (cp < c.camps) out.push({k: 'camps', have: cp, need: c.camps});
+  const out = [], [min, n] = c.toy, have = challengeToyCount(s, min);
+  if (have < n) out.push({k: 'toy', min, have, need: n});
+  const p = adventurePts(s).total; if (p < c.pts) out.push({k: 'pts', have: p, need: c.pts});
   return out;
+}
+/** Les jouets consommés quand le chantier démarre : les moins chers d'abord */
+export function challengeTake(s, lv){
+  const c = HQ_CHALLENGE[lv]; if (!c) return; let left = c.toy[1];
+  for (const k of challengeToys(s, c.toy[0])){ const q = Math.min(left, s.inv[k] || 0); s.inv[k] -= q; left -= q; if (!left) break; }
 }
 /* Plafond d'accélération : au plus 24 h d'attente évitées avec des étoiles par jour (heure locale). */
 export const SPEED_DAY_CAP = 24 * 3600;

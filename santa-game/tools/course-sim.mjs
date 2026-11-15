@@ -23,10 +23,11 @@ function race({cap, challenges}){
   }
   // part active (non achetable) des défis, si elle dépasse le temps des chantiers
   let active = 0;
-  if (challenges){ const fishCasts = 138, castSec = 20, camps = T.HQ_CHALLENGE[25].camps, battleSec = 90;
-    let toys = 0; for (const c of Object.values(T.HQ_CHALLENGE)) for (const [k, n] of Object.entries(c.toys)) toys += n * T.TOYS[k].time;
-    active = fishCasts * castSec + camps * battleSec + toys / 8;  // 8 fabrications en même temps à l'atelier
-    steps.push(`activité obligatoire (pêche ${fishCasts} lancers, ${camps} batailles, ${Object.values(T.HQ_CHALLENGE).reduce((a, c) => a + Object.values(c.toys).reduce((x, y) => x + y, 0), 0)} jouets) : ${hm(active)} de jeu, faites pendant les chantiers`); }
+  if (challenges){ // 80 points d'aventure : le plus rapide = 12 espèces (36 pts, ~138 lancers) + 22 camps (44 pts)
+    const fishCasts = 138, castSec = 20, camps = 22, battleSec = 90;
+    let toys = 0; for (const c of Object.values(T.HQ_CHALLENGE)) toys += c.toy[1] * T.TOYS.bigsled.time;
+    active = fishCasts * castSec + camps * battleSec + toys / 8;
+    steps.push(`activité obligatoire (≈ ${fishCasts} lancers de pêche + ${camps} batailles, ou des lettres et des expéditions ; ${Object.values(T.HQ_CHALLENGE).reduce((a, c) => a + c.toy[1], 0)} jouets) : ${hm(active)} de jeu, faites pendant les chantiers`); }
   return {t: Math.max(t, active), steps};
 }
 const before = race({cap: false, challenges: false}), after = race({cap: true, challenges: true});

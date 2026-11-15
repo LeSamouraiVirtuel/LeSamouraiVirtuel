@@ -287,7 +287,7 @@ export async function openBattle(ctx){
   }
   function loop(now){ raf = requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; update(dt); render(); }
   raf = requestAnimationFrame(loop);
-  window.__b3 = {screen: v => { const p = v.clone().project(cam); const rc = root.getBoundingClientRect(); return {x: rc.left + (p.x + 1) / 2 * rc.width, y: rc.top + (1 - p.y) / 2 * rc.height}; }, get balls(){ return balls.length; }, get killed(){ return killed; }, get aim(){ return aim.toArray().map(v => +v.toFixed(1)); }, get state(){ return state; }, get hero(){ return hero; }, get foes(){ return foes; }, power};
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__b3 = {screen: v => { const p = v.clone().project(cam); const rc = root.getBoundingClientRect(); return {x: rc.left + (p.x + 1) / 2 * rc.width, y: rc.top + (1 - p.y) / 2 * rc.height}; }, get balls(){ return balls.length; }, get killed(){ return killed; }, get aim(){ return aim.toArray().map(v => +v.toFixed(1)); }, get state(){ return state; }, get hero(){ return hero; }, get foes(){ return foes; }, power};
 }
 
 /** Portrait 3D d'un monstre (pour les cinématiques et le bestiaire) : rendu une fois, gardé en mémoire. */

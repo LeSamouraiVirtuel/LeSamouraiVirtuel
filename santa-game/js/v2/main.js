@@ -16,18 +16,29 @@ import * as M from './meta.js';
 /* ---------- ANTI-TRICHE (côté appareil, raisonnable) ----------
    Horloge : le jeu se cale sur l'heure du serveur (en-tête Date de la page). Avancer l'horloge du téléphone ne termine donc
    plus les chantiers. Le décalage connu est gardé pour les lancements hors ligne. */
-const realNow = Date.now.bind(Date); let clockOff = 0; try { clockOff = +localStorage.getItem('vdp-off') || 0; } catch(e){}
-Date.now = () => realNow() - clockOff;
+const RD = Date, realNow = RD.now.bind(RD); let clockOff = 0, verified = false, trust = 0;
+try { clockOff = +localStorage.getItem('vdp-off') || 0; trust = +localStorage.getItem('vdp-trust') || 0; } catch(e){}
+// Hors ligne (heure non vérifiée), le temps du jeu ne dépasse pas la dernière heure vérifiée + le temps passé dans cette session :
+// avancer l'horloge du téléphone sans réseau ne termine rien. Dès que le serveur répond, le vrai temps reprend (rien n'est perdu).
+RD.now = () => { const t = realNow() - clockOff; return !verified && trust && t > trust + performance.now() + 5 * 60e3 ? trust + performance.now() : t; };
+// « new Date() » suit la même heure corrigée que Date.now()
+class VDate extends RD { constructor(...a){ if (a.length) super(...a); else super(RD.now()); } }
+globalThis.Date = VDate;
 const cheatQ = [];   // alertes relevées avant que le village soit chargé
-fetch('version.json?c=' + realNow(), {cache: 'no-store'}).then(r => { const d = Date.parse(r.headers.get('date') || ''); if (!d) return;
+function checkClock(){ fetch('version.json?c=' + realNow(), {cache: 'no-store'}).then(r => { const d = Date.parse(r.headers.get('date') || ''); verified = true; if (!d) return;
   const off = realNow() - d; clockOff = Math.abs(off) > 120e3 ? off : 0; try { localStorage.setItem('vdp-off', String(clockOff)); } catch(e){}
-  if (Math.abs(off) > 10 * 60e3) cheatQ.push(['horloge', {minutes: Math.round(off / 60e3)}]); }).catch(() => {});
+  if (Math.abs(off) > 10 * 60e3) cheatQ.push(['horloge', {minutes: Math.round(off / 60e3)}]); }).catch(() => { if (!verified) setTimeout(checkClock, 60e3); }); }
+checkClock();
+setInterval(() => { if (verified) try { localStorage.setItem('vdp-trust', String(Date.now())); } catch(e){} }, 30e3);
 
 const {ITEMS, TOYS, BUILDINGS} = T;
 const tierOf = lv => lv >= 12 ? 3 : lv >= 5 ? 2 : 1;   // apparence du bâtiment selon son niveau
 const $ = s => document.querySelector(s);
 const ROOT = new URL('../../', import.meta.url).href;
-const Q = new URLSearchParams(location.search);
+// outils de développement (fabrication du pack, mesures, heure forcée) : seulement en local, jamais sur le site public
+const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const Q = new URLSearchParams(DEV ? location.search : '');
+const DIAG = {spr: {}, big: []};   // mesures internes pour « Vérifier l'affichage » (pas exposées dans window)
 const EXPORT = Q.has('export');                       // mode « fabrication du pack » (outil hors ligne)
 const DPR = EXPORT ? 3 : Math.min(devicePixelRatio || 1, 2);     // ×2 suffit à l'œil et divise par 2,25 le travail du dessin sur iPhone (×3)
 const ZOOM0 = 1.1;                                   // densité des images (le zoom par défaut est plus bas : village plus vaste)
@@ -75,11 +86,10 @@ async function loadPack(){
   const bitmap = async src => { const r = await fetch(src); if (!r.ok) throw new Error('image ' + src); const bl = await r.blob();
     if (window.createImageBitmap){ try { return await createImageBitmap(bl); } catch(e){} }
     const i = await img(URL.createObjectURL(bl)); return i; };
-  window.__sprInfo = {};
-  const lazy = (k, m) => { let c = null, busy = false; SPR[k] = {ax: m.ax, ay: m.ay, w: m.w, h: m.h, get canvas(){ if (!c && !busy){ busy = true; bitmap(dir + m.f + q).then(b => { c = b; __sprInfo[k] = b.width + 'x' + b.height; }).catch(() => { busy = false; }); } return c || {complete: false}; }}; };
+  const lazy = (k, m) => { let c = null, busy = false; SPR[k] = {ax: m.ax, ay: m.ay, w: m.w, h: m.h, get canvas(){ if (!c && !busy){ busy = true; bitmap(dir + m.f + q).then(b => { c = b; DIAG.spr[k] = b.width + 'x' + b.height; }).catch(() => { busy = false; }); } return c || {complete: false}; }}; };
   const now0 = keys.filter(eager);
   for (const k of keys) if (!eager(k)) lazy(k, P.spr[k]);
-  await Promise.all(now0.map(async k => { const m = P.spr[k], b = await bitmap(dir + m.f + q); __sprInfo[k] = (b.width || b.naturalWidth) + 'x' + (b.height || b.naturalHeight);
+  await Promise.all(now0.map(async k => { const m = P.spr[k], b = await bitmap(dir + m.f + q); DIAG.spr[k] = (b.width || b.naturalWidth) + 'x' + (b.height || b.naturalHeight);
     SPR[k] = {canvas: b, ax: m.ax, ay: m.ay, w: m.w, h: m.h}; bar(.05 + .9 * ++done / now0.length); }));
   for (const [k, f] of Object.entries(P.icon)) ICON[k] = dir + f + q;
   for (const [k, f] of Object.entries(P.thumb)) thumbs[k] = dir + f + q;
@@ -124,10 +134,19 @@ const elfPortrait = portrait;
 T.setTrackHook((s, key, n) => { const add = M.eventOnTrack(s, key, n); if (add && typeof evPing === 'function') evPing(add); });
 const saved = T.loadTown();
 let S = saved || T.newTown();
-function flag(kind, data = {}){ S.flags ||= {}; S.flags[kind] = (S.flags[kind] || 0) + 1; T.logEv(S, 'anomalie', {kind, ...data}); try { TR.ev('anomalie', {kind, ...data}); } catch(e){} }
+function flag(kind, data = {}){ S.flagT ||= {}; if (Date.now() - (S.flagT[kind] || 0) < 864e5) return; S.flagT[kind] = Date.now(); S.flags ||= {}; S.flags[kind] = (S.flags[kind] || 0) + 1; T.logEv(S, 'anomalie', {kind, ...data}); try { TR.ev('anomalie', {kind, ...data}); } catch(e){} }
 { // valeurs impossibles (sauvegarde modifiée à la main) : corrigées, et notées en silence pour le tableau de bord
   for (const k of [...T.RES, 'stars', 'xp']) if (!Number.isFinite(+S[k]) || S[k] < 0){ flag('valeur', {k, v: String(S[k]).slice(0, 20)}); S[k] = 0; }
-  if (S.stars > 2e6) flag('etoiles', {n: S.stars});
+  // étoiles : au plus ce qu'un joueur peut gagner à son niveau + ce qu'il a acheté (large marge) ; au-delà de 10 fois, ramenées
+  const bought = (S.log?.ev || []).filter(e => e[1] === 'iap').reduce((a, e) => a + (T.SHOP.find(x => x.k === e[2].k)?.stars || M.IAP[e[2].k]?.give?.stars || M.PACKS?.[e[2].k]?.give?.stars || 0), 0);
+  const plaus = 3000 + 250 * (S.lvl || 1) + bought * 1.1;
+  if (S.stars > plaus){ flag('etoiles', {n: S.stars, plausible: Math.round(plaus)}); if (S.stars > plaus * 10){ flag('etoiles_ramenees', {avant: S.stars, apres: Math.round(plaus)}); S.stars = Math.round(plaus); } }
+  // Maison et bâtiments : cohérents avec le niveau du joueur et le temps écoulé depuis la création du village (signalé, jamais retiré)
+  const hq = T.hqLv(S), age = (Date.now() - (S.created || Date.now())) / 1000;
+  let need = 0; for (let l = 2; l <= hq; l++) need += T.upTime('santa', l);
+  if (hq > (S.lvl || 1) + 3) flag('maison_niveau', {maison: hq, niveau: S.lvl});
+  if (hq >= 8 && age < need / 2 * .5) flag('maison_trop_vite', {maison: hq, jours: +(age / 864e2).toFixed(1), minimum: +(need / 2 / 864e2).toFixed(1)});
+  const cap = T.maxLv(S); for (const o of S.objs) if (o.lv && T.BUILDINGS[o.type]?.kind !== 'hq' && o.lv > cap + 1){ flag('batiment_niveau', {type: o.type, lv: o.lv, max: cap}); break; }
   if ((S.lvl || 1) > 300 || !Number.isFinite(+S.lvl)){ flag('niveau', {n: S.lvl}); S.lvl = Math.min(300, Math.max(1, +S.lvl || 1)); }
   const t = Date.now(); if (S.maxT && t < S.maxT - 10 * 60e3) flag('horloge_arriere', {minutes: Math.round((S.maxT - t) / 60e3)});
 }
@@ -333,12 +352,12 @@ function refreshOrders(){
 }
 /* ---------- chantiers : construction et amélioration ---------- */
 function startUpgrade(o, el){
-  const why = T.upBlock(S, o); if (why === 'Défi de la Maison'){ sfx.err(); return openPanel('bld', o); }
+  const why = T.upBlock(S, o); if (why === 'Défi de la Maison'){ sfx.err(); if (panel !== 'bld') openPanel('bld', o); setTimeout(() => document.querySelector('#sheet .chbox')?.scrollIntoView({behavior: 'smooth', block: 'start'}), 60); return toast('Termine d’abord le défi de la Maison'); }
   if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.upCost(o.type, o.lv + 1), `${B(o).name} niveau ${o.lv + 1}`, () => startUpgrade(o)) : toast(why); }
   const lv = o.lv + 1;
   // on récolte d'abord ce qui attend dans le bâtiment (sinon ce serait perdu)
   if (B(o).kind === 'prod') collectBld(o);
-  T.take(S, T.upCost(o.type, lv)); if (o.type === 'santa' && T.HQ_CHALLENGE[lv]) T.take(S, T.HQ_CHALLENGE[lv].toys);
+  T.take(S, T.upCost(o.type, lv)); if (o.type === 'santa' && T.HQ_CHALLENGE[lv]) T.challengeTake(S, lv);
   // pendant le tutoriel, le chantier dure 2 min : le temps de lire et de découvrir « Terminer gratuitement »
   const ms = Math.max(T.upTime(o.type, lv) * 1000 * (1 - T.rsBonus(S, 'plan')), tuto.active() && S.tuto <= 6 ? 120e3 : 0); o.up = now() + ms; o.utotal = ms; o.upTo = lv;
   T.track(S, 'upgrade'); sfx.build(); tutoEv('upgrade'); save(); closePanel();
@@ -516,7 +535,7 @@ function applyWide(){
   document.body.classList.toggle('wide', wide); r.setProperty('--uiz', z.toFixed(3)); r.setProperty('--sheeth', Math.round(Math.min(h / z - 36, 880)) + 'px'); r.setProperty('--hudw', Math.round(Math.min(w / z - 120, 720)) + 'px');
 }
 applyWide(); addEventListener('resize', applyWide);
-const HOUR_FORCE = +new URLSearchParams(location.search).get('heure') || null;
+const HOUR_FORCE = +Q.get('heure') || null;
 function nightLevel(){
   const d = new Date(), h = HOUR_FORCE ?? d.getHours() + d.getMinutes() / 60;
   if (h >= 7.5 && h < 16) return {n: 0, dusk: 0};
@@ -1317,9 +1336,9 @@ function renderPanel(){
     if (b.kind === 'mine') extra = '<button class="btn green wide" data-a="gomine">Creuser</button>';
     if (b.kind === 'train') extra = '<button class="btn green wide" data-a="gotrain">Voir le train</button>';
     if (b.kind === 'lab') extra = '<button class="btn green wide" data-a="golab">Recherches</button>';
-    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (o.lv < max ? challengeBox(next) : '') + (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn blue wide" data-a="shopskins">🎨 Changer l'apparence de la Maison</button>` + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
+    if (b.kind === 'hq'){ const nu = T.unlocksAtHq(next); extra = (o.lv < max && why !== 'Défi de la Maison' ? challengeBox(next) : '') + (nu.length ? `<p class="meta">Au niveau ${next} : ${nu.join(', ')}</p>` : '') + `<button class="btn blue wide" data-a="shopskins">🎨 Changer l'apparence de la Maison</button>` + `<button class="btn gold wide" data-a="golights">Illuminations du village · niv. ${T.lightsLv(S)}</button>` + (T.sackReady(S) ? '<button class="btn green wide sackbtn" data-a="sack">🎅 La hotte du Père Noël est pleine !</button>' : `<p class="meta">Prochaine hotte du Père Noël dans <b data-until="${S.sackAt}"></b></p>`); }
     const K = KEEPER[o.type] || KEEPER.cabin, said = keeperLine(o);
-    h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt="">${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Au niv. ${next}</small></div>` : ''}</div><div class="say2"><b>${K.name}</b><span>${said}</span></div>
+    h = hd(`Niveau ${o.lv}${b.kind === 'hq' ? '' : ` / ${max}`}`, b.name) + (why === 'Défi de la Maison' ? challengeBox(next) : '') + `<div class="scene sc-${b.kind}"><img class="bimg" src="${img0}" alt=""><img class="keeper" src="${K.img()}" alt="">${o.lv < max && t1 !== t0 ? `<div class="nextlook"><img src="${img1}" alt=""><small>Au niv. ${next}</small></div>` : ''}</div><div class="say2"><b>${K.name}</b><span>${said}</span></div>
       ${extra}${b.kind === 'prod' ? keeperBox(o) : ''}<h3>${o.lv < max ? `Niveau ${o.lv} → ${next}` : 'Niveau actuel'}</h3><div class="stats">${rows}</div>
       ${o.lv < (b.kind === 'hq' ? b.max : 99) ? `${why ? `<p class="note">${whyHelp(o, why)}</p>` : ''}<div class="acts sticky foot"><div class="fcost"><small>Coût</small><span class="costs">${costChips(c)}<span class="chip time">${fmtTime(T.upTime(o.type, next))}</span></span></div><div class="fbtns"><button class="btn green" data-a="upgrade" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>Améliorer</button><button class="btn blue sm" data-a="move">Déplacer</button></div></div>` : ''}`;
   }
@@ -1412,6 +1431,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'golab') return openPanel('lab', panelArg);
   if (a === 'gotrain') return openPanel('train', panelArg);
   if (a === 'camp') return openPanel('camp');
+  if (a === 'hqexp'){ const st = S.objs.find(o => o.type === 'stable' && !o.build); return st ? openPanel('exp', st) : toast('Construis l’Écurie des rennes pour envoyer des expéditions.'); }
   if (a === 'hqfish') return T.canFish(S) ? openPanel('fish') : toast('Ouvre le Lac Gelé (forêt à dégager) pour pêcher.');
   if (a === 'lore') return openPanel('lore');
   if (a === 'replay'){ closePanel(); return setTimeout(() => chapterCine(+b.dataset.i), 250); }
@@ -1889,7 +1909,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 89;
+const GAME_V = 90;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -1908,10 +1928,10 @@ function diagText(){
   let nS = 0, nOk = 0, nBad = 0; for (const k in SPR){ nS++; const c = SPR[k]._c || null; } 
   for (const k in SPR){ const d = Object.getOwnPropertyDescriptor(SPR[k], 'canvas'); if (d && d.get) continue; const c = SPR[k].canvas; if (c && (c.width || c.naturalWidth)) nOk++; else nBad++; }
   L.push(`images ${nS} · prêtes ${nOk} · vides ${nBad}`);
-  L.push('tailles : ' + Object.entries(window.__sprInfo || {}).filter(([k]) => /santa|sawmill|forest|cabin/.test(k)).map(([k, v]) => k.replace('b:', '') + '=' + v).join(' '));
+  L.push('tailles : ' + Object.entries(DIAG.spr).filter(([k]) => /santa|sawmill|forest|cabin/.test(k)).map(([k, v]) => k.replace('b:', '') + '=' + v).join(' '));
   const top = []; for (const e of document.body.querySelectorAll('body > *')){ const cs = getComputedStyle(e); if (cs.display === 'none' || e.hidden || e.id === 'diag') continue; const r = e.getBoundingClientRect(); if (r.width < 40 || r.height < 40) continue;
     top.push(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${e.className && typeof e.className === 'string' ? '.' + e.className.split(' ').slice(0, 2).join('.') : ''} ${Math.round(r.width)}×${Math.round(r.height)} op${(+cs.opacity).toFixed(2)} z${cs.zIndex}${cs.filter !== 'none' ? ' F' : ''}`); }
-  L.push('grandes images : ' + ((window.__big || []).join(' | ') || 'aucune'));
+  L.push('grandes images : ' + (DIAG.big.join(' | ') || 'aucune'));
   L.push('calques : ' + top.join(' | '));
   L.push(`modal ${$('#modal').hidden ? 'caché' : 'VISIBLE ' + $('#modal').className} · cine ${$('#cine') ? ($('#cine').hidden ? 'caché' : 'VISIBLE') : 'absent'} · intro ${$('#intro') ? 'PRÉSENTE' : 'absente'} · tuto ${tuto.active() ? S.tuto : 'fini'}`);
   let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){}
@@ -2401,12 +2421,17 @@ const TOOL_CD = 3 * 3600e3, toolCost = (o, k) => ({wood: R5(250 * (1 + (S.chunks
 const R5 = n => Math.round(n / 5) * 5;
 function challengeBox(lv){
   const c = T.HQ_CHALLENGE[lv]; if (!c) return '';
-  const sp = Object.keys(S.fish || {}).length, cp = S.camps?.at || 0;
-  const row = (ok, txt, act) => `<div class="mis ${ok ? 'chok' : ''}"><div><b>${ok ? '✓ ' : ''}${txt}</b></div>${ok ? '' : act}</div>`;
-  return `<h3>Défi de la Maison niv. ${lv}</h3><p class="meta">Ces défis ne s'achètent pas : fabrique, pêche et combats !</p><div class="mlist">
-    ${Object.entries(c.toys).map(([k, n]) => row((S.inv[k] || 0) >= n, `${n} × ${ITEMS[k].name} (tu en as ${S.inv[k] || 0})`, '<button class="btn blue sm" data-a="gocraft">Atelier</button>')).join('')}
-    ${row(sp >= c.fish, `${c.fish} espèces de poissons (tu en as ${sp})`, '<button class="btn blue sm" data-a="hqfish">Pêcher</button>')}
-    ${row(cp >= c.camps, `${c.camps} camps de trolls battus (tu en as ${cp})`, '<button class="btn blue sm" data-a="camp">Campagne</button>')}</div>`;
+  const [min, n] = c.toy, have = T.challengeToyCount(S, min), A = T.adventurePts(S), okT = have >= n, okP = A.total >= c.pts;
+  const names = Object.keys(T.TOYS).filter(k => !T.TOYS[k].wrap && T.TOYS[k].lvl >= min).map(k => ITEMS[k].name).slice(0, 2).join(', ');
+  const path = (k, label, pts, act) => `<div class="mis"><div><b>${label}</b><small>${pts}</small></div>${act}</div>`;
+  return `<div class="chbox"><h3>Défi de la Maison niv. ${lv}</h3><p class="meta">Il ne s'achète pas : il se gagne en jouant, à ta façon.</p>
+    <div class="mis ${okT ? 'chok' : ''}"><div><b>${okT ? '✓ ' : ''}${n} jouets fabriqués de niveau ${min} ou plus</b><small>Tu en as ${have} / ${n} · par exemple : ${names}${okT ? '' : ` · <b>il en manque ${n - have}</b>`}</small></div>${okT ? '' : '<button class="btn blue sm" data-a="gocraft">Atelier</button>'}</div>
+    <div class="mis ${okP ? 'chok' : ''}"><div><b>${okP ? '✓ ' : ''}${c.pts} points d'aventure</b><small>Tu en as ${A.total} / ${c.pts}${okP ? '' : ` · <b>il en manque ${c.pts - A.total}</b>`} · au choix, n'importe quel mélange :</small></div></div>
+    ${okP ? '' : `<div class="mlist chpaths">
+      ${path('fish', '🎣 Pêcher une nouvelle espèce', `${T.PTS.fish} pts chacune · ${A.n.fish} / ${T.FISH.length} espèces`, '<button class="btn blue sm" data-a="hqfish">Pêcher</button>')}
+      ${path('camp', '⚔️ Battre un camp de trolls', `${T.PTS.camp} pts chacun · ${A.n.camp} battus`, '<button class="btn blue sm" data-a="camp">Campagne</button>')}
+      ${path('exp', '🦌 Une expédition des rennes', `${T.PTS.exp} pt chacune · ${A.n.exp} revenues`, '<button class="btn blue sm" data-a="hqexp">Écurie</button>')}
+      ${path('orders', '✉️ Livrer des lettres', `1 pt toutes les ${Math.round(1 / T.PTS.orders)} lettres · ${A.n.orders} livrées`, '<button class="btn blue sm" data-a="goorders">Lettres</button>')}</div>`}</div>`;
 }
 function toolsBox(o){
   const ready = now() - (o.toolT || 0) >= TOOL_CD;
@@ -2656,16 +2681,16 @@ function smoke(dt){
     FX.push({k: 'smoke', x: x + (Math.random() - .5) * 6, y, vx: 6 + Math.random() * 8, vy: -16 - Math.random() * 10, r: (9 + Math.random() * 5) * cam.z, t: 0, d: 2.4 + Math.random()});
   }
 }
-const PROF = /[?&]prof/.test(location.search) ? (window.__prof = {}) : null;
+const PROF = Q.has('prof') ? (window.__prof = {}) : null;
 const pt = (k, f) => { if (!PROF) return f(); const a = performance.now(); const r = f(); const e = PROF[k] ||= {n: 0, t: 0, max: 0}, d = performance.now() - a; e.n++; e.t += d; e.max = Math.max(e.max, d); return r; };
 // sonde : une image sur 90, on note tout dessin d'image qui couvre une grande partie de l'écran (pour trouver le flou)
-window.__big = []; let probeN = 0;
+let probeN = 0;
 const rawDraw = CanvasRenderingContext2D.prototype.drawImage;
 function probe(on){
   if (!on){ ctx.drawImage = rawDraw; return; }
   ctx.drawImage = function(im, ...a){ const dw = a.length >= 4 ? a[a.length - 2] : (im.width || 0), dh = a.length >= 4 ? a[a.length - 1] : (im.height || 0);
     if (dw * dh > W * H * .35){ const st = (new Error().stack || '').split('\n').slice(1, 4).map(l => (l.match(/(\w+)@|at (\w+)/) || [])[1] || l.trim().slice(0, 30)).join('<');
-      const rec = `${Math.round(dw)}x${Math.round(dh)} a${ctx.globalAlpha.toFixed(2)} ${ctx.globalCompositeOperation} src${im.width || im.naturalWidth}x${im.height || im.naturalHeight} ${st}`; if (!__big.includes(rec)){ __big.push(rec); if (__big.length > 12) __big.shift(); } }
+      const rec = `${Math.round(dw)}x${Math.round(dh)} a${ctx.globalAlpha.toFixed(2)} ${ctx.globalCompositeOperation} src${im.width || im.naturalWidth}x${im.height || im.naturalHeight} ${st}`; if (!DIAG.big.includes(rec)){ DIAG.big.push(rec); if (DIAG.big.length > 12) __big.shift(); } }
     return rawDraw.call(this, im, ...a); };
 }
 function step(t, dt){
@@ -2706,7 +2731,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.
 if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier
 document.addEventListener('change', e => { if (e.target.id !== 'loadfile' || !e.target.files?.[0]) return; e.target.files[0].text().then(saveLoad); });
-window.__pan = (x, y) => panTo(x, y);
+if (DEV) window.__pan = (x, y) => panTo(x, y);
 addEventListener('keydown', e => {
   if (e.target.closest?.('input, textarea')) return;
   if (e.key === 'Escape'){ if (!$('#modal').hidden){ $('#modal').querySelector('[data-m="ok"], [data-m="no"], [data-m]')?.click(); } else if (ghost) $('#pb-no').click(); else if (panel) closePanel(); else $('#moreBox').hidden = true; return; }
