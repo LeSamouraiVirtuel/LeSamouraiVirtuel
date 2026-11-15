@@ -1545,6 +1545,21 @@ body.lite *,body.lite *::before,body.lite *::after{animation-duration:.001s!impo
 #mg.mg-fish .fx-res .acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}#mg.mg-fish .fx-res .acts .btn{flex:1 1 120px}#mg.mg-fish .fx-res h2{font-size:24px;margin:4px 0}.fx-fish{display:flex;justify-content:center}
 .fx-offer{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;text-align:left;background:#fff3df;border:2px dashed #e3b878;border-radius:12px;padding:8px 10px;margin:8px 0}.fx-offer small{grid-column:1;font-size:12px;color:#8a6a4a}.fx-offer .btn{grid-column:2;grid-row:1/3}.fx-offer .btn.sure{background:#ffd34a}.fx-ok{grid-column:2;grid-row:1/3;font-weight:700;color:#1d6b3b;font-size:12px}
 @media (max-width:380px){.fodds .fo small{font-size:clamp(8px,2.6vw,11px)}.fodds .fo b{font-size:16px}}
+#hqch{position:fixed;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 200px);z-index:4;width:min(210px,54vw);padding:12px 7px 6px;gap:4px;border-radius:12px;background:linear-gradient(180deg,#fffaf0,#f5e3bd);border:2px solid var(--wood-d,#5a3a1e);box-shadow:0 4px 0 rgba(0,0,0,.25),0 6px 14px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:5px;cursor:pointer;text-align:left}
+#hqch .tag{position:absolute;left:10px;top:-11px;padding:0 9px 1px;font-family:var(--display);font-size:11.5px;text-transform:uppercase;color:#fff;border-radius:6px;background:linear-gradient(180deg,#ffc94a,#e08a00);border:2px solid #8a5200;-webkit-text-stroke:2px #8a5200;paint-order:stroke fill}
+#hqch .hqr{display:grid;grid-template-columns:18px 1fr auto auto;grid-template-areas:"i l n g" "i b b g";align-items:center;column-gap:5px;row-gap:1px}
+#hqch .hqr img{grid-area:i;width:18px;height:18px;object-fit:contain}#hqch .hql{grid-area:l;font-weight:800;font-size:11px;color:#5a3a1e;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#hqch em{grid-area:n;font-style:normal;font:400 11px var(--display);color:#5a3a1e}
+#hqch .chbar{grid-area:b;height:6px}#hqch .hqgo{grid-area:g;align-self:center;font:400 10px var(--display);text-transform:uppercase;color:#fff;background:linear-gradient(180deg,#7be07f,#2fae48);border:1.5px solid #1f6b28;border-radius:6px;padding:3px 5px;-webkit-text-stroke:1.5px #1f6b28;paint-order:stroke fill;white-space:nowrap}
+#hqch .hqr.ok .hql{color:#1d7a3a}#hqch .hqready{font-size:13px;color:#1d7a3a}#hqch .hqgo.big{align-self:flex-start;font-size:13px;padding:3px 10px}
+#hqch.ready{background:linear-gradient(180deg,#eaffea,#c9f2c9);border-color:#1f6b28;animation:wiggle 2.4s ease-in-out infinite}
+#hqch.pulse{animation:hqpulse .9s ease-out 2}@keyframes hqpulse{0%{transform:scale(1)}40%{transform:scale(1.08);box-shadow:0 0 0 6px rgba(255,214,74,.7)}100%{transform:scale(1)}}
+.chbar{display:block;height:8px;border-radius:5px;background:#e3cfa8;box-shadow:inset 0 1px 2px rgba(90,58,30,.35);overflow:hidden}.chbar i{display:block;height:100%;background:linear-gradient(180deg,#c3f7c9,#5bd46a 50%,#2fae48)}
+.chrow{display:grid;grid-template-columns:36px 1fr auto;grid-template-areas:"i t n" "i b b" "h h h" "g g g";gap:4px 8px;align-items:center;background:#fffaf0;border:2px solid #e3cfa8;border-radius:12px;padding:9px 10px;margin:6px 0}
+.chrow img{grid-area:i;width:34px;height:34px;object-fit:contain}.chrow b{grid-area:t;color:#5a3a1e}.chrow .chn{grid-area:n;font:400 16px var(--display);color:#5a3a1e}.chrow .chbar{grid-area:b;height:10px}
+.chrow small{grid-area:h;color:#6a4a2a;font-size:12.5px;line-height:1.3}.chrow .btn{grid-area:g;justify-self:end}.chrow.ok{background:#e6f7e6;border-color:#9fd89f}.chrow.ok b{color:#1d7a3a}
+.chbox.ready h3{color:#1d7a3a}.chpath small{color:#6a4a2a}
+body.wide #hqch{zoom:var(--uiz,1)}
+body.in-game #hqch,body.cine #hqch,body.tutoring #hqch{display:none!important}
 #legal{position:fixed;inset:0;z-index:96;display:grid;place-items:center;padding:16px;background:radial-gradient(circle at 50% 30%,#3a5aa8,#141d44);overflow:auto}
 #legal .lcard{width:min(440px,100%);background:linear-gradient(180deg,#fff8e8,#f5e3bd);border:3px solid #2a1a0e;border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:9px;color:#3a2412;box-shadow:0 18px 50px rgba(0,0,0,.45)}
 #legal h2{margin:0;font:400 23px var(--display);color:#b8122a;text-align:center}#legal p{margin:0;font-weight:600;font-size:14px}#legal a{color:#b8122a;font-weight:800}
@@ -1555,7 +1570,7 @@ body.lite *,body.lite *::before,body.lite *::after{animation-duration:.001s!impo
 #legal .lerr{background:#ffe3e3;border:2px solid #c0392b;color:#7a1a1a;border-radius:10px;padding:7px;font-size:13px}
 body.wide #legal .lcard{zoom:var(--uiz)}
 #modal.oddsm .mcard{max-height:86vh;overflow-y:auto;-webkit-overflow-scrolling:touch}#modal.oddsm h3{text-transform:none}.otab{border-collapse:collapse;width:100%;font-size:12px;margin:4px 0 8px;line-height:1.2}.otab td,.otab th{border:1px solid #e3cfa8;padding:3px 4px;text-align:center}.otab td:first-child{text-align:left}.otab th{font-size:12px;color:#5a3a1e}
-#modal .mcard h3{margin:8px 0 2px;font-size:15px}.oddsb{margin-left:6px;vertical-align:middle}
+#modal .mcard h3{margin:8px 0 2px;font-size:15px}#modal.chintro .mcard{max-height:88vh;overflow-y:auto}.oddsb{margin-left:6px;vertical-align:middle}
 #welcome{position:fixed;inset:0;z-index:95;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 50% 30%,#3a5aa8,#141d44);overflow:auto}
 #welcome .wcard{width:min(400px,100%);background:linear-gradient(180deg,#fff8e8,#f5e3bd);border:3px solid #2a1a0e;border-radius:24px;padding:18px 16px 14px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px}
 #welcome .wlogo{width:84px;height:84px;margin:0 auto -4px;object-fit:contain}#welcome h1{margin:0;font:400 28px var(--display);color:#b8122a;-webkit-text-stroke:1px #2a1a0e}#welcome p{margin:0;color:#5a3a1e;font-weight:600}
@@ -1592,6 +1607,7 @@ body.wide #mg{left:0;right:0;margin:0 auto;width:min(100vw,520px);box-shadow:0 0
   <button id="b-shop"><img class="ico" id="i-shop" alt=""><b>Boutique</b><span class="badge stroke" hidden>!</span></button>
 </nav>
 <button id="quest2"></button>
+<div id="hqch" role="button" hidden></div>
 <div id="seeds" hidden></div>
 <div id="seedhint" hidden>Choisis une graine, puis glisse sur les champs</div>
 <div id="placebar" hidden><button class="btn red" id="pb-no" aria-label="Annuler">✕</button><button class="btn green" id="pb-ok" aria-label="Valider">✓</button></div>
@@ -1633,4 +1649,4 @@ window.addEventListener('unhandledrejection', e => { const l = document.getEleme
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="js/v2/main.js?v=92"></script>
+<script type="module" src="js/v2/main.js?v=93"></script>

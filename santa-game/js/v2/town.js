@@ -373,28 +373,36 @@ export function adventurePts(s){
 /** jouets de niveau ≥ min possédés, du moins cher au plus cher */
 export function challengeToys(s, min){ return Object.keys(TOYS).filter(k => !TOYS[k].wrap && TOYS[k].lvl >= min && (s.inv[k] || 0) > 0).sort((a, b) => TOYS[a].value - TOYS[b].value); }
 export function challengeToyCount(s, min){ return challengeToys(s, min).reduce((a, k) => a + (s.inv[k] || 0), 0); }
+/** Le défi réel pour CE joueur : le niveau de jouet demandé ne dépasse jamais ce qu'il peut fabriquer (personne n'est coincé). */
+export function challengeSpec(s, lv){
+  const c = HQ_CHALLENGES_ON && HQ_CHALLENGE[lv]; if (!c) return null;
+  const can = Math.max(1, ...Object.values(TOYS).filter(t => !t.wrap && t.lvl <= (s.lvl || 1)).map(t => t.lvl));
+  return {lv, min: Math.min(c.toy[0], can), n: c.toy[1], pts: c.pts};
+}
 /** Ce qui manque pour le défi de la Maison au niveau lv : [{k: 'toy'|'pts', have, need}] (vide = prêt) */
 // INTERRUPTEUR des freins de la course (défis de la Maison + plafond d'accélérations par jour).
 // ÉTEINT (décision de Sora, 15 nov. 2026) : on améliore et on accélère comme avant. Le code et les tests restent, prêts à être rallumés.
-export let RACE_BRAKES = false;
-export const setRaceBrakes = v => { RACE_BRAKES = !!v; };   // pour les tests et les simulations
+// Deux interrupteurs séparés (décision de Sora) : les défis de la Maison sont ALLUMÉS, le plafond d'accélérations est ÉTEINT.
+export let HQ_CHALLENGES_ON = true;
+export let SPEED_CAP_ON = false;
+export const setRaceBrakes = v => { SPEED_CAP_ON = !!v; HQ_CHALLENGES_ON = true; };   // tests et simulations : plafond allumé
+export const RACE_ON = () => HQ_CHALLENGES_ON;
 export function hqNeeds(s, lv){
-  if (!RACE_BRAKES) return [];
-  const c = HQ_CHALLENGE[lv]; if (!c) return [];
-  const out = [], [min, n] = c.toy, have = challengeToyCount(s, min);
+  const sp = challengeSpec(s, lv); if (!sp) return [];
+  const out = [], {min, n} = sp, have = challengeToyCount(s, min);
   if (have < n) out.push({k: 'toy', min, have, need: n});
-  const p = adventurePts(s).total; if (p < c.pts) out.push({k: 'pts', have: p, need: c.pts});
+  const p = adventurePts(s).total; if (p < sp.pts) out.push({k: 'pts', have: p, need: sp.pts});
   return out;
 }
 /** Les jouets consommés quand le chantier démarre : les moins chers d'abord */
 export function challengeTake(s, lv){
-  const c = RACE_BRAKES && HQ_CHALLENGE[lv]; if (!c) return; let left = c.toy[1];
-  for (const k of challengeToys(s, c.toy[0])){ const q = Math.min(left, s.inv[k] || 0); s.inv[k] -= q; left -= q; if (!left) break; }
+  const sp = challengeSpec(s, lv); if (!sp) return; let left = sp.n;
+  for (const k of challengeToys(s, sp.min)){ const q = Math.min(left, s.inv[k] || 0); s.inv[k] -= q; left -= q; if (!left) break; }
 }
 /* Plafond d'accélération : au plus 24 h d'attente évitées avec des étoiles par jour (heure locale). */
 export const SPEED_DAY_CAP = 24 * 3600;
 const dayOf = t => new Date(t).toDateString();
-export function speedLeft(s, t = Date.now()){ if (!RACE_BRAKES) return Infinity; const d = s.spd; return d && d.d === dayOf(t) ? Math.max(0, SPEED_DAY_CAP - d.sec) : SPEED_DAY_CAP; }
+export function speedLeft(s, t = Date.now()){ if (!SPEED_CAP_ON) return Infinity; const d = s.spd; return d && d.d === dayOf(t) ? Math.max(0, SPEED_DAY_CAP - d.sec) : SPEED_DAY_CAP; }
 export function speedUse(s, sec, t = Date.now()){ if (!s.spd || s.spd.d !== dayOf(t)) s.spd = {d: dayOf(t), sec: 0}; s.spd.sec += Math.max(0, Math.round(sec)); }
 
 export function upBlock(s, o){
