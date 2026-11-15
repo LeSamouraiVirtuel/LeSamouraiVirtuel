@@ -470,6 +470,17 @@ export function questAt(s, i){
 // crochet appelé à chaque action comptée (missions, événement…)
 let trackHook = null;
 export const setTrackHook = f => { trackHook = f; };
+/* ===================== JOURNAL D'ÉVÉNEMENTS (silencieux) =====================
+   Jamais affiché dans le jeu. Il part en ligne avec la sauvegarde (champ « log ») et n'est lisible que par le tableau de bord
+   de l'éditeur (règles Firestore). Les événements importants (achats, niveaux, chapitres, course) sont tous gardés ;
+   les autres sont résumés dans « agg » et seuls les 1 500 derniers détails sont conservés. */
+const KEEP = new Set(['iap', 'lvl', 'hq', 'chap', 'race']);
+export function logEv(s, type, data = {}){
+  s.log ||= {ev: [], agg: {}}; const L = s.log, a = L.agg;
+  L.ev.push([Date.now(), type, data]); a['n_' + type] = (a['n_' + type] || 0) + 1;
+  if (L.ev.length > 2500){ const keep = L.ev.filter(e => KEEP.has(e[1])), rest = L.ev.filter(e => !KEEP.has(e[1])).slice(-1500); L.ev = [...keep, ...rest].sort((x, y) => x[0] - y[0]); }
+}
+export const logAdd = (s, k, n) => { s.log ||= {ev: [], agg: {}}; s.log.agg[k] = (s.log.agg[k] || 0) + n; };
 export function track(s, key, n = 1){
   trackHook?.(s, key, n);
   s.cnt[key] = (s.cnt[key] || 0) + n;
@@ -1219,13 +1230,43 @@ export const FISH_ODDS = [62, 27, 9, 2];
 export const FISH_WIN = [1.2, .9, .65, .45];          // secondes pour ferrer selon la rareté
 export const canFish = s => (s.chunks || []).some(k => ZONES[k]?.feat === 'lake');
 export const baitCost = s => ({cookies: R5(40 * (1 + s.lvl * .3))});
+/* Chances honnêtes et affichées. Les achats ajoutent PEU et sont plafonnés (jamais plus du double de la chance de base),
+   ils durent un nombre de lancers ou un temps limité. La vraie sécurité, ce sont les garanties : au bout d'une série sans
+   rare (ou sans épique, ou sans légendaire), le poisson suivant est assuré de cette rareté ou mieux. */
+export const FISH_CAP = [null, 32, 14, 4];                 // plafonds affichés : rare 32 %, épique 14 %, légendaire 4 %
+export const FISH_PITY = [0, 6, 25, 80];                    // garanties : rare+ après 6 prises sans rare, épique+ après 25, légendaire après 80
+export const ROD_MAX = 5, ROD_COST = [0, 150, 300, 600, 1000, 1600];   // canne niveau 1 → 5 (étoiles, permanent)
+export const ROD_BONUS = [0, .5, .15];                       // par niveau de canne : +0,5 pt d'épique, +0,15 pt de légendaire (et zone verte plus large)
+export const FISH_SHOP = {
+  bait: {name: 'Appâts dorés', stars: 45, casts: 10, b: [2, 2, 1], desc: '10 lancers : +2 pts rare, +2 pts épique, +1 pt légendaire'},
+  charm: {name: 'Porte-bonheur', stars: 60, min: 30, b: [2, 1.5, .5], desc: '30 min : +2 pts rare, +1,5 pt épique, +0,5 pt légendaire'},
+  net: {name: 'Filet', stars: 20, n: 1, desc: 'La prochaine prise ne peut pas s’échapper ni casser la ligne'},
+};
+export function fishState(s){ s.fishx ||= {rod: 0, bait: 0, charm: 0, net: 0, since: [0, 0, 0, 0], casts: 0}; return s.fishx; }
+/** Chances actuelles [commun, rare, épique, légendaire] en %, bonus compris, plafonnés. */
+export function fishOdds(s, t = Date.now()){
+  const x = fishState(s), o = [...FISH_ODDS], add = [0, 0, 0];
+  add[1] += ROD_BONUS[1] * x.rod; add[2] += ROD_BONUS[2] * x.rod;
+  if (x.bait > 0) FISH_SHOP.bait.b.forEach((v, i) => add[i] += v);
+  if (x.charm > t) FISH_SHOP.charm.b.forEach((v, i) => add[i] += v);
+  for (let r = 1; r <= 3; r++) o[r] = Math.min(FISH_CAP[r], o[r] + add[r - 1]);
+  o[0] = Math.max(0, 100 - o[1] - o[2] - o[3]);
+  return o.map(v => Math.round(v * 100) / 100);
+}
+/** Garantie en cours : rareté minimum du prochain poisson (0 = aucune) et lancers restants avant chaque garantie. */
+export function fishPity(s){ const x = fishState(s); let min = 0; for (let r = 1; r <= 3; r++) if (x.since[r] >= FISH_PITY[r] - 1) min = r; return {min, left: [0, 1, 2, 3].map(r => r ? Math.max(0, FISH_PITY[r] - 1 - x.since[r]) : 0)}; }
 export function fishRoll(s){
-  const r = rollRarity(FISH_ODDS), pool = FISH.filter(f => f.r === r), f = pool[Math.floor(Math.random() * pool.length)];
+  const x = fishState(s), {min} = fishPity(s), odds = fishOdds(s);
+  let r = rollRarity(odds); if (r < min) r = min;
+  if (x.bait > 0) x.bait--;
+  x.casts++;
+  const pool = FISH.filter(f => f.r === r), f = pool[Math.floor(Math.random() * pool.length)];
   return {...f, size: Math.round((20 + r * 25 + Math.random() * (30 + r * 30)))};       // centimètres
 }
 /** Ramène le poisson : récompense, nouvelle espèce, record de taille. */
 export function fishCatch(s, f){
   s.fish ||= {}; const prev = s.fish[f.k], first = !prev, rec = !prev || f.size > prev.best;
+  { const x = fishState(s); for (let k = 1; k <= 3; k++) x.since[k] = f.r >= k ? 0 : x.since[k] + 1; }   // les garanties comptent les prises réelles
   s.fish[f.k] = {n: (prev?.n || 0) + 1, best: Math.max(prev?.best || 0, f.size)};
   const m = 1 + s.lvl * .25, rw = {coins: R5(f.v * m * (f.size / 50)), xp: 3 + f.r * 4};
   if (f.r >= 2) rw.ice = 1 + f.r; if (f.r === 3) rw.gold = 1;
