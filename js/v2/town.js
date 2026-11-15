@@ -234,7 +234,7 @@ const overlap = (s, type, x, y) => { const b = BUILDINGS[type]; return s.objs.so
 export function newTown(){
   const t = Date.now();
   const s = {
-    v: 5, coins: 200, wood: 120, cookies: 0, fabric: 0, stars: 20, xp: 0, lvl: 1,
+    v: 5, fmt: SAVE_FMT, created: t, play: 0, log: {ev: [], agg: {}}, coins: 200, wood: 120, cookies: 0, fabric: 0, stars: 20, xp: 0, lvl: 1,
     inv: {}, objs: [], chunks: [...START_CHUNKS], orders: [], tuto: 0, t,
     cnt: {}, quest: {i: 0, base: {}}, daily: {last: '', streak: 0}, games: null, decorated: 1,
   };
@@ -267,10 +267,29 @@ export function decorate(s){
 }
 // les terrains réservés restent dégagés (pas de sapin sauvage dessus)
 export function clearLots(s){ s.objs = s.objs.filter(o => !(o.wild && LOTS.some(l => { const b = BUILDINGS[l.type]; return o.x >= l.x - 0 && o.x < l.x + b.w && o.y >= l.y && o.y < l.y + b.h; }))); }
+/* ===================== FORMAT DE SAUVEGARDE (pensé pour durer) =====================
+   Chaque sauvegarde porte un numéro de format « fmt ». À chaque changement de structure, on ajoute UNE conversion
+   fmt N → N+1 dans MIGRATIONS (jamais modifier une conversion déjà publiée). Une vieille sauvegarde, locale ou en ligne,
+   passe par toutes les conversions dans l'ordre : aucune mise à jour ne casse un village.
+   Une sauvegarde plus récente que le jeu (fmt > SAVE_FMT, ex. un vieux téléphone pas encore à jour) n'est jamais écrasée. */
+export const SAVE_FMT = 6;
+const MIGRATIONS = {
+  // 5 → 6 : date de création du village (chrono de course), temps de jeu, journal d'événements
+  5: s => { s.created ||= Math.min(Date.now(), ...s.objs.map(o => o.t || Infinity).filter(Number.isFinite)) || Date.now(); s.play ||= 0; s.log ||= {ev: [], agg: {}}; },
+};
+export function migrate(s){
+  if (!s || typeof s !== 'object') return null;
+  s.fmt ||= 5;                                   // les sauvegardes d'avant le numéro de format sont toutes au format 5
+  if (s.fmt > SAVE_FMT){ s.tooNew = true; return s; }
+  while (s.fmt < SAVE_FMT){ MIGRATIONS[s.fmt](s); s.fmt++; }
+  return s;
+}
+export let localTooNew = false;
 export function loadTown(){
   try {
-    const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.v === 5){
+    const s = migrate(JSON.parse(localStorage.getItem(KEY)));
+    if (s?.tooNew){ localTooNew = true; return null; }
+    if (s && s.v === 5 && !s.tooNew){
       for (const k of [...RES, 'stars', 'xp']) s[k] = +s[k] || 0;
       clearLots(s);
       s.cnt ||= {}; s.quest ||= {i: 0, base: {}}; s.daily ||= {last: '', streak: 0}; s.inv ||= {};
@@ -1258,7 +1277,7 @@ export async function importCode(code){
   if (!s || s.v !== 5 || !Array.isArray(s.objs)) throw new Error('Sauvegarde illisible.');
   return s;
 }
-export function replaceTown(s){ saveTown(s); }
+export function replaceTown(s){ s = migrate(s); if (!s || s.tooNew) return false; saveTown(s); return true; }
 
 /** Moins de sapins sauvages dans le village : on garde ceux du bord (cadre joli) et on libère le reste. */
 export function thinTrees(s){
