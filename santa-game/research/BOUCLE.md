@@ -363,3 +363,5 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
     - `new Date()` corrigé ;
     - hors ligne, le temps ne dépasse plus la dernière heure vérifiée.
   - Outils de test retirés du site public : `?export`, `?prof`, `?heure=`, `__pan`, `__sprInfo`, `__big`, `__b3`, `__stack`.
+- **v91 (correctif urgent, publié depuis la v89 en ligne)** : un ami de Sora était bloqué. Les freins de la course (défis de la Maison + plafond de 24 h d'accélération par jour) sont derrière un interrupteur `RACE_BRAKES`, **éteint par défaut**. On améliore et on accélère comme avant dès le rechargement. Code et tests gardés.
+- **v92** : v90 (défis à plusieurs chemins, anti-triche renforcé, outils de test retirés du site) + interrupteur éteint. En test local, `?freins=1` rallume les freins (`course.cjs`) ; `freins-eteints.cjs` vérifie Maison 14+ sans défi et accélérations à la suite.
