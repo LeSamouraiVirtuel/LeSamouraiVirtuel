@@ -983,7 +983,7 @@ function hud(){
   { const a = T.adventState(S), e = $('#b-advent .badge'); e.hidden = !(a.open && T.adventCan(S, a.today)); $('#b-advent small').textContent = a.open ? 'Avent' : `J-${a.untilStart}`; }
   $('#b-more .badge').hidden = $('#b-album .badge').hidden && $('#b-advent .badge').hidden;
   { const g = tickets(), bg = $('#b-games .badge'); bg.textContent = g.tickets; bg.hidden = !g.tickets; }
-  renderQuest();
+  renderQuest(); renderHqCard();
 }
 
 function closeSeeds(){}
@@ -1256,6 +1256,10 @@ function renderPanel(){
       <div class="lots">${A.lots.map((l, i) => lotCard(l, i)).join('') || '<p class="meta">Tous les lots sont partis.</p>'}</div>${A.next ? `<p class="meta">Nouveau lot dans <b data-until="${A.next}"></b></p>` : ''}
       <div class="acts">${oddsBtn('ventes')}</div><button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
   }
+  else if (panel === 'hqch'){
+    const sp = hqSpec();
+    h = hd(sp ? `Pour la Maison niv. ${sp.lv}` : '', 'Défi de la Maison') + (sp ? challengeBox(sp.lv) : '<p class="meta">Pas de défi en ce moment.</p>') + '<div class="acts"><button class="btn blue wide" data-a="hqhouse">Voir la Maison du Père Noël</button></div>';
+  }
   else if (panel === 'profile'){
     const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Camps de trolls vaincus', (S.camps?.at || 0)], ['Espèces pêchées', Object.keys(S.fish || {}).length + ' / ' + T.FISH.length], ['Trouvailles du musée', T.RELICS.filter(x => (S.relics || {})[x.k]).length + ' / ' + T.RELICS.length]];
     const u = ACC.ready() && ACC.current();
@@ -1433,6 +1437,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'gotrain') return openPanel('train', panelArg);
   if (a === 'camp') return openPanel('camp');
   if (a === 'hqexp'){ const st = S.objs.find(o => o.type === 'stable' && !o.build); return st ? openPanel('exp', st) : toast('Construis l’Écurie des rennes pour envoyer des expéditions.'); }
+  if (a === 'hqhouse' || a === 'hqgo'){ closePanel(); return goTo('santa'); }
   if (a === 'hqfish') return T.canFish(S) ? openPanel('fish') : toast('Ouvre le Lac Gelé (forêt à dégager) pour pêcher.');
   if (a === 'lore') return openPanel('lore');
   if (a === 'replay'){ closePanel(); return setTimeout(() => chapterCine(+b.dataset.i), 250); }
@@ -1695,7 +1700,9 @@ function showMissing(req, what, retry){
     m.hidden = true; };
 }
 function whyHelp(o, why){
-  if (why === 'Défi de la Maison') return 'Termine d’abord le <b>défi de la Maison</b> ci-dessus : il ne s’achète pas.';
+  if (why === 'Défi de la Maison'){ const sp = T.challengeSpec(S, o.lv + 1), st = sp && chState(sp), miss = [];
+    if (st && !st.okT) miss.push(`${sp.n - st.toy} jouet${sp.n - st.toy > 1 ? 's' : ''} de niveau ${sp.min}+`); if (st && !st.okP) miss.push(`${sp.pts - st.pts} point${sp.pts - st.pts > 1 ? 's' : ''} d’aventure`);
+    return `<b>Améliorer est grisé</b> parce que le défi de la Maison n’est pas fini : il manque ${miss.join(' et ')}. Regarde le défi en haut de cette fiche.`; }
   if (why !== 'Ressources insuffisantes') return why;
   const c = T.upCost(o.type, o.lv + 1), lack = Object.entries(c).filter(([k, n]) => haveOf(k) < n).map(([k, n]) => `${fmt(n - haveOf(k))} ${(RINFO[k]?.name || k).toLowerCase()}`);
   return `Il manque ${lack.join(', ')}. Touche <b>Améliorer</b> pour savoir où en trouver.`;
@@ -1910,7 +1917,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 92;
+const GAME_V = 93;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2420,19 +2427,76 @@ function toolBox(c, n){
 // la Scierie fabrique une hache ou une scie toutes les 3 h (source régulière d'outils d'agrandissement)
 const TOOL_CD = 3 * 3600e3, toolCost = (o, k) => ({wood: R5(250 * (1 + (S.chunks.length - T.START_CHUNKS.length) * .4)) * (k === 'saw' ? 2 : 1), coins: 100 * o.lv});
 const R5 = n => Math.round(n / 5) * 5;
+/* ---------- DÉFIS DE LA MAISON : clairs, suivis en permanence, impossibles à rater ---------- */
+function hqSpec(){ const h = findType('santa'); if (!h || h.lv >= BUILDINGS.santa.max || h.up) return null; return T.challengeSpec(S, h.lv + 1); }
+function chState(sp){
+  const toyHave = T.challengeToyCount(S, sp.min), A = T.adventurePts(S);
+  const toyName = (Object.keys(T.TOYS).filter(k => !T.TOYS[k].wrap && T.TOYS[k].lvl >= sp.min).sort((a, b) => T.TOYS[a].lvl - T.TOYS[b].lvl)[0]) || 'train';
+  return {toy: Math.min(toyHave, sp.n), pts: Math.min(A.total, sp.pts), A, toyName, okT: toyHave >= sp.n, okP: A.total >= sp.pts};
+}
+const chBar = (v, n) => `<span class="chbar"><i style="width:${Math.min(100, v / n * 100)}%"></i></span>`;
+// la fiche détaillée (fiche de la Maison et écran « Défi de la Maison »)
 function challengeBox(lv){
-  const c = T.RACE_BRAKES && T.HQ_CHALLENGE[lv]; if (!c) return '';
-  const [min, n] = c.toy, have = T.challengeToyCount(S, min), A = T.adventurePts(S), okT = have >= n, okP = A.total >= c.pts;
-  const names = Object.keys(T.TOYS).filter(k => !T.TOYS[k].wrap && T.TOYS[k].lvl >= min).map(k => ITEMS[k].name).slice(0, 2).join(', ');
-  const path = (k, label, pts, act) => `<div class="mis"><div><b>${label}</b><small>${pts}</small></div>${act}</div>`;
-  return `<div class="chbox"><h3>Défi de la Maison niv. ${lv}</h3><p class="meta">Il ne s'achète pas : il se gagne en jouant, à ta façon.</p>
-    <div class="mis ${okT ? 'chok' : ''}"><div><b>${okT ? '✓ ' : ''}${n} jouets fabriqués de niveau ${min} ou plus</b><small>Tu en as ${have} / ${n} · par exemple : ${names}${okT ? '' : ` · <b>il en manque ${n - have}</b>`}</small></div>${okT ? '' : '<button class="btn blue sm" data-a="gocraft">Atelier</button>'}</div>
-    <div class="mis ${okP ? 'chok' : ''}"><div><b>${okP ? '✓ ' : ''}${c.pts} points d'aventure</b><small>Tu en as ${A.total} / ${c.pts}${okP ? '' : ` · <b>il en manque ${c.pts - A.total}</b>`} · au choix, n'importe quel mélange :</small></div></div>
-    ${okP ? '' : `<div class="mlist chpaths">
-      ${path('fish', '🎣 Pêcher une nouvelle espèce', `${T.PTS.fish} pts chacune · ${A.n.fish} / ${T.FISH.length} espèces`, '<button class="btn blue sm" data-a="hqfish">Pêcher</button>')}
-      ${path('camp', '⚔️ Battre un camp de trolls', `${T.PTS.camp} pts chacun · ${A.n.camp} battus`, '<button class="btn blue sm" data-a="camp">Campagne</button>')}
-      ${path('exp', '🦌 Une expédition des rennes', `${T.PTS.exp} pt chacune · ${A.n.exp} revenues`, '<button class="btn blue sm" data-a="hqexp">Écurie</button>')}
-      ${path('orders', '✉️ Livrer des lettres', `1 pt toutes les ${Math.round(1 / T.PTS.orders)} lettres · ${A.n.orders} livrées`, '<button class="btn blue sm" data-a="goorders">Lettres</button>')}</div>`}</div>`;
+  const sp = T.challengeSpec(S, lv); if (!sp) return '';
+  const st = chState(sp), A = st.A, ready = st.okT && st.okP;
+  const row = (ok, ico, title, v, n, how, act) => `<div class="chrow ${ok ? 'ok' : ''}"><img src="${ico}" alt=""><b>${ok ? '✓ ' : ''}${title}</b><span class="chn">${v}/${n}</span>${chBar(v, n)}${ok ? '' : `<small>${how}</small>${act}`}</div>`;
+  const path = (ico, label, pts, act) => `<div class="mis chpath"><div><b>${ico} ${label}</b><small>${pts}</small></div>${act}</div>`;
+  return `<div class="chbox ${ready ? 'ready' : ''}"><h3>Défi de la Maison niv. ${lv}</h3>
+    <p class="meta">${ready ? '<b>Défi réussi !</b> Tu peux améliorer la Maison.' : `Pour passer la Maison au niveau ${lv}, remplis ces <b>2 conditions</b>. Elles ne s'achètent pas : elles se gagnent en jouant.`}</p>
+    ${row(st.okT, ICON[st.toyName], `${sp.n} jouets de niveau ${sp.min} ou plus`, st.toy, sp.n,
+      `Deux façons : fabrique-les à l’<b>Atelier des jouets</b>, ou garde ceux de ton stock au lieu de les livrer.`, '<button class="btn green sm" data-a="gocraft">Y aller</button>')}
+    ${row(st.okP, ICON.mg_deer, `${sp.pts} points d'aventure`, st.pts, sp.pts,
+      `Au choix, n'importe quel mélange : pêche, combats, expéditions des rennes ou lettres livrées (détail ci-dessous).`, '')}
+    ${st.okP ? '' : `<div class="mlist chpaths">
+      ${path('🎣', 'Pêcher une nouvelle espèce', `+${T.PTS.fish} pts chacune · ${A.n.fish} / ${T.FISH.length} espèces`, '<button class="btn green sm" data-a="hqfish">Y aller</button>')}
+      ${path('⚔️', 'Battre un camp de trolls', `+${T.PTS.camp} pts chacun · ${A.n.camp} battus`, '<button class="btn green sm" data-a="camp">Y aller</button>')}
+      ${path('🦌', 'Faire revenir une expédition', `+${T.PTS.exp} pt chacune · ${A.n.exp} revenues`, '<button class="btn green sm" data-a="hqexp">Y aller</button>')}
+      ${path('✉️', 'Livrer des lettres', `+1 pt toutes les ${Math.round(1 / T.PTS.orders)} lettres · ${A.n.orders} livrées`, '<button class="btn green sm" data-a="goorders">Y aller</button>')}</div>`}
+    ${ready ? '<button class="btn gold wide" data-a="hqgo">Améliorer la Maison</button>' : ''}</div>`;
+}
+// carte permanente sur l'écran principal, au-dessus de la carte de quête, AVANT d'être bloqué
+let hqHtml = '';
+function renderHqCard(){
+  const el = $('#hqch'); if (!el) return;
+  const sp = !tuto.active() && hqSpec();
+  if (!sp){ if (!el.hidden){ el.hidden = true; hqHtml = ''; } return; }
+  const st = chState(sp), ready = st.okT && st.okP;
+  const line = (ok, ico, label, v, n, c) => `<div class="hqr ${ok ? 'ok' : ''}"><img src="${ico}" alt=""><span class="hql">${ok ? '✓ ' : ''}${label}</span><em>${v}/${n}</em>${chBar(v, n)}${ok ? '' : `<span class="hqgo" data-c="${c}">Y aller</span>`}</div>`;
+  const h = `<span class="tag">Défi Maison ${sp.lv}</span>` + (ready ? `<b class="hqready">Défi réussi ! Améliore la Maison</b><span class="hqgo big" data-c="house">Y aller</span>`
+    : line(st.okT, ICON[st.toyName], 'Jouets', st.toy, sp.n, 'toy') + line(st.okP, ICON.mg_deer, 'Aventure', st.pts, sp.pts, 'pts'));
+  if (h !== hqHtml){ hqHtml = h; el.innerHTML = h; el.classList.toggle('ready', ready); }
+  el.hidden = false;
+  const q = $('#quest2'); if (q && q.offsetHeight){ const qb = parseFloat(getComputedStyle(q).bottom) || 0; el.style.bottom = (qb + q.offsetHeight + 16) + 'px'; }
+}
+document.getElementById('hqch')?.addEventListener('click', e => {
+  const c = e.target.closest('[data-c]')?.dataset.c; sfx.tap();
+  if (c === 'toy') return workshopOf() ? goTo('workshop') : openPanel('build', 'town');
+  if (c === 'house') return goTo('santa');
+  openPanel('hqch');
+});
+// animation + message quand une condition se remplit, et quand tout le défi est prêt
+let chPrev = null;
+setInterval(() => {
+  const sp = hqSpec(); if (!sp){ chPrev = null; return; }
+  const st = chState(sp), cur = {lv: sp.lv, t: st.okT, p: st.okP};
+  if (chPrev && chPrev.lv === cur.lv){
+    const pulse = () => { const el = $('#hqch'); el?.classList.remove('pulse'); void el?.offsetWidth; el?.classList.add('pulse'); };
+    if (cur.t && cur.p && !(chPrev.t && chPrev.p)){ pulse(); sfx.level(); toast(`🎉 Défi de la Maison niv. ${sp.lv} réussi ! Tu peux améliorer la Maison.`); }
+    else if (cur.t && !chPrev.t){ pulse(); sfx.collect(); toast('✓ Défi de la Maison : jouets réunis !'); }
+    else if (cur.p && !chPrev.p){ pulse(); sfx.collect(); toast('✓ Défi de la Maison : points d’aventure réunis !'); }
+  }
+  chPrev = cur;
+  // la première fois qu'un défi apparaît (ou à la prochaine connexion pour les joueurs déjà au-delà) : on explique, une seule fois
+  if (!S.chIntro && !tuto.active()){ S.chIntro = 1; save(); whenFree(() => modalBusy() ? modalQ.push(chIntro) : chIntro()); }
+}, 1000);
+function chIntro(){
+  const sp = hqSpec(); if (!sp) return; const m = $('#modal'); m.className = 'glow rinfo chintro';
+  m.querySelector('.mcard').innerHTML = `<small>Nouveau</small><h2 class="stroke">Défis de la Maison</h2>
+    <p>Les grands niveaux de la Maison demandent un petit <b>défi</b> en plus des ressources :</p>
+    <p>🧸 des <b>jouets fabriqués</b> à l’atelier<br>⭐ des <b>points d’aventure</b> : pêche, combats, expéditions ou lettres</p>
+    <p class="meta">Ta progression reste affichée sur l’écran du village, avec « Y aller ».${T.hqLv(S) >= 14 ? ' Tes niveaux déjà atteints restent acquis.' : ''}</p>
+    <div class="acts"><button class="btn blue" data-m="ok">Compris</button><button class="btn green" data-m="see">Voir mon défi</button></div>`;
+  m.hidden = false; m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m === 'see') openPanel('hqch'); };
 }
 function toolsBox(o){
   const ready = now() - (o.toolT || 0) >= TOOL_CD;
