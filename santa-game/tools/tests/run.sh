@@ -13,3 +13,6 @@ echo "=== robot : tous les bâtiments et boutons"; timeout 900 node robot-batime
 echo "=== PC souris : tickets, gains, bataille"; timeout 600 node tickets-souris-pc.cjs 2>&1 | tail -5
 echo "=== Mac (Safari) souris"; timeout 600 node tickets-souris-mac.cjs 2>&1 | tail -5
 echo "=== comptes (création, connexion, reprise sur un autre appareil)"; timeout 600 node comptes2.cjs 2>&1 | tail -5
+echo "=== écran d'accueil, bonus de bienvenue, profil (SE, iPhone 13, Mac, PC)"; timeout 1200 node accueil.cjs 2>&1 | tail -4
+# suivi + tableau de bord : nécessite l'émulateur Firebase (firebase emulators:start avec firebase/firestore.rules)
+if curl -s -m 2 http://127.0.0.1:8080 >/dev/null; then echo "=== suivi invisible + tableau de bord (émulateur)"; timeout 600 node suivi.cjs 2>&1 | tail -4; fi

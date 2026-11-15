@@ -38,6 +38,19 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    // track/{uid} : suivi du joueur (fiche, sessions, actions). Écrit par le joueur lui-même pendant qu'il joue,
+    // lu UNIQUEMENT par le tableau de bord de l'éditeur (et par le joueur, pour pouvoir tout effacer avec son compte).
+    match /track/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create, update: if request.auth != null && request.auth.uid == uid && request.resource.data.size() <= 60;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+      match /s/{sid} {
+        allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+        allow create, update: if request.auth != null && request.auth.uid == uid && request.resource.data.size() <= 20;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
     // purchases/{uid}/… : achats réels validés (plus tard). Écrits UNIQUEMENT par le serveur (Cloud Functions,
     // après vérification du reçu Apple ou Google) : aucun joueur ne peut s'attribuer un achat.
     match /purchases/{uid}/{doc=**} {

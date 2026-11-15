@@ -22,36 +22,49 @@
 <h2>En bref</h2>
 <ul>
   <li><b>Sans compte</b>, ton village reste uniquement sur ton appareil (dans la mémoire du navigateur). Rien n'est envoyé.</li>
-  <li><b>Avec un compte</b>, ton village et ton journal de jeu sont gardés en ligne, en Europe, pour que tu le retrouves sur n'importe quel appareil.</li>
-  <li>Il n'y a <b>aucune publicité</b>, et rien n'est vendu ni partagé avec d'autres entreprises.</li>
+  <li><b>Avec un compte</b>, ton village est gardé en ligne, en Europe, pour que tu le retrouves sur n'importe quel appareil, avec un journal de ta progression.</li>
+  <li><b>Si tu es d'accord</b> (question posée une fois, modifiable dans Profil → Réglages → « Aider à améliorer le jeu »), on enregistre aussi ton appareil, ton adresse IP et ta ville approximative, et ce que tu fais dans le jeu.</li>
+  <li>Il n'y a <b>aucune publicité</b>. Rien n'est vendu ni montré aux autres joueurs.</li>
   <li>Tu peux <b>tout supprimer à tout moment</b> : Profil → Mon compte → « Supprimer mon compte et mon village ».</li>
 </ul>
 
-<h2>Ce que nous gardons (avec un compte)</h2>
+<h2>Ce que nous gardons avec un compte</h2>
+<table>
+  <tr><th>Donnée</th><th>Pourquoi</th><th>Base légale</th></tr>
+  <tr><td>Ton adresse e-mail, ou ton compte Google (nom, adresse e-mail, photo de profil), le type de connexion (Google ou e-mail), un identifiant de compte, la date de création du compte et de ta dernière connexion</td><td>Te connecter et retrouver ton village</td><td>Exécution du service que tu demandes</td></tr>
+  <tr><td>La sauvegarde de ton village (bâtiments, ressources, objets, progression, nom du village), et si ce village existait avant ton compte</td><td>Retrouver ton village sur un autre appareil</td><td>Exécution du service</td></tr>
+  <tr><td>Un journal de progression : montées de niveau et étapes de l'histoire (date et heure), temps de jeu, achats dans la boutique (pack, prix affiché, moment, niveau), étoiles dépensées (pour quoi, temps d'attente évité)</td><td>Équilibrer la difficulté et la boutique, suivre la progression des joueurs, protéger les achats</td><td>Intérêt légitime de l'éditeur à faire fonctionner et équilibrer le jeu</td></tr>
+</table>
+
+<h2>Ce que nous gardons en plus, seulement si tu es d'accord</h2>
 <table>
   <tr><th>Donnée</th><th>Pourquoi</th></tr>
-  <tr><td>Ton adresse e-mail, ou ton compte Google (nom affiché, adresse e-mail), et un identifiant de compte</td><td>Te connecter et retrouver ton village.</td></tr>
-  <tr><td>La sauvegarde de ton village (bâtiments, ressources, objets, progression)</td><td>Retrouver ton village sur un autre appareil.</td></tr>
-  <tr><td>Un journal de jeu : tes montées de niveau et étapes de l'histoire (avec la date et l'heure), ton temps de jeu, tes achats dans la boutique (pack, prix affiché, moment), tes dépenses d'étoiles, tes parties de pêche</td><td>Ces données servent à l'éditeur du jeu pour équilibrer la difficulté et la boutique, et pour suivre la progression des joueurs. Elles ne sont pas affichées aux autres joueurs.</td></tr>
+  <tr><td><b>Ton appareil</b> : système et version, navigateur et version, modèle (quand le navigateur le donne, ou déduit de la taille d'écran), taille d'écran, langue, fuseau horaire, jeu installé sur l'écran d'accueil ou non</td><td>Corriger les bugs propres à certains appareils et adapter l'affichage</td></tr>
+  <tr><td><b>Ta connexion</b> : adresse IP à chaque session, pays, région et ville approximatifs déduits de l'IP, opérateur internet, et l'adresse d'où tu es arrivé sur le jeu (par exemple un lien partagé)</td><td>Savoir d'où viennent les joueurs, repérer la triche et les connexions anormales</td></tr>
+  <tr><td><b>Tes sessions</b> : heure de début et de fin, durée, temps de jeu réel, nombre de sessions par jour</td><td>Mesurer le temps de jeu et améliorer le rythme du jeu</td></tr>
+  <tr><td><b>Tes actions dans le jeu</b> : écrans ouverts, achats, étoiles dépensées, montées de niveau, mini-jeux joués et leurs résultats, batailles, prises et ratés à la pêche</td><td>Comprendre ce qui plaît, ce qui bloque, et équilibrer le jeu</td></tr>
 </table>
-<p>Les achats de la version actuelle sont <b>simulés</b> : aucun paiement n'est demandé, et aucune donnée bancaire n'est collectée. Dans une future version des stores, les paiements passeront uniquement par Apple ou Google.</p>
+<p>Base légale : ton <b>consentement</b>. Si tu refuses ou si tu changes d'avis, plus rien de tout ça n'est enregistré, et le jeu marche exactement pareil.</p>
+<p>Pour trouver la ville approximative, ton adresse IP est envoyée au service gratuit <b>GeoJS</b> (get.geojs.io), ou en secours à <b>ipapi</b> (ipapi.co), qui renvoient le pays, la région et la ville. Ils ne reçoivent rien d'autre.</p>
+<p>Les achats de la version actuelle sont <b>simulés</b> : aucun paiement n'est demandé et aucune donnée bancaire n'est collectée. Dans une future version des stores, les paiements passeront uniquement par Apple ou Google.</p>
+<p><b>Qui voit ces données ?</b> Uniquement l'éditeur du jeu, dans un tableau de bord protégé par son compte. Elles ne sont jamais affichées aux autres joueurs, ni dans le jeu.</p>
 
 <h2>Où sont gardées ces données</h2>
-<p>Chez Google Firebase. La sauvegarde et le journal sont stockés dans la base Firestore, dans l'Union européenne (région « eur3 » : Belgique et Pays-Bas). La connexion passe par Firebase Authentication. Seuls toi et l'éditeur du jeu peuvent lire ces données : des règles de sécurité interdisent l'accès à tout autre compte.</p>
+<p>Chez Google Firebase. La sauvegarde, le journal et le suivi sont stockés dans la base Firestore, dans l'Union européenne (région « eur3 » : Belgique et Pays-Bas). La connexion passe par Firebase Authentication. Des règles de sécurité interdisent l'accès à tout autre compte que le tien et celui de l'éditeur.</p>
 
 <h2>Combien de temps</h2>
 <ul>
   <li>Tant que ton compte existe.</li>
-  <li>« Supprimer mon compte » efface immédiatement ton compte, ton village en ligne, ton journal de jeu et le village de l'appareil.</li>
+  <li>« Supprimer mon compte » efface immédiatement ton compte, ton village en ligne, ton journal, tout le suivi (appareil, IP, sessions, actions) et le village de l'appareil.</li>
   <li>Les comptes inactifs pendant 3 ans sont supprimés.</li>
 </ul>
 
 <h2>Tes droits</h2>
-<p>Tu peux accéder à tes données, les corriger, les emporter (Profil → Sauvegarde → « Copier mon code ») ou les effacer (bouton ci-dessus). Pour toute question ou demande, écris à l'éditeur du jeu : <b>[adresse de contact à compléter]</b>. Tu peux aussi saisir la CNIL (cnil.fr).</p>
-<p><b>Moins de 15 ans :</b> demande l'accord d'un parent avant de créer un compte.</p>
+<p>Tu peux accéder à tes données, en obtenir une copie, les corriger, les effacer, t'opposer au suivi ou retirer ton accord (Profil → Réglages). Pour toute demande, écris à l'éditeur du jeu : <b>[adresse de contact à compléter]</b>. Tu peux aussi saisir la CNIL (cnil.fr).</p>
+<p><b>Moins de 15 ans :</b> demande l'accord d'un parent avant de créer un compte et avant d'accepter le suivi.</p>
 
 <h2>Sur ton appareil</h2>
-<p>Le jeu utilise la mémoire du navigateur pour ton village et tes réglages (taille de l'interface, animations). Il n'utilise aucun cookie publicitaire ni traceur.</p>
+<p>Le jeu utilise la mémoire du navigateur pour ton village, tes réglages (taille de l'interface, animations), ton choix pour le suivi, et l'adresse d'où tu es arrivé la première fois (envoyée seulement si tu crées un compte et acceptes le suivi). Il n'utilise aucun cookie publicitaire.</p>
 
 <p><a href="./">← Retour au jeu</a></p>
 </main></body>

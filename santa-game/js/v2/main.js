@@ -9,6 +9,7 @@ import {openMinigame, GAMES} from '../minigames.js';
 let b3p = null; const B3 = () => (b3p ||= import('../battle3d.js'));
 import {portrait as villainPortrait} from '../villains.js';
 import * as ACC from '../account.js';
+import * as TR from '../track.js';
 import * as T from './town.js';
 import * as M from './meta.js';
 
@@ -983,7 +984,7 @@ function closeSeeds(){}
 
 /* ---------- panneaux ---------- */
 let panel = null, panelArg = null, panelHtml = '', selOrder = 0;
-function openPanel(name, arg){ if (name !== 'craft'){ fromOrder = false; wantToy = ''; } closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
+function openPanel(name, arg){ TR.ev('ecran', {n: name, ...(typeof arg === 'string' ? {a: arg} : {})}); if (name !== 'craft'){ fromOrder = false; wantToy = ''; } closeSeeds(); panel = name; panelArg = arg; panelHtml = ''; document.body.classList.add('sheet-open'); renderPanel(); tutoEv('open:' + name); }
 function closePanel(){ const was = panel; if (was === 'account' && welcomeWait){ const f = welcomeWait; welcomeWait = null; setTimeout(f, 300); } panel = null; panelHtml = ''; document.body.classList.remove('sheet-open'); selObj = null; if (was) tutoEv('close'); }
 const hd = (small, title) => `<div class="hd"><div class="tt"><small>${small}</small><h2>${title}</h2></div><button class="x" data-a="close" aria-label="Fermer"></button></div>`;
 const need = req => Object.entries(req || {}).map(([k, n]) => `<span class="need ${haveOf(k) >= n ? 'have' : ''}"><img src="${ICON[k]}" alt=""><b>${fmt(haveOf(k))}/${fmt(n)}</b></span>`).join('');
@@ -1260,7 +1261,8 @@ function renderPanel(){
       <div class="mis"><b>Musique</b><button class="btn ${S.noMusic || S.mute ? 'blue' : 'green'} sm" data-a="music">${S.noMusic || S.mute ? 'Coupée' : 'Activée'}</button></div>
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><b>Taille des boutons</b><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
-      <div class="mis"><b>Moins d'animations</b><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Oui' : 'Non'}</button></div></div>
+      <div class="mis"><b>Moins d'animations</b><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Oui' : 'Non'}</button></div>
+      ${u ? `<div class="mis"><div><b>Aider à améliorer le jeu</b><small>Appareil, ville approximative et activité</small></div><button class="btn ${TR.consent() === 'yes' ? 'green' : 'blue'} sm" data-a="consent">${TR.consent() === 'yes' ? 'Oui' : 'Non'}</button></div>` : ''}</div>
       <h3>Aide et légal</h3><div class="mlist"><div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Revoir</button></div>
       <div class="mis"><b>Changer d'appareil sans compte</b><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
       <div class="mis"><b>Confidentialité</b><a class="btn blue sm" href="privacy.html" target="_blank" rel="noopener">Lire</a></div></div>
@@ -1400,6 +1402,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'aucgo') return aucOpen(+b.dataset.i);
   if (a === 'aucpeek'){ const l = M.auction(S).lots[+b.dataset.i]; if (S.stars < M.AUC_PEEK){ sfx.err(); return openPanel('shop'); } if (l && M.aucPeek(S, l)){ sfx.tap(); save(); } return renderPanel(); }
   if (a === 'aucrefill'){ if (!M.aucRefill(S)){ sfx.err(); return openPanel('shop'); } sfx.level(); save(); return renderPanel(); }
+  if (a === 'consent'){ TR.setConsent(TR.consent() === 'yes' ? 'no' : 'yes'); return renderPanel(); }
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
@@ -1701,7 +1704,7 @@ function packCard(k, featured = false){
     ${owned ? '<span class="tagw">Acheté ✓</span>' : `<button class="btn green" data-a="pack" data-k="${k}">${P.price}</button>`}</div>`;
 }
 // journal silencieux d'un achat (prix affiché en euros, niveau du joueur, Maison) : lu seulement par le tableau de bord de l'éditeur
-function logIap(k, name, price){ const eur = parseFloat(String(price).replace(',', '.').replace(/[^\d.]/g, '')) || 0; T.logEv(S, 'iap', {k, name, eur, lvl: S.lvl, hq: T.hqLv(S)}); T.logAdd(S, 'eur', eur); T.logAdd(S, 'n_buy', 1); save(); }
+function logIap(k, name, price){ const eur = parseFloat(String(price).replace(',', '.').replace(/[^\d.]/g, '')) || 0; T.logEv(S, 'iap', {k, name, eur, lvl: S.lvl, hq: T.hqLv(S)}); T.logAdd(S, 'eur', eur); T.logAdd(S, 'n_buy', 1); save(); TR.ev('achat', {pack: k, nom: name, eur, niv: S.lvl, maison: T.hqLv(S)}); }
 function buyPack(k){
   const P = M.PACKS[k]; if (!P || M.packOwned(S, k)){ sfx.err(); return toast('Déjà à toi'); }
   const m = $('#modal'); m.className = 'glow rinfo';
@@ -1888,7 +1891,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 83;
+const GAME_V = 84;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2087,8 +2090,8 @@ function playGame(k){
     icons: {sleigh: ICON.mg_sleigh, gift: ICON.mg_gift, elf: ICON.mg_elf, deer: ICON.mg_deer, gold: ICON.mg_gold},
     sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, tone, best: kk => S.games.best[kk] || 0, setBest: (kk, v) => { S.games.best[kk] = v; save(); },
     chipsHtml: rewardChips, reward: gameReward,
-    grant: (rw, el) => { giveReward(rw, el); T.track(S, 'games'); },
-    onScore: () => {}, onClose: () => { document.body.classList.remove('in-game'); },
+    grant: (rw, el) => { giveReward(rw, el); T.track(S, 'games'); TR.ev('minijeu_gain', {jeu: k, rw}); },
+    onScore: sc => TR.ev('minijeu', {jeu: k, score: sc}), onClose: () => { document.body.classList.remove('in-game'); },
   });
 }
 
@@ -2170,7 +2173,7 @@ function showWelcome(go){
   w.innerHTML = `<div class="wcard"><img class="wlogo" src="${portrait}" alt=""><h1>Le Village du Pôle</h1><p>Garde ton village pour toujours et retrouve-le sur tous tes appareils.</p>
     <div class="wbonus"><span>🎁</span><div><b>Bonus de bienvenue</b><small>${M.WELCOME_TXT}, en créant ton compte.</small></div></div>
     ${ACC.googleUnavailable() ? '<p class="meta wnote">Sur iPhone, dans l’app de l’écran d’accueil, utilise ton e-mail.</p>' : '<button class="btn wide gbtn" data-w="google"><span class="g">G</span>Continuer avec Google</button>'}
-    <button class="btn blue wide" data-w="mail">Créer un compte / Se connecter par e-mail</button>
+    <button class="btn blue wide" data-w="mail">Créer un compte / Se connecter par e&#8209;mail</button>
     <div class="werr" hidden></div>
     <button class="wguest" data-w="guest">Jouer en invité</button><small class="wfine">En invité, ton village reste sur cet appareil. <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></small></div>`;
   document.body.appendChild(w);
@@ -2197,7 +2200,9 @@ function grantWelcome(v, uid){
   v.stars = (v.stars || 0) + M.WELCOME.stars; v.coins = (v.coins || 0) + M.WELCOME.coins; (v.parcels ||= []).push(1, 1);
   v.skins ||= {pet: 'classic', own: {classic: 1}}; v.skins.own.star = 1; v.skins.pet = 'star'; v.welcomeGot = uid || 1;
 }
-function welcomeBravo(){ setTimeout(() => bravo({stars: M.WELCOME.stars, coins: M.WELCOME.coins}, 'Bonus de bienvenue : + 2 colis et le pelage « Nuit étoilée » pour Flocon !', 'BIENVENUE !'), 600); }
+// attendre que le joueur soit libre : ni cinématique, ni tutoriel, ni fenêtre ouverte
+function whenFree(fn){ const t = setInterval(() => { if (calm() && !tuto.active() && !document.body.classList.contains('cine') && !document.getElementById('welcome')){ clearInterval(t); fn(); } }, 800); }
+function welcomeBravo(){ whenFree(() => bravo({stars: M.WELCOME.stars, coins: M.WELCOME.coins}, 'Bonus de bienvenue : + 2 colis et le pelage « Nuit étoilée » pour Flocon !', 'BIENVENUE !')); }
 function chooseVillage(cs, t, u, needW){
   const m = $('#modal'); m.className = 'glow rinfo';
   const when = t ? new Date(t).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '';
@@ -2210,6 +2215,51 @@ function chooseVillage(cs, t, u, needW){
     if (b.dataset.m === 'cloud'){ if (needW){ grantWelcome(cs, u.uid); try { sessionStorage.setItem('vdp-welcome', 1); } catch(_){} } if (!T.replaceTown({...cs, cloudT: t})) return toast('Ce village vient d’une version plus récente : recharge le jeu pour le récupérer.'); saveLock = true; location.reload(); return; }
     if (needW){ grantWelcome(S, u.uid); welcomeDone = true; save(); welcomeBravo(); } cloudOk = true; await cloudPush(true, true); };
 }
+
+/* ---------- SUIVI SILENCIEUX (js/track.js) : rien n'est affiché au joueur ---------- */
+// dernière action touchée : sert à dire à quoi ont servi les étoiles dépensées, et le temps d'attente évité
+let lastAct = {a: '', k: '', t: 0, saved: 0, panel: ''};
+document.addEventListener('click', e => { const b = e.target.closest('[data-a],[data-m],[data-x]'); if (!b) return;
+  const a = b.dataset.a || (b.dataset.m ? 'm:' + b.dataset.m : 'x:' + b.dataset.x); let left = 0;
+  try { if (a === 'jobspeed') left = panelArg.job.end - now(); else if (a === 'speed') left = workEnd(panelArg) - now(); else if (a === 'tspeed') left = S.train.back - now();
+    else if (a === 'rsspeed') left = S.rsRun.end - now(); else if (a === 'expspeed') left = S.exps[+b.dataset.i].end - now(); } catch(_){}
+  lastAct = {a, k: b.dataset.k || '', t: now(), saved: Math.max(0, Math.round(left / 1000)) || 0, panel: panel || ''};
+}, true);
+const RACE_LV = new Set([5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100]), RACE_HQ = new Set([3, 5, 10, 15, 20, 25]);
+const trInfo = () => ({village: S.name || '', creeLe: S.created || 0, niveau: S.lvl || 1, maison: T.hqLv(S), chapitre: T.chapterOf(S.quest?.i || 0),
+  eur: Math.round((S.log?.agg?.eur || 0) * 100) / 100, achats: S.log?.agg?.n_buy || 0, etoilesDepensees: S.log?.agg?.stars_spent || 0,
+  tempsGagne: S.log?.agg?.saved || 0, jeuTotal: S.play || 0, inviteAvant: !!S.wasGuest, lvl: S.lvl || 1});
+function race(key){ S.race ||= {}; if (S.race[key]) return; const t = now(); S.race[key] = t; T.logEv(S, 'race', {key});
+  TR.milestone(key, {eur: trInfo().eur, achats: trInfo().achats, niv: S.lvl, jeu: S.play || 0, depuisCreation: t - (S.created || t)}); }
+let wSt = null, wLv = 0, wHq = 0, wCh = -1;
+setInterval(() => {
+  if (!document.hidden) S.play = (S.play || 0) + 1;
+  if (wSt === null) wSt = S.stars;
+  if (S.stars < wSt){ const n = wSt - S.stars, fresh = now() - lastAct.t < 20e3;
+    const d = {quoi: fresh ? lastAct.a + (lastAct.k ? ':' + lastAct.k : '') : '?', ecran: fresh ? lastAct.panel : '', n, niv: S.lvl, tempsGagne: fresh ? lastAct.saved : 0};
+    T.logAdd(S, 'stars_spent', n); if (d.tempsGagne) T.logAdd(S, 'saved', d.tempsGagne); if (!d.quoi.startsWith('x:')) T.logEv(S, 'star', d);
+    TR.ev('etoiles', d); if (fresh) lastAct.saved = 0; }
+  wSt = S.stars;
+  if (S.lvl !== wLv){ if (wLv && S.lvl > wLv){ T.logEv(S, 'lvl', {L: S.lvl, jeu: S.play}); TR.ev('niveau', {L: S.lvl}); } if (RACE_LV.has(S.lvl)) race('niv' + S.lvl); wLv = S.lvl; }
+  const h = T.hqLv(S); if (h !== wHq){ if (wHq && h > wHq){ T.logEv(S, 'hq', {L: h}); TR.ev('maison', {L: h}); } if (RACE_HQ.has(h)) race('maison' + h); if (h >= T.BUILDINGS.santa.max) race('sommet'); wHq = h; }
+  const ch = T.chapterOf(S.quest?.i || 0); if (ch !== wCh){ if (wCh >= 0 && ch > wCh){ T.logEv(S, 'chap', {ch}); TR.ev('chapitre', {ch}); } if (ch > 0) race('chapitre' + ch); wCh = ch; }
+}, 1000);
+// à la connexion : fiche du joueur + (avec son accord) sessions, appareil, ville et actions
+function trackStart(u){
+  if (S.wasGuest == null){ const made = Date.parse(u.metadata?.creationTime || '') || now(); S.wasGuest = (S.guest || (S.created && S.created < made - 5 * 60e3)) ? 1 : 0; save(); }
+  TR.begin(u, trInfo(), trInfo).then(() => { for (const [k, t] of Object.entries(S.race || {})) TR.milestone(k, {t}); TR.ev('connexion', {}); });
+  if (TR.consent() == null) setTimeout(() => whenFree(() => modalBusy() ? modalQ.push(askConsent) : askConsent()), 2500);
+}
+function askConsent(){
+  if (TR.consent() != null || !ACC.current()) return;
+  const m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Une petite question</small><h2 class="stroke">Nous aider à améliorer le jeu ?</h2>
+    <p>Si tu es d'accord, on enregistre ton appareil, ta ville approximative (d'après ton adresse IP) et ce que tu fais dans le jeu, pour l'équilibrer et corriger les bugs. Rien n'est vendu ni montré aux autres joueurs.</p>
+    <p class="meta">Tu peux changer d'avis à tout moment dans Profil → Réglages. <a href="privacy.html" target="_blank" rel="noopener">En savoir plus</a></p>
+    <div class="acts"><button class="btn blue" data-m="no">Non merci</button><button class="btn green" data-m="yes">D'accord</button></div>`;
+  m.hidden = false; m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; TR.setConsent(b.dataset.m); sfx.tap(); };
+}
+if (ACC.ready()) ACC.init().then(() => ACC.onChange(u => { if (u) trackStart(u); else TR.stop(); })).catch(() => {});
 /* ---------- sauvegarde transférable ---------- */
 let saveCodeTxt = '';
 async function saveCopy(){
@@ -2244,12 +2294,12 @@ function fishCast(){
   openFishing({
     roll: () => T.fishRoll(S), rod: x.rod, sfx, tone, fishSvg,
     nets: () => x.net, useNet: () => { if (x.net <= 0) return false; x.net--; T.logAdd(S, 'fish_nets_used', 1); save(); return true; },
-    onCatch: (f, {perfect, combo}) => { const r = T.fishCatch(S, f), bonus = perfect ? Math.min(1.5, 1.2 + .1 * (combo - 1)) : 1; if (bonus > 1) r.rw.coins = Math.round(r.rw.coins * bonus);
+    onCatch: (f, {perfect, combo}) => { TR.ev('peche', {ok: 1, r: f.r, poisson: f.name || f.k || '', parfait: !!perfect});const r = T.fishCatch(S, f), bonus = perfect ? Math.min(1.5, 1.2 + .1 * (combo - 1)) : 1; if (bonus > 1) r.rw.coins = Math.round(r.rw.coins * bonus);
       T.logAdd(S, 'fish_r' + f.r, 1); if (perfect) T.logAdd(S, 'fish_perfect', 1);
       if (f.r >= 2 && Math.random() < (f.r === 3 ? .5 : .12)) setTimeout(() => relicFound(f.r), 1500);
       giveReward(r.rw, null); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save();
       return `<div class="costs" style="justify-content:center">${rewardChips(r.rw)}</div>${bonus > 1 ? `<p class="meta">Bonus prise parfaite : pièces ×${bonus.toFixed(1).replace('.', ',')}</p>` : ''}${r.first ? '<p><b>Nouvelle espèce dans le carnet !</b></p>' : ''}`; },
-    onMiss: (f, why) => { T.logAdd(S, 'fish_miss_' + why, 1); save(); return fishOffer(why); },
+    onMiss: (f, why) => { T.logAdd(S, 'fish_miss_' + why, 1); TR.ev('peche', {ok: 0, r: f?.r, pourquoi: why}); save(); return fishOffer(why); },
     canRecast: () => T.has(S, T.baitCost(S)), recast: () => { const c2 = T.baitCost(S); if (!T.has(S, c2)) return false; T.take(S, c2); T.logAdd(S, 'fish_casts', 1); save(); return true; },
     buy: k => fishBuy(k, true),
     onClose: () => { document.body.classList.remove('in-game'); save(); openPanel('fish'); },
@@ -2310,7 +2360,7 @@ function campGo(i){
   B3().then(m => { warmPortraits(); m.openBattle({
     pet: (S.pet?.lv || 0) >= 5, extraHearts: T.petHearts(S), camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, tone, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
-    result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
+    result: ({win, hearts}) => { TR.ev('bataille', {camp: i, gagne: !!win, coeurs: hearts}); if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
       if (first && c.boss) relicFound(Math.min(3, 1 + c.ch)); C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
     grant: (rw, el) => { giveReward(rw, el); if (rw.xp) gainXp(rw.xp, el); },
     onClose: () => { document.body.classList.remove('in-game'); openPanel('camp'); },

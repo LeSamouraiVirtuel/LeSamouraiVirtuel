@@ -17,6 +17,8 @@ export async function init(){
   const [{initializeApp}, Au, Fs] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
   A = Au; F = Fs; const app = initializeApp(FIREBASE_CONFIG);
   auth = A.getAuth(app); db = F.getFirestore(app);
+  // tests uniquement : émulateur Firebase local (jamais en ligne : seulement sur localhost et avec ce réglage)
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && localStorage.getItem('vdp-emu')){ A.connectAuthEmulator(auth, 'http://127.0.0.1:9099', {disableWarnings: true}); F.connectFirestoreEmulator(db, '127.0.0.1', 8080); }
   await A.setPersistence(auth, A.browserLocalPersistence).catch(() => {});
   A.getRedirectResult(auth).catch(e => { lastErr = e; listeners.forEach(f => f(user)); });
   A.onAuthStateChanged(auth, u => { user = u; authRes(u); listeners.forEach(f => f(u)); });
@@ -47,6 +49,8 @@ export async function signOut(){ await init(); return A.signOut(auth); }
 /** Relier Google à un compte e-mail (ou l'inverse) : on pourra se connecter avec l'un ou l'autre. */
 export function linkGoogle(){ if (!auth || !user) return Promise.reject(new Error('Connecte-toi d’abord')); if (googleUnavailable()) return Promise.reject(Object.assign(new Error('pwa'), {code: 'vdp/google-in-app'})); return A.linkWithPopup(user, google()); }
 export async function linkEmail(email, pass){ await init(); if (!user) throw new Error('Connecte-toi d’abord'); return A.linkWithCredential(user, A.EmailAuthProvider.credential(email, pass)); }
+/** accès à la base pour le suivi (js/track.js) */
+export const fs = () => (db ? {F, db} : null);
 export const providers = () => (user?.providerData || []).map(p => p.providerId);
 
 /* ---------- sauvegarde dans le cloud : un document par joueur, users/{uid} ---------- */
@@ -68,6 +72,8 @@ export async function deleteAccount(password){
     else throw Object.assign(new Error('reconnexion'), {code: 'auth/requires-recent-login'});
   };
   if (password) await reauth();
+  // le suivi du joueur (sessions + fiche) est effacé avec le compte
+  try { const ss = await F.getDocs(F.collection(db, 'track', u.uid, 's')); await Promise.all(ss.docs.map(d => F.deleteDoc(d.ref))); await F.deleteDoc(F.doc(db, 'track', u.uid)); } catch(e){}
   await F.deleteDoc(F.doc(db, 'users', u.uid));
   try { await A.deleteUser(u); }
   catch(e){ if (e.code !== 'auth/requires-recent-login') throw e; await reauth(); await A.deleteUser(u); }

@@ -23,7 +23,7 @@ const PC = {viewport: {width: 1600, height: 900}, deviceScaleFactor: 1};
     await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(500);
     await p.evaluate(() => __v2.openPanel('profile')); await p.waitForTimeout(700); await p.screenshot({path: OUT + name + '-profil.png'});
     const txt = await p.evaluate(() => document.querySelector('#sheet')?.innerText || '');
-    ok(/Mon village/.test(txt) && /Mon compte/.test(txt) && /Réglages/.test(txt) && /Aide/.test(txt) && /Protéger mon village/.test(txt), `${name} : profil en 4 parties avec « Protéger mon village »`);
+    ok(/Mon village/i.test(txt) && /Mon compte/i.test(txt) && /Réglages/i.test(txt) && /Aide/i.test(txt) && /Protéger mon village/i.test(txt), `${name} : profil en 4 parties avec « Protéger mon village »`);
     ok(!/Diag|GAME_V|v\d{2}\b/.test(txt.split('Un problème')[0]), `${name} : rien de technique avant « Un problème ? »`);
     await p.reload(); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(3000);
     ok(!(await p.$('#welcome')), `${name} : invité, au rechargement l'écran ne revient pas`);
