@@ -228,3 +228,6 @@ export function mergeStatic(group){
   }
   return out;
 }
+
+// essais : accès à la bibliothèque des modèles
+export const __A = A;

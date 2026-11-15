@@ -39,6 +39,7 @@ window.__ess = {get S(){ return S; }, T, M, toScreen, cam, campGo, cinema, bravo
 document.dispatchEvent(new Event('ess-ready'));
 """
 open(os.path.join(E, 'js/v2/main.js'), 'w', encoding='utf-8').write(s)
+open(os.path.join(E, 'js', 'assets.js'), 'a', encoding='utf-8').write('\n// essais : accès à la bibliothèque des modèles\nexport const __A = A;\n')
 for f in ['js/fishing.js', 'js/battle3d.js', 'js/minigames.js']:
     p = os.path.join(E, f); t = open(p, encoding='utf-8').read(); open(p, 'w', encoding='utf-8').write(t.replace("if (" + LOCAL + ") window.", "window."))
 h = open(os.path.join(G, 'index.html'), encoding='utf-8').read()

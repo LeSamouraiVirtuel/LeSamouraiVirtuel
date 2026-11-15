@@ -18,7 +18,7 @@ setHour(17.5);
 bar.addEventListener('input', e => { if (e.target.id === 'xphour') setHour(+e.target.value); });
 bar.addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (!b) return; const x = b.dataset.x;
   if (x === 'tog'){ bar.classList.toggle('fold'); return; }
-  if (x === 'avant' || x === 'apres'){ FX.on = x === 'apres'; bar.querySelectorAll('.seg button').forEach(k => k.classList.toggle('on', k.dataset.x === x)); document.body.classList.toggle('xp-on', FX.on); }
+  if (x === 'avant' || x === 'apres'){ FX.on = x === 'apres'; swapBuildings(FX.on); bar.querySelectorAll('.seg button').forEach(k => k.classList.toggle('on', k.dataset.x === x)); document.body.classList.toggle('xp-on', FX.on); }
   if (x === 'camps') import('./camps.js').then(m => m.openCamps());
   if (x === 'trans') import('./transition.js').then(m => m.openTransition());
   if (x === 'lore') import('./lore.js').then(m => m.openLore());
@@ -114,3 +114,15 @@ FX.over = (ctx, W, H) => {
 FX.burst = (x, y, colors = ['#ffe066', '#ffffff', '#7dffb0']) => { if (!FX.on) return; for (let i = 0; i < 26; i++){ const a = rnd(0, 6.28), v = rnd(60, 220); bursts.push({x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, r: rnd(1.5, 3.5), l: 0, max: rnd(.5, 1), c: colors[i % colors.length]}); } };
 // toucher le village : petite gerbe (montre l'effet de récolte)
 addEventListener('pointerdown', e => { if (e.target.tagName === 'CANVAS' && FX.on) FX.burst(e.clientX, e.clientY); }, true);
+
+/* ---------- bâtiments d'essai (essais/pack2, rendus avec le pipeline du jeu) : APRÈS = nouvelles formes ---------- */
+const NEW = {}, OLD = {};
+fetch('pack2/pack2.json', {cache: 'no-store'}).then(r => r.json()).then(async j => {
+  await new Promise(r => { const w = () => window.__ess ? r() : setTimeout(w, 200); w(); });
+  await Promise.all(Object.entries(j).map(([k, v]) => new Promise(res => { const im = new Image(); im.onload = () => { NEW[k] = {ax: v.ax, ay: v.ay, w: v.w, h: v.h, canvas: im}; res(); }; im.onerror = res; im.src = 'pack2/' + v.f; })));
+  swapBuildings(FX.on);
+}).catch(() => {});
+function swapBuildings(on){
+  const SPR = window.__ess?.SPR; if (!SPR) return;
+  for (const [k, v] of Object.entries(NEW)){ if (!(k in OLD)) OLD[k] = SPR[k]; SPR[k] = on ? v : OLD[k]; }
+}
