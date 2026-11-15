@@ -493,7 +493,7 @@ export const QUESTS = [
   {t: 'Gagne 3 combats contre les trolls (Jeux)', k: 'camp', n: 3, r: {coins: 4000, xp: 220}},
   {t: 'Bats le chef du Bois des Trolls', k: 'campat', n: 10, r: {stars: 10, gold: 3, xp: 300}},
 ];
-const GEN = [['orders', 'Livre %n lettres', 5], ['dig', 'Creuse %n cases à la grotte', 15], ['make', 'Fabrique %n jouets', 6], ['exp', 'Envoie %n expéditions', 2], ['collect:wood', 'Récolte %n bois', 1500], ['parcel', 'Ouvre %n colis', 3], ['collect:cookies', 'Récolte %n biscuits', 1000]];
+const GEN = [['orders', 'Livre %n lettres', 5], ['dig', 'Creuse %n cases à la grotte', 15], ['make', 'Fabrique %n jouets', 6], ['exp', 'Envoie %n expéditions', 2], ['collect:wood', 'Récolte %n bois', 1500], ['parcel', 'Ouvre %n colis', 3], ['collect:cookies', 'Récolte %n biscuits', 1000], ['fish', 'Pêche %n poissons au Lac Gelé', 5], ['camp', 'Gagne %n combats contre les trolls', 2]];
 export function questAt(s, i){
   if (i < QUESTS.length) return QUESTS[i];
   const j = i - QUESTS.length, g = GEN[j % GEN.length], n = Math.round(g[2] * (1 + Math.floor(j / GEN.length) * .5));
