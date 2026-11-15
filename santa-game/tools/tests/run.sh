@@ -12,6 +12,7 @@ echo "=== audit des textes (SE + PC)"; timeout 1500 node audit-textes.cjs 2>&1 |
 echo "=== pêche : vraie touche lisible"; timeout 300 node peche-touche.cjs 2>&1 | tail -2
 echo "=== freins de la course éteints (Maison 14+ sans défi, accélérations) ; freins allumés en test ; anti-triche"; timeout 300 node freins-eteints.cjs 2>&1 | tail -1; timeout 300 node course.cjs 2>&1 | tail -1; timeout 300 node triche.cjs 2>&1 | tail -1
 echo "=== défis de la Maison clairs (villages niv. 18 à 23, SE + PC)"; timeout 900 node defi.cjs 2>&1 | tail -2
+echo "=== toutes les attentes se passent avec des étoiles"; timeout 300 node passer.cjs 2>&1 | tail -1
 echo "=== robot : tous les bâtiments et boutons"; timeout 900 node robot-batiments.cjs 2>&1 | tail -3
 echo "=== PC souris : tickets, gains, bataille"; timeout 600 node tickets-souris-pc.cjs 2>&1 | tail -5
 echo "=== Mac (Safari) souris"; timeout 600 node tickets-souris-mac.cjs 2>&1 | tail -5

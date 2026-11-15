@@ -13,7 +13,7 @@ python3 - "$SRC" "$DST" <<'PY'
 # copie exacte : on garde seulement les fichiers servis, tout le reste est effacé dans gh-pages
 import sys, os, shutil, filecmp
 src, dst = sys.argv[1], sys.argv[2]
-keep = ['index.html', 'privacy.html', 'cgu.html', 'mentions.html', 'tdb-7q4x.html', 'essais', 'sw.js', 'version.json', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'js', 'assets/pack', 'assets/battle']
+keep = ['index.html', 'privacy.html', 'cgu.html', 'mentions.html', 'tdb-7q4x.html', 'sw.js', 'version.json', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'js', 'assets/pack', 'assets/battle']
 keep += ['assets/' + f for f in os.listdir(os.path.join(src, 'assets')) if f.endswith('.glb')]
 want = set()
 for k in keep:

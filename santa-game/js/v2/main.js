@@ -1019,7 +1019,7 @@ function renderPanel(){
     const o = panelArg, q = o.q || [], n = T.craftSlots(o.lv);
     const slots = Array.from({length: n}, (_, i) => q[i] ? `<div class="slot ${q[i].end <= now() ? 'ready' : i === 0 || q[i - 1].end <= now() ? 'run' : ''}"><img src="${ICON[q[i].item]}" alt="">${q[i].end > now() && (i === 0 || q[i - 1].end <= now()) ? `<small data-until="${q[i].end}"></small>` : ''}</div>` : '<div class="slot empty"></div>').join('');
     h = hd(`Niveau ${o.lv} · vitesse ×${T.craftSpeed(o.lv).toFixed(2)}`, 'Atelier des jouets') + (fromOrder ? `<button class="btn blue wide backord" data-a="backorder">‹ Retour à la lettre</button>` : '') + `<p class="help">Touche un jouet pour le mettre dans la file. Les jouets marqués <b>Demandé</b> sont attendus dans les lettres.</p><h3>File de fabrication (${q.length}/${n})</h3><div class="slots">${slots}</div>
-      ${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}${lettersNeed(o).length ? `<button class="btn green wide" data-a="autoq">Fabriquer pour les lettres (${lettersNeed(o).length})</button>` : ''}
+      ${craftEnd(o) > now() ? `<div class="acts skiprow"><span class="meta">Toute la file prête dans <b data-until="${craftEnd(o)}"></b></span>${skipBtn('craft', craftEnd(o), 'Tout terminer')}</div>` : ''}${craftDone(o).length ? '<button class="btn gold wide" data-a="toys">Récupérer les jouets</button>' : ''}${lettersNeed(o).length ? `<button class="btn green wide" data-a="autoq">Fabriquer pour les lettres (${lettersNeed(o).length})</button>` : ''}
       <h3>Jouets</h3><div class="recipes">${Object.entries(TOYS).map(([k, t]) => { const lock = S.lvl < t.lvl, wanted = S.orders.some(od => od.items?.[k]);
         return `<button class="recipe ${lock ? 'locked' : ''} ${!lock && T.has(S, t.cost) ? 'ok' : ''} ${wantToy === k ? 'want' : ''}" data-a="queue" data-k="${k}">${wanted && !lock ? '<span class="wanted">Demandé</span>' : ''}<img src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b>
         ${lock ? `<span class="why">Niveau ${t.lvl}</span>` : `<span class="costs">${costChips(t.cost)}</span><span class="meta">${fmtTime(t.time / T.craftSpeed(o.lv))} · en stock : ${S.inv[k] || 0}</span>`}</button>`; }).join('')}</div>`;
@@ -1052,7 +1052,7 @@ function renderPanel(){
       h = hd(`${st[1]} · niveau ${p.lv}`, 'Flocon, le renne magique') + `<div class="petbox stage${T.petStage(p.lv)}"><div class="petimg"><img src="${petImg()}" alt="" style="--sz:${Math.min(1, .55 + p.lv * .03)}"></div>
         <div class="xpbar2"><i style="width:${p.xp / need * 100}%"></i><em>${fmt(p.xp)} / ${fmt(need)}</em></div>${nx ? `<small class="meta">Au niveau ${nx[0]}, Flocon devient « ${nx[1]} »</small>` : ''}</div>
         <div class="petbon"><div><b>+${Math.round(T.petProd(S) * 100)} %</b><small>sur toute la production</small></div><div><b>+${hh} cœur${hh > 1 ? 's' : ''}</b><small>dans la Campagne${hh < 2 ? ` (niv. ${p.lv < 5 ? 5 : 12})` : ''}</small></div></div>
-        <button class="btn ${pat ? 'gold' : 'blue'} wide" data-a="petpat" ${pat ? '' : 'disabled'}>${pat ? 'Caresser Flocon (petit cadeau)' : `Flocon se repose · <b data-until="${p.pat + T.PET_PAT}"></b>`}</button>
+        <button class="btn ${pat ? 'gold' : 'blue'} wide" data-a="petpat" ${pat ? '' : 'disabled'}>${pat ? 'Caresser Flocon (petit cadeau)' : `Flocon se repose · <b data-until="${p.pat + T.PET_PAT}"></b>`}</button>${pat ? '' : `<div class="acts skiprow">${skipBtn('pet', p.pat + T.PET_PAT, 'Réveiller Flocon')}</div>`}
         <h3>Le nourrir</h3><div class="petfood">${T.petFoods(S).map(f => `<button class="pf ${f.k === 'fav' ? 'fav' : ''}" data-a="petfeed" data-k="${f.k}">${f.k === 'fav' ? `<span class="tag">Préféré du jour</span>` : ''}<span class="costs">${costChips(f.cost)}</span><b>+${fmt(f.xp)} XP</b></button>`).join('')}</div>
         <h3>Évolution</h3><div class="petevo">${T.PET_STAGES.map(([l, n], k) => `<div class="pe ${p.lv >= l ? 'on' : ''} ${T.petStage(p.lv) === k ? 'cur' : ''}"><img src="${petImg(k)}" alt=""><b>${n}</b><small>${p.lv >= l ? (T.petStage(p.lv) === k ? 'Maintenant' : '✓') : `Niv. ${l}`}</small></div>`).join('')}</div>
         <h3>Apparence</h3><div class="petskins">${M.PET_SKIN_LIST.map(d => { const own = M.hasSkin(S, d.k), wear = M.skinState(S).pet === d.k;
@@ -1333,9 +1333,9 @@ function renderPanel(){
     if (b.kind === 'fun') extra += showsBox(o);
     if (b.kind === 'storage'){ const ready = T.bulkReady(o, now());
       extra += `<h3>Grande commande du Nord <small class="meta">· une toutes les 6 h</small></h3>` + (ready ? `<div class="jobs">${T.bulkOffers(S, o).map(of => { const ok = T.has(S, of.want);
-        return `<div class="job"><div class="jt"><b>${RINFO[of.k].name} pour le Grand Nord</b></div><div class="jr"><span class="costs">${rewardChips(of.give)}</span></div><button class="btn ${ok ? 'green' : 'blue'} sm" data-a="bulk" data-k="${of.k}"><span class="costs">${costChips(of.want)}</span>Livrer</button></div>`; }).join('')}</div>` : `<p class="meta">Gros Ours prépare la prochaine commande : <b data-until="${o.bulkAt}"></b></p>`); }
+        return `<div class="job"><div class="jt"><b>${RINFO[of.k].name} pour le Grand Nord</b></div><div class="jr"><span class="costs">${rewardChips(of.give)}</span></div><button class="btn ${ok ? 'green' : 'blue'} sm" data-a="bulk" data-k="${of.k}"><span class="costs">${costChips(of.want)}</span>Livrer</button></div>`; }).join('')}</div>` : `<p class="meta">Gros Ours prépare la prochaine commande : <b data-until="${o.bulkAt}"></b></p><div class="acts skiprow">${skipBtn('bulk', o.bulkAt, 'Commande maintenant')}</div>`); }
     if (b.kind === 'house'){ const busy = S.objs.filter(x => (x.build && x.build > now()) || (x.up && x.up > now())).length, ready = T.helpReady(o, now());
-      extra += `<h3>Coup de main des lutins</h3><div class="job"><div class="jt"><b>Accélérer tous les chantiers</b><span class="boostp">-${Math.round((T.HELP_CUT + .02 * (o.lv - 1)) * 100)} %</span></div><div class="jr"><small class="meta">${busy ? `${busy} chantier${busy > 1 ? 's' : ''} en cours` : 'Aucun chantier en cours'} · une fois toutes les 2 h par chalet</small></div>${ready ? `<button class="btn ${busy ? 'green' : 'blue'} sm" data-a="help" ${busy ? '' : 'disabled'}><span class="costs">${costChips(T.helpCost(o))}</span>Aider</button>` : `<span class="meta">Repos : <b data-until="${o.helpAt}"></b></span>`}</div>`; }
+      extra += `<h3>Coup de main des lutins</h3><div class="job"><div class="jt"><b>Accélérer tous les chantiers</b><span class="boostp">-${Math.round((T.HELP_CUT + .02 * (o.lv - 1)) * 100)} %</span></div><div class="jr"><small class="meta">${busy ? `${busy} chantier${busy > 1 ? 's' : ''} en cours` : 'Aucun chantier en cours'} · une fois toutes les 2 h par chalet</small></div>${ready ? `<button class="btn ${busy ? 'green' : 'blue'} sm" data-a="help" ${busy ? '' : 'disabled'}><span class="costs">${costChips(T.helpCost(o))}</span>Aider</button>` : `<span class="meta">Repos : <b data-until="${o.helpAt}"></b></span>${skipBtn('help', o.helpAt)}`}</div>`; }
     if (b.kind === 'stable') extra = `${petEntry()}<div class="acts"><button class="btn green" data-a="goexp">Expéditions</button><button class="btn blue" data-a="games">Mini-jeux</button></div>`;
     if (b.kind === 'craft') extra = '<button class="btn green wide" data-a="gocraft">Fabriquer des jouets</button>';
     if (b.kind === 'orders') extra = '<button class="btn green wide" data-a="goorders">Voir les lettres à livrer</button>';
@@ -1420,6 +1420,16 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'consent'){ S.legal ||= {v: LEGAL_V, t: now(), cgu: true};
     const flip = () => { S.legal = {...S.legal, analyse: !analyseOk(), parent: S.legal.mineur ? true : S.legal.parent, t: now()}; save(); TR.legalProof(S.legal); TR.setConsent(analyseOk() ? 'yes' : 'no'); renderPanel(); };
     return !analyseOk() && minorNoParent() ? parentGate(flip) : flip(); }
+  if (a === 'skip'){ const end = +b.dataset.end, st = T.speedStars(end - now()), k = b.dataset.k, o = panelArg;
+    if (end <= now()) return renderPanel();
+    if (S.stars < st){ sfx.err(); toast("Pas assez d'étoiles d'or"); return openPanel('shop', 'stars'); }
+    S.stars -= st; const t = now();
+    if (k === 'craft' && o?.q) for (const j of o.q) if (j.end > t) j.end = t;
+    if (k === 'pet' && S.pet) S.pet.pat = t - T.PET_PAT;
+    if (k === 'tool' && o) o.toolT = t - TOOL_CD;
+    if (k === 'bulk' && o) o.bulkAt = t;
+    if (k === 'help' && o) o.helpAt = t;
+    sfx.collect(); save(); toast('C’est prêt !'); return renderPanel(); }
   if (a === 'odds') return showOdds(b.dataset.k);
   if (a === 'legalagain'){ closePanel(); S.legal = {...S.legal, v: 'revoir'}; return legalGate(() => {}); }
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
@@ -1918,7 +1928,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 93;
+const GAME_V = 94;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2254,7 +2264,7 @@ let lastAct = {a: '', k: '', t: 0, saved: 0, panel: ''};
 document.addEventListener('click', e => { const b = e.target.closest('[data-a],[data-m],[data-x]'); if (!b) return;
   const a = b.dataset.a || (b.dataset.m ? 'm:' + b.dataset.m : 'x:' + b.dataset.x); let left = 0;
   try { if (a === 'jobspeed') left = panelArg.job.end - now(); else if (a === 'speed') left = workEnd(panelArg) - now(); else if (a === 'tspeed') left = S.train.back - now();
-    else if (a === 'rsspeed') left = S.rsRun.end - now(); else if (a === 'expspeed') left = S.exps[+b.dataset.i].end - now(); } catch(_){}
+    else if (a === 'rsspeed') left = S.rsRun.end - now(); else if (a === 'expspeed') left = S.exps[+b.dataset.i].end - now(); else if (a === 'skip') left = +b.dataset.end - now(); } catch(_){}
   // plafond du jour : au plus 24 h d'attente évitées avec des étoiles (la course vers le sommet ne s'achète pas)
   if (left > T.freeFinish && left / 1000 > T.speedLeft(S)){ e.stopImmediatePropagation(); e.preventDefault(); sfx.err();
     const h = T.speedLeft(S) / 3600; return toast(h < .05 ? 'Accélérations du jour épuisées (24 h par jour). Ça repart demain !' : `Tu peux encore accélérer ${h >= 1 ? Math.floor(h) + ' h' : Math.round(h * 60) + ' min'} aujourd'hui (24 h par jour).`); }
@@ -2499,10 +2509,13 @@ function chIntro(){
     <div class="acts"><button class="btn blue" data-m="ok">Compris</button><button class="btn green" data-m="see">Voir mon défi</button></div>`;
   m.hidden = false; m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m === 'see') openPanel('hqch'); };
 }
+// « Terminer maintenant » avec des étoiles d'or, pour toute attente du jeu (même barème que les chantiers)
+const skipBtn = (k, end, label = 'Terminer') => { const st = T.speedStars(end - now()); return end > now() ? `<button class="btn gold sm skipb" data-a="skip" data-k="${k}" data-end="${end}">${label} <i class="i star"></i>${st}</button>` : ''; };
+const craftEnd = o => Math.max(0, ...(o.q || []).map(j => j.end));
 function toolsBox(o){
   const ready = now() - (o.toolT || 0) >= TOOL_CD;
   return `<h3>Établi à outils <small class="meta">· une fois toutes les 3 h</small></h3><div class="jobs">${['axe', 'saw'].map(k => `<div class="job"><div class="jt"><img class="i" src="${ICON[k]}" alt=""><b>${ITEMS[k].name}</b><small class="meta">tu en as ${S.inv[k] || 0}</small></div>
-    ${ready ? `<button class="btn ${T.has(S, toolCost(o, k)) ? 'green' : 'blue'} sm" data-a="mktool" data-k="${k}"><span class="costs">${costChips(toolCost(o, k))}</span>Fabriquer</button>` : `<span class="meta">Prêt dans <b data-until="${(o.toolT || 0) + TOOL_CD}"></b></span>`}</div>`).join('')}</div>`;
+    ${ready ? `<button class="btn ${T.has(S, toolCost(o, k)) ? 'green' : 'blue'} sm" data-a="mktool" data-k="${k}"><span class="costs">${costChips(toolCost(o, k))}</span>Fabriquer</button>` : `<span class="meta">Prêt dans <b data-until="${(o.toolT || 0) + TOOL_CD}"></b></span>${skipBtn('tool', (o.toolT || 0) + TOOL_CD)}`}</div>`).join('')}</div>`;
 }
 function petEntry(){
   const p = T.petState(S); if (!p) return '';
