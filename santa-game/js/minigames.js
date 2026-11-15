@@ -39,7 +39,7 @@ export async function openMinigame(kind, ctx){
   let quitArmed = 0;
   function confirmQuit(){ if (performance.now() - quitArmed < 2500) return true; quitArmed = performance.now(); float('Touche encore pour quitter', W / 2, H * .45, '#ffd84a'); return false; }
   root.querySelector('.mg-go').onclick = () => { root.querySelector('.mg-card').hidden = true; state = 'play'; ctx.sfx.tap(); };
-  cv.addEventListener('pointerdown', e => { if (state === 'play') game.tap(e.clientX, e.clientY); });
+  cv.addEventListener('pointerdown', e => { if (state !== 'play') return; const rc = cv.getBoundingClientRect(); game.tap(e.clientX - rc.left, e.clientY - rc.top); });
 
   function finish(win){
     if (state === 'end') return;

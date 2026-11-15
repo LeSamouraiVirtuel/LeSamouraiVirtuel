@@ -327,3 +327,10 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 5. Lettres : loupe 🔍 sur chaque jouet manquant → Atelier avec le jouet en surbrillance → « Retour à la lettre ».
 6. Scierie : établi à outils (une hache ou une scie toutes les 3 h).
 7. Monnaies : vérifié — 2 vraies monnaies (pièces, étoiles d’or) + flocons d’événement temporaires ; bois, biscuits, tissu sont des ressources produites, cristaux et lingots des matériaux rares. Déjà dans la règle « 3 monnaies max » : rien à regrouper.
+
+## Tour 59 (v79) — rangement, optimisation, points de l'audit
+- Retirés : v1.html et l'ancien moteur (js/main.js, game.js, features.js, net.js, post.js, defense.js) — vérifié : plus rien ne les charge (graphe d'imports depuis js/v2/main.js). Modèles .glb tous gardés (utilisés par js/assets.js : fabrication du pack et secours). PLAN-V2/V3 → research/archive ; outils expérimentaux (Blender, Meshy, Gemini, FLUX) → tools/archive ; 22 Mo de .glb d'export Blender locaux supprimés.
+- tools/deploy.sh : copie exacte des fichiers servis vers gh-pages (rsync --delete) + vérification du numéro de version à 3 endroits. README réécrit avec la règle de rangement.
+- Démarrage : 3,5 Mo / 169 requêtes → 1,8 Mo / 112 requêtes. three.js et la bataille ne se chargent qu'à la première bataille ; portraits 3D des méchants seulement après une bataille ; images de marche des lutins à la demande.
+- PC : bataille et mini-jeux calculent leur taille et le viseur sur leur colonne (pas la fenêtre) ; bulle du tutoriel non agrandie (elle recouvrait « Améliorer »).
+- Audit : rechargement automatique seulement au calme + recherche de mise à jour toutes les 5 min ; fenêtre bloquée fermée au bout de 6 s ; « Vendre le surplus » quand les pièces manquent ; courbe d'XP de Flocon douce (11 800 au niv. 45 au lieu de 20 M) ; bouton « Plus » (Album, Avent, Marché).

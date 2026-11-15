@@ -1511,7 +1511,7 @@ body.cine #hud2,body.cine #sideR,body.cine #sideL2,body.cine #tabbar,body.cine #
 /* ===================== GRANDS ÉCRANS (tablette, PC) =====================
    L'interface garde ses proportions de téléphone, agrandie d'un facteur --uiz (calculé en JS) :
    barres et boutons à taille fixe, fenêtres en carte centrée, mini-jeux dans une colonne. Seule la carte du village s'élargit. */
-body.wide #hud2,body.wide #sideR,body.wide #sideL2,body.wide #quest2,body.wide #placebar,body.wide #tuto,body.wide #modal .mcard,body.wide #toast,body.wide .toast{zoom:var(--uiz,1)}
+body.wide #hud2,body.wide #sideR,body.wide #sideL2,body.wide #quest2,body.wide #placebar,body.wide #modal .mcard,body.wide #toast,body.wide .toast{zoom:var(--uiz,1)}
 body.wide #hud2{right:auto!important;width:var(--hudw,720px)}
 body.wide #hud2 .pills{flex:0 1 auto!important}body.wide #hud2 .pill{min-width:112px}
 body.wide #tabbar{zoom:var(--uiz,1);left:0!important;right:0!important;margin:0 auto;width:600px;border-radius:22px 22px 0 0;overflow:hidden}
@@ -1524,6 +1524,8 @@ body.wide.short #sideR,body.wide.short #sideL2{top:calc(env(safe-area-inset-top,
 body.wide.short #sheet .scene{max-height:150px;overflow:hidden}
 body:not(.wide) #hud2,body:not(.wide) #sideR,body:not(.wide) #sideL2,body:not(.wide) #quest2,body:not(.wide) #modal .mcard{zoom:var(--uis,1)}body:not(.wide) #sheet{font-size:calc(100% * var(--uis,1))}
 .segs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.segs .btn.sm{padding:4px 8px;font-size:11.5px}
+#sideR{position:fixed}#moreBox{position:absolute;right:calc(100% + 10px);bottom:-6px;display:flex;gap:10px;padding:8px 10px;border-radius:32px;background:rgba(20,30,70,.62);box-shadow:0 4px 14px rgba(0,0,0,.3)}#moreBox[hidden]{display:none!important}
+#b-more .evic{font-size:26px;line-height:1;font-weight:900;color:#5a3a1e}
 body.wide #mg{left:0;right:0;margin:0 auto;width:min(100vw,520px);box-shadow:0 0 0 100vmax #10173a}
 </style>
 <canvas id="c"></canvas>
@@ -1540,8 +1542,8 @@ body.wide #mg{left:0;right:0;margin:0 auto;width:min(100vw,520px);box-shadow:0 0
   </div>
   <div class="row2"><div id="xpbar"><i></i><b>0 / 20</b></div><span class="chipx" id="h-pop" title="Lutins au travail / lutins logés">0 / 0</span><span class="chipx joy" id="h-joy" title="Bonheur">+0 %</span><span class="title" id="h-title">Lutin apprenti</span></div>
 </div>
-<nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button><button id="b-album" aria-label="Album des jouets"><img id="i-album" alt=""><small>Album</small><span class="badge stroke" hidden>0</span></button><button id="b-parcels" aria-label="Colis mystère" hidden><img id="i-parcels" alt=""><small>Colis</small><span class="badge stroke" hidden>0</span></button><button id="b-advent" aria-label="Calendrier de l'Avent"><img id="i-advent" alt=""><small>Avent</small><span class="badge stroke" hidden>!</span></button></nav>
-<nav id="sideL2" class="side"><button id="b-missions" aria-label="Missions du jour"><img id="i-missions" alt=""><small>Missions</small><span class="badge stroke" hidden>0</span></button><button id="b-event" aria-label="Événement de la semaine" hidden><span class="evic">❄</span><small>Événement</small><span class="badge stroke" hidden>0</span></button><button id="b-pass" aria-label="Pass de Noël"><img id="i-pass" alt=""><small>Pass</small><span class="badge stroke" hidden>0</span></button><button id="b-market" aria-label="Marché" hidden><img id="i-market" alt=""><small>Marché</small></button></nav>
+<nav id="sideR" class="side"><button id="b-daily" aria-label="Cadeau du jour"><img id="i-daily" alt=""><small>Cadeau</small><span class="badge stroke" hidden>!</span></button><button id="b-games" aria-label="Mini-jeux"><img id="i-games" alt=""><small>Jeux</small><span class="badge stroke" hidden>0</span></button><button id="b-parcels" aria-label="Colis mystère" hidden><img id="i-parcels" alt=""><small>Colis</small><span class="badge stroke" hidden>0</span></button><button id="b-more" aria-label="Plus"><span class="evic">⋯</span><small>Plus</small><span class="badge stroke" hidden>!</span></button><div id="moreBox" hidden><button id="b-album" aria-label="Album des jouets"><img id="i-album" alt=""><small>Album</small><span class="badge stroke" hidden>0</span></button><button id="b-advent" aria-label="Calendrier de l'Avent"><img id="i-advent" alt=""><small>Avent</small><span class="badge stroke" hidden>!</span></button><button id="b-market" aria-label="Marché" hidden><img id="i-market" alt=""><small>Marché</small></button></div></nav>
+<nav id="sideL2" class="side"><button id="b-missions" aria-label="Missions du jour"><img id="i-missions" alt=""><small>Missions</small><span class="badge stroke" hidden>0</span></button><button id="b-event" aria-label="Événement de la semaine" hidden><span class="evic">❄</span><small>Événement</small><span class="badge stroke" hidden>0</span></button><button id="b-pass" aria-label="Pass de Noël"><img id="i-pass" alt=""><small>Pass</small><span class="badge stroke" hidden>0</span></button></nav>
 <nav id="tabbar">
   <button id="b-orders"><img class="ico" id="i-orders" alt=""><b>Lettres</b><span class="badge stroke" hidden>0</span></button>
   <button id="b-barn"><img class="ico" id="i-barn" alt=""><b>Stock</b><small>0</small></button>
@@ -1591,4 +1593,4 @@ window.addEventListener('unhandledrejection', e => { const l = document.getEleme
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 }}
 </script>
-<script type="module" src="js/v2/main.js?v=78"></script>
+<script type="module" src="js/v2/main.js?v=79"></script>

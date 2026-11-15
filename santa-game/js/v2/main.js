@@ -4,7 +4,8 @@
 // canvas 2D : chargement rapide, fluide, net, et aucune 3D à calculer sur l'appareil.
 import {createTuto} from '../tuto.js';
 import {openMinigame, GAMES} from '../minigames.js';
-import {openBattle, portrait3d} from '../battle3d.js';
+// la bataille (three.js + modèles 3D, ~4 Mo) ne se charge qu'à la première bataille : le village n'en a pas besoin
+let b3p = null; const B3 = () => (b3p ||= import('../battle3d.js'));
 import {portrait as villainPortrait} from '../villains.js';
 import * as ACC from '../account.js';
 import * as T from './town.js';
@@ -56,7 +57,7 @@ async function loadPack(){
   let saved0 = null; try { saved0 = JSON.parse(localStorage.getItem('village-du-pole-v5')); } catch(e){}
   const used = new Set((saved0?.objs || []).map(o => o.type));
   for (const k of keys) SPRURL[k] = dir + P.spr[k].f + q;
-  const eager = k => !k.includes('@') && (!k.startsWith('b:') || used.has(k.slice(2).split(':')[0]) || /^b:(santa|sawmill|letters|orders|cabin|path|wildtree|tree|lantern|bench|gifts|reindeer|snowman|candy)/.test(k));
+  const eager = k => !k.includes('@') && !k.startsWith('elfw:') && (!k.startsWith('b:') || used.has(k.slice(2).split(':')[0]) || /^b:(santa|sawmill|letters|orders|cabin|path|wildtree|tree|lantern|bench|gifts|reindeer|snowman|candy)/.test(k));
   // Décodage en ImageBitmap (blob → createImageBitmap) : l'image est décodée une fois en pleine résolution et
   // n'est plus gérée par le cache d'images de Safari, qui « sous-échantillonne » les grandes images sur iPhone (flou).
   const bitmap = async src => { const r = await fetch(src); if (!r.ok) throw new Error('image ' + src); const bl = await r.blob();
@@ -948,6 +949,7 @@ function hud(){
   $('#b-daily .badge').hidden = !T.dailyReady(S);
   { const n = T.albumClaimable(S).length, e = $('#b-album .badge'); e.textContent = n; e.hidden = !n; }
   { const a = T.adventState(S), e = $('#b-advent .badge'); e.hidden = !(a.open && T.adventCan(S, a.today)); $('#b-advent small').textContent = a.open ? 'Avent' : `J-${a.untilStart}`; }
+  $('#b-more .badge').hidden = $('#b-album .badge').hidden && $('#b-advent .badge').hidden;
   { const g = tickets(), bg = $('#b-games .badge'); bg.textContent = g.tickets; bg.hidden = !g.tickets; }
   renderQuest();
 }
@@ -1606,16 +1608,28 @@ function goTo(where){
   setTimeout(() => { if (workEnd(o)) return openPanel('site', o); if (b.kind === 'mine') return openPanel('mine', o); if (b.kind === 'lab') return openPanel('lab', o); if (b.kind === 'train') return openPanel('train', o); if (b.kind === 'stable') return openPanel('exp', o); if (b.kind === 'craft') return openPanel('craft', o); if (b.kind === 'prod' && collectBld(o)) return; openPanel('bld', o); }, ms + 80);
 }
 /** Ce qui manque pour une action : combien, où le trouver, et la possibilité de compléter en étoiles d'or. */
+// pièces qui manquent alors que bois / biscuits / tissu débordent : on propose d'en vendre (on garde au moins 40 % de chaque
+// réserve et ce que la dépense demande elle-même)
+function surplusFor(need, req){
+  if (need <= 0) return null; const sell = {}; let got = 0, mul = 1 + T.zoneB(S, 'sell');
+  for (const k of ['fabric', 'cookies', 'wood'].sort((a, b) => (S[b] || 0) * M.SELL_RATE[b] - (S[a] || 0) * M.SELL_RATE[a])){
+    const free = Math.floor((S[k] || 0) * .6 - (req?.[k] || 0)); if (free <= 0) continue;
+    const rate = M.SELL_RATE[k] * mul, n = Math.min(free, Math.ceil((need - got) / rate)); if (n <= 0) continue; sell[k] = n; got += Math.floor(n * rate); if (got >= need) break; }
+  return got >= need ? {sell, coins: got} : null;
+}
 function showMissing(req, what, retry){
   const lack = Object.entries(req || {}).map(([k, n]) => [k, n - haveOf(k)]).filter(([, d]) => d > 0);
   if (!lack.length) return retry?.();
   const st = T.missingStars(S, Object.fromEntries(lack.map(([k]) => [k, req[k]]))), m = $('#modal'); m.className = 'glow rinfo';
+  const sur = surplusFor(lack.find(([k]) => k === 'coins')?.[1] || 0, req);
   m.querySelector('.mcard').innerHTML = `<small>${what}</small><h2 class="stroke">Il te manque…</h2>
+    ${sur ? `<div class="rrow"><small>Tes réserves débordent</small><p>Vends un peu du surplus (${Object.entries(sur.sell).map(([k, n]) => `${fmt(n)} ${RINFO[k].name.toLowerCase()}`).join(', ')}) contre <b>${fmt(sur.coins)} pièces</b>.</p><button class="btn green wide" data-m="surplus">Vendre le surplus · +${fmt(sur.coins)} 🪙</button></div>` : ''}
     <div class="lacks">${lack.map(([k, d]) => `<div class="lack">${resImg(k)}<div><b>${fmt(d)} ${(RINFO[k]?.name || ITEMS[k]?.name || k).toLowerCase()}</b><small>${RINFO[k]?.from || ''}</small></div>${RINFO[k]?.go ? `<button class="btn green sm" data-m="go" data-k="${RINFO[k].go}">Y aller</button>` : ''}</div>`).join('')}</div>
     <div class="acts">${isFinite(st) ? `<button class="btn gold" data-m="buy">Compléter <i class="i star"></i>${st}</button>` : ''}<button class="btn blue" data-m="ok">Plus tard</button></div>`;
   m.hidden = false;
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return;
     if (b.dataset.m === 'go'){ m.hidden = true; return goTo(b.dataset.k); }
+    if (b.dataset.m === 'surplus' && sur){ for (const [k, n] of Object.entries(sur.sell)) S[k] -= n; S.coins += sur.coins; T.track(S, 'sell'); sfx.collect(); m.hidden = true; save(); toast(`+${fmt(sur.coins)} pièces`); return retry?.(); }
     if (b.dataset.m === 'buy'){ if (S.stars < st){ m.hidden = true; toast("Pas assez d'étoiles d'or"); return openPanel('shop'); } S.stars -= st; for (const [k, d] of lack) T.give(S, k, d); m.hidden = true; sfx.level(); save(); return retry?.(); }
     m.hidden = true; };
 }
@@ -1730,6 +1744,10 @@ const modalQ = [];
 // sur sa propre récompense (colis, achat, cadeau d'arrivée…) est remplacée directement
 function modalBusy(){ const m = $('#modal'); return (!m.hidden && m.classList.contains('bravo')) || document.body.classList.contains('cine') || !!$('#intro'); }
 setInterval(() => { if (modalQ.length && !modalBusy()) modalQ.shift()(); }, 450);
+// sécurité : une fenêtre dont tous les boutons sont désactivés depuis 6 s (action qui a planté) se ferme d'elle-même
+let stuckT = 0;
+setInterval(() => { const m = $('#modal'); if (m.hidden){ stuckT = 0; return; } const ok = [...m.querySelectorAll('[data-m], button')].some(b => !b.disabled);
+  if (ok){ stuckT = 0; return; } stuckT ||= Date.now(); if (Date.now() - stuckT > 6000){ stuckT = 0; m.hidden = true; toast('Fenêtre fermée : réessaie'); } }, 1000);
 function bravo(r, sub = 'Tu as gagné', title = 'BRAVO !'){
   if (modalBusy()) return void modalQ.push(() => bravo(r, sub, title));
   const m = $('#modal'); m.className = 'cere bravo';
@@ -1799,6 +1817,9 @@ function openDaily(){
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 $('#b-daily').addEventListener('click', () => { sfx.tap(); openDaily(); });
 $('#b-games').addEventListener('click', () => { sfx.tap(); openPanel('games'); });
+$('#b-more').addEventListener('click', e => { e.stopPropagation(); sfx.tap(); $('#moreBox').hidden = !$('#moreBox').hidden; });
+for (const id of ['#b-album', '#b-advent', '#b-market']) $(id).addEventListener('click', () => { $('#moreBox').hidden = true; });
+addEventListener('pointerdown', e => { if (!e.target.closest('#sideR')) $('#moreBox').hidden = true; });
 $('#b-album').addEventListener('click', () => { sfx.tap(); openPanel('album'); });
 $('#b-advent').addEventListener('click', () => { sfx.tap(); openPanel('advent'); });
 $('#b-village').addEventListener('click', () => { sfx.tap(); if (panel === 'todo'){ closePanel(); const o = S.objs.find(o => o.type === 'santa'); if (o) panTo(o.x + 2, o.y + 2, {zoom: startZoom()}); return; } openPanel('todo'); });
@@ -1811,21 +1832,25 @@ let bgAt = 0;
 const inBattle = () => !!document.getElementById('mg') || document.body.classList.contains('cine');
 document.addEventListener('visibilitychange', () => {
   if (document.hidden){ bgAt = Date.now(); save(); try { sessionStorage.setItem('vdp-cam', JSON.stringify({x: cam.x, y: cam.y, z: cam.z})); } catch(e){} return; }
-  if (bgAt && Date.now() - bgAt > 2500 && !inBattle()){ saveLock = true; location.reload(); }
+  if (bgAt && Date.now() - bgAt > 2500) reloadWhenCalm(() => { saveLock = true; location.reload(); });
 });
-addEventListener('pageshow', e => { if (e.persisted && !inBattle()){ saveLock = true; location.reload(); } });
+addEventListener('pageshow', e => { if (e.persisted) reloadWhenCalm(() => { saveLock = true; location.reload(); }); });
+// on ne recharge jamais au milieu d'une action : seulement quand aucune fenêtre, bataille, cinématique ni placement n'est en cours
+const calm = () => !inBattle() && !panel && $('#modal').hidden && !ghost && !document.body.classList.contains('placing');
+let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (calm()){ pendingReload = null; fn(); } }
+setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 78;
+const GAME_V = 79;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
-      toast('Mise à jour du jeu…');
-      if ('caches' in window) for (const c of await caches.keys()) await caches.delete(c);
-      const reg = await navigator.serviceWorker?.getRegistration(); await reg?.update().catch(() => {});
-      setTimeout(() => location.replace(location.pathname + '?v=' + j.v), 600); } } catch(e){}
+      reloadWhenCalm(async () => { toast('Mise à jour du jeu…');
+        if ('caches' in window) for (const c of await caches.keys()) await caches.delete(c);
+        const reg = await navigator.serviceWorker?.getRegistration(); await reg?.update().catch(() => {});
+        setTimeout(() => location.replace(location.pathname + '?v=' + j.v), 600); }); } } catch(e){}
 }
-setTimeout(checkUpdate, 2500);
+setTimeout(checkUpdate, 2500); setInterval(checkUpdate, 5 * 60e3);
 /* ---------- diagnostic d'affichage (pour trouver un bug qu'on ne voit que sur un téléphone précis) ---------- */
 function diagText(){
   const L = [], vv = window.visualViewport, mem = performance.memory;
@@ -2132,15 +2157,15 @@ function campCard(){
 function campGo(i){
   const C = T.campState(S); if (i > C.at) return; const cost = T.campCost(i), c = T.camp(i);
   if (!T.has(S, cost)){ sfx.err(); return showMissing(cost, `Attaquer : ${c.name}`, () => campGo(i)); }
-  T.take(S, cost); save(); closePanel(); document.body.classList.add('in-game');
-  openBattle({
+  T.take(S, cost); save(); closePanel(); document.body.classList.add('in-game'); toast('Les monstres arrivent…');
+  B3().then(m => { warmPortraits(); m.openBattle({
     pet: (S.pet?.lv || 0) >= 5, extraHearts: T.petHearts(S), camp: c, icons: {}, sfx: {...sfx, bells: sfx.level, whoosh: sfx.pop, splat: sfx.pop}, tone, best: () => 0, setBest: () => {},
     chipsHtml: rewardChips, reward: () => ({}),
     result: ({win, hearts}) => { if (!win) return {stars: 0, rw: {xp: 5}}; const first = !C.st[i], stars = Math.max(1, hearts), rw = T.campLoot(S, i, stars, first);
       if (first && c.boss) relicFound(Math.min(3, 1 + c.ch)); C.st[i] = Math.max(C.st[i] || 0, stars); if (i === C.at) C.at++; T.track(S, 'camp'); save(); return {stars, rw}; },
     grant: (rw, el) => { giveReward(rw, el); if (rw.xp) gainXp(rw.xp, el); },
     onClose: () => { document.body.classList.remove('in-game'); openPanel('camp'); },
-  });
+  }); }).catch(() => { document.body.classList.remove('in-game'); for (const [k, n] of Object.entries(cost)) T.give(S, k, n); save(); toast('Connexion trop faible pour la bataille : réessaie.'); });
 }
 
 
@@ -2152,7 +2177,10 @@ function campGo(i){
 const KRAMPUS = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M24 34 C10 18 12 6 20 2 C20 14 28 22 36 28Z M76 34 C90 18 88 6 80 2 C80 14 72 22 64 28Z" fill="#e8e0d0" stroke="#1d2547" stroke-width="3"/><ellipse cx="50" cy="56" rx="30" ry="34" fill="#5a3a8a" stroke="#1d2547" stroke-width="3.5"/><ellipse cx="50" cy="74" rx="18" ry="13" fill="#efe6ff"/><circle cx="38" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="62" cy="50" r="7" fill="#ffe24a" stroke="#1d2547" stroke-width="2.5"/><circle cx="39" cy="51" r="3" fill="#1d2547"/><circle cx="61" cy="51" r="3" fill="#1d2547"/><path d="M28 40 L44 44 M72 40 L56 44" stroke="#1d2547" stroke-width="4" stroke-linecap="round"/><path d="M38 70 Q50 80 62 70" stroke="#1d2547" stroke-width="3" fill="#7a1a2a"/><path d="M43 71 L45 76 L47 72 M53 72 L55 76 L57 71" fill="#fff"/></svg>`);
 const VP = {}; const vp = k => VP[k] ||= villainPortrait(k);
 // portraits en 3D (modèles animés des monstres) dès qu'ils sont prêts ; dessin en attendant
-setTimeout(() => { for (const k of ['krampus', 'chief', 'troll', 'runner', 'yeti']) portrait3d(k).then(u => { if (u) VP[k] = u; }); }, 4000);
+let warmed = false;
+function warmPortraits(){ if (warmed) return; warmed = true; B3().then(m => { for (const k of ['krampus', 'chief', 'troll', 'runner', 'yeti']) m.portrait3d(k).then(u => { if (u) VP[k] = u; }); }).catch(() => { warmed = false; }); }
+// déjà joué une bataille : portraits 3D préparés plus tard en arrière-plan, sauf en mode économie de données
+setTimeout(() => { if ((S.camps?.at || 0) > 0 && !navigator.connection?.saveData) warmPortraits(); }, 15000);
 const WHO = {
   'Le vieux Père Noël': () => portrait, 'Mère Noël': elfImg, 'Krampus des Glaces': () => vp('krampus'), 'Baron Glaçon': () => vp('baron'), 'Grognard, chef des trolls': () => vp('chief'), 'Narrateur': null,
 };
