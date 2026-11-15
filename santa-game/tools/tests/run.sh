@@ -16,3 +16,5 @@ echo "=== comptes (création, connexion, reprise sur un autre appareil)"; timeou
 echo "=== écran d'accueil, bonus de bienvenue, profil (SE, iPhone 13, Mac, PC)"; timeout 1200 node accueil.cjs 2>&1 | tail -4
 # suivi + tableau de bord : nécessite l'émulateur Firebase (firebase emulators:start avec firebase/firestore.rules)
 if curl -s -m 2 http://127.0.0.1:8080 >/dev/null; then echo "=== suivi invisible + tableau de bord (émulateur)"; timeout 600 node suivi.cjs 2>&1 | tail -4; fi
+echo "=== partie légale : conditions, âge, accord parental, chances, pages (SE + PC)"; timeout 900 node legal.cjs 2>&1 | tail -3
+if curl -s -m 2 http://127.0.0.1:8080 >/dev/null; then echo "=== règles Firestore contre les sauvegardes de chaque version (émulateur)"; node regles.cjs 2>&1 | tail -3; fi

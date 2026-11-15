@@ -29,7 +29,7 @@
 </style>
 </head>
 <body>
-<header><h1>Le Village du Pôle · tableau de bord</h1><span id="who" class="mute"></span><button id="reload" hidden>Actualiser</button><button id="out" hidden>Se déconnecter</button></header>
+<header><h1>Le Village du Pôle · tableau de bord</h1><span id="who" class="mute"></span><button id="reload" hidden>Actualiser</button><button id="purge" hidden title="Applique les durées de conservation">Nettoyage</button><button id="out" hidden>Se déconnecter</button></header>
 <main>
   <div id="login"><p>Accès réservé à l'éditeur du jeu.</p><button class="pri" id="go">Se connecter avec Google</button><p id="lerr" class="err"></p></div>
   <div id="app" hidden>
@@ -58,7 +58,20 @@ const ACT = {ecran: 'Écran', achat: 'Achat', etoiles: 'Étoiles', niveau: 'Nive
 $('#go').onclick = () => A.signInWithPopup(auth, new A.GoogleAuthProvider()).catch(e => $('#lerr').textContent = e.code || e.message);
 $('#out').onclick = () => A.signOut(auth);
 $('#reload').onclick = () => load();
-A.onAuthStateChanged(auth, u => { $('#who').textContent = u ? u.email : ''; $('#out').hidden = $('#reload').hidden = !u; $('#login').hidden = !!u; $('#app').hidden = !u; if (u) load(); });
+// durées de conservation (Confidentialité) : journal de sécurité 6 mois, sessions d'analyse 13 mois, comptes inactifs 2 ans
+$('#purge').onclick = async () => {
+  if (!confirm('Effacer : journaux de sécurité de plus de 6 mois, sessions de plus de 13 mois, villages et fiches inactifs depuis plus de 2 ans ?')) return;
+  const D = 864e5, now = Date.now(); let n = 0;
+  const q = async (id, field, days) => { const r = await F.getDocs(F.query(F.collectionGroup(db, id), F.where(field, '<', now - days * D))); for (const d of r.docs){ await F.deleteDoc(d.ref).catch(() => {}); n++; } };
+  try {
+    await q('secu', 't', 183); await q('s', 'debut', 396);
+    const old = now - 731 * D;
+    for (const d of (await F.getDocs(F.query(F.collection(db, 'track'), F.where('derniere', '<', old)))).docs){ for (const sub of ['s', 'secu']) for (const x of (await F.getDocs(F.collection(db, 'track', d.id, sub))).docs){ await F.deleteDoc(x.ref).catch(() => {}); n++; } await F.deleteDoc(d.ref).catch(() => {}); n++; }
+    for (const d of (await F.getDocs(F.query(F.collection(db, 'users'), F.where('t', '<', old)))).docs){ await F.deleteDoc(d.ref).catch(() => {}); n++; }
+    alert(`${n} élément(s) effacé(s). Les comptes de connexion (Firebase Authentication) inactifs se suppriment dans la console Firebase.`); load();
+  } catch(e){ alert('Nettoyage impossible : ' + (e.code || e.message)); }
+};
+A.onAuthStateChanged(auth, u => { $('#who').textContent = u ? u.email : ''; $('#out').hidden = $('#reload').hidden = $('#purge').hidden = !u; $('#login').hidden = !!u; $('#app').hidden = !u; if (u) load(); });
 
 let P = [];
 async function load(){
@@ -77,7 +90,7 @@ async function load(){
       lvl: Math.max(p.lvl || 1, tr.niveau || 0), hq: tr.maison || (s.objs || []).find(o => o.type === 'santa')?.lv || 1,
       eur: Math.max(ag.eur || 0, tr.eur || 0), achats: Math.max(ag.n_buy || 0, tr.achats || 0), iap,
       play: Math.max(s.play || 0, tr.jeuTotal || 0, tr.tempsJeu || 0), sessions: tr.sessions || 0, last: Math.max(tr.derniere || 0, p.t || 0),
-      created: s.created || tr.creeLe || 0, geo: tr.geo || null, dev: tr.appareil || null, consent: {yes: 'oui', no: 'non'}[tr.consent] || tr.consent || '—',
+      created: s.created || tr.creeLe || 0, geo: tr.geo || null, dev: tr.appareil || null, consent: tr.analyse === true ? 'oui' : tr.analyse === false ? 'non' : '—',
       saved: Math.max(ag.saved || 0, tr.tempsGagne || 0), spent: Math.max(ag.stars_spent || 0, tr.etoilesDepensees || 0),
       race: {...(s.race || {}), ...Object.fromEntries(Object.entries(tr.course || {}).map(([k, v]) => [k, v.t || v]))}, raceD: tr.course || {},
       lvlEv: ev.filter(e => e[1] === 'lvl').map(e => [e[0], e[2].L]), jours: tr.jours || {}, wasGuest: tr.inviteAvant};
@@ -93,7 +106,7 @@ function render(){
   table(); raceTable(); charts();
 }
 let sortK = 'last', sortD = -1;
-const COLS = [['nom', 'Joueur'], ['prov', 'Compte'], ['lvl', 'Niveau', 1], ['hq', 'Maison', 1], ['eur', '€ affichés', 1], ['achats', 'Achats', 1], ['play', 'Temps de jeu', 1], ['sessions', 'Sessions', 1], ['last', 'Dernière connexion'], ['geo', 'Lieu'], ['dev', 'Appareil'], ['consent', 'Accord']];
+const COLS = [['nom', 'Joueur'], ['prov', 'Compte'], ['lvl', 'Niveau', 1], ['hq', 'Maison', 1], ['eur', '€ affichés', 1], ['achats', 'Achats', 1], ['play', 'Temps de jeu', 1], ['sessions', 'Sessions', 1], ['last', 'Dernière connexion'], ['geo', 'Lieu'], ['dev', 'Appareil'], ['consent', 'Analyse']];
 function table(){
   const v = p => sortK === 'geo' ? (p.geo?.ville || '') : sortK === 'dev' ? (p.dev?.model || '') : p[sortK];
   const L = [...P].sort((a, b) => { const x = v(a), y = v(b); return (x > y ? 1 : x < y ? -1 : 0) * sortD; });
@@ -136,7 +149,10 @@ async function fiche(p){
   <div class="grid2" style="margin-top:12px">
     <section><h2>Identité</h2><dl><dt>E-mail</dt><dd>${esc(p.email || '—')}</dd><dt>Nom du compte</dt><dd>${esc(tr.nom || '—')}</dd><dt>Compte</dt><dd>${esc(p.prov || '—')}</dd><dt>Village</dt><dd>${esc(p.village || '—')}</dd>
       <dt>Village créé</dt><dd>${fd(p.created)}</dd><dt>Compte créé</dt><dd>${fd(tr.compteCree)}</dd><dt>Dernière connexion</dt><dd>${fd(p.last)}</dd><dt>Invité devenu compte</dt><dd>${p.wasGuest == null ? '—' : p.wasGuest ? 'oui' : 'non'}</dd><dt>Accord suivi détaillé</dt><dd>${esc(p.consent)}</dd>
-      <dt>Provenance</dt><dd>${esc(tr.provenance?.ref || 'directe')}${tr.provenance?.q ? ' ' + esc(tr.provenance.q) : ''}</dd></dl></section>
+      <dt>Provenance</dt><dd>${tr.provenance ? esc(tr.provenance.ref || 'directe') + (tr.provenance.q ? ' ' + esc(tr.provenance.q) : '') : '—'}</dd>
+      <dt>Accord légal</dt><dd>${tr.legal ? `textes du ${esc(tr.legal.v)}, accepté le ${fd(tr.legal.t)} · analyse ${tr.legal.analyse ? 'oui' : 'non'} · né(e) en ${esc(tr.legal.annee)}${tr.legal.mineur ? ` · mineur (< ${tr.legal.seuil} ans), parent ${tr.legal.parent ? 'd’accord' : 'non'}` : ''}` : '—'}</dd>
+      <dt>Historique des accords</dt><dd>${(tr.legalHist || []).map(l => `${fd(l.t)} (${esc(l.v)}, analyse ${l.analyse ? 'oui' : 'non'})`).join('<br>') || '—'}</dd></dl>
+      <h2 style="margin-top:10px">Journal de sécurité (6 mois)</h2><div class="ev" id="secu">…</div></section>
     <section><h2>Appareil et connexion</h2><dl>${d ? `<dt>Système</dt><dd>${esc(d.os)} ${esc(d.osv || '')}</dd><dt>Modèle</dt><dd>${esc(d.model || '—')}</dd><dt>Navigateur</dt><dd>${esc(d.br)}</dd><dt>Écran</dt><dd>${d.sw}×${d.sh} @${d.dpr} (fenêtre ${d.vw}×${d.vh})</dd>
       <dt>Langue</dt><dd>${esc(d.lang)}</dd><dt>Fuseau</dt><dd>${esc(d.tz)}</dd><dt>Appli écran d'accueil</dt><dd>${d.pwa ? 'oui' : 'non'}</dd>` : '<dt>Appareil</dt><dd class="mute">pas encore (accord ou règles)</dd>'}
       ${g ? `<dt>IP</dt><dd>${esc(g.ip)}</dd><dt>Lieu</dt><dd>${esc([g.ville, g.region, g.pays].filter(Boolean).join(', '))}</dd><dt>Opérateur</dt><dd>${esc(g.fai || '—')}</dd><dt>Toutes les IP</dt><dd>${esc((tr.ips || []).join(', '))}</dd>` : ''}</dl></section>
@@ -149,6 +165,7 @@ async function fiche(p){
   <section><h2>Courbe de niveau</h2>${lineChart([{name: p.nom, pts: [[p.created || p.lvlEv[0]?.[0] || Date.now(), 1], ...p.lvlEv]}])}</section>
   <section><h2>Sessions et actions</h2><div id="sess" class="mute">Chargement…</div></section>`;
   $('#fiche').classList.add('on'); $('#fx').onclick = () => $('#fiche').classList.remove('on');
+  F.getDocs(F.collection(db, 'track', p.uid, 'secu')).then(r => { $('#secu').innerHTML = r.docs.map(d => d.data()).sort((a, b) => b.t - a.t).map(x => `<div>${fd(x.t)} · ${esc(x.ip)}</div>`).join('') || '<span class="mute">—</span>'; }).catch(e => { $('#secu').textContent = e.code; });
   try {
     const ss = (await F.getDocs(F.collection(db, 'track', p.uid, 's'))).docs.map(x => ({id: x.id, ...x.data()})).sort((a, b) => b.debut - a.debut);
     $('#sess').classList.remove('mute');

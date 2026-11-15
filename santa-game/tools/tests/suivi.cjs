@@ -9,7 +9,7 @@ const emu = () => { localStorage.setItem('vdp-emu', '1'); };
 (async () => {
   const wk = await webkit.launch(), cr = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
   const mail = `joueur-${Date.now()}@example.com`;
-  const c1 = await wk.newContext({...devices['iPhone 13']}); await c1.addInitScript(emu);
+  const c1 = await wk.newContext({...devices['iPhone 13']}); await c1.addInitScript(emu); await c1.addInitScript(require('./conditions.cjs'), true);
   const p = await c1.newPage(); p.on('pageerror', e => log.push('PAGEERR ' + e.message));
   await p.goto('http://localhost:8765/?ref=lien-partage'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000});
   await p.waitForSelector('#welcome [data-w=mail]', {timeout: 20000}); await p.click('#welcome [data-w=mail]'); await p.waitForSelector('#accmail');
@@ -20,11 +20,9 @@ const emu = () => { localStorage.setItem('vdp-emu', '1'); };
   // le bonus ne doit pas recouvrir l'intro : on vérifie, puis on passe l'intro et le tutoriel
   ok(!(await p.evaluate(() => document.body.classList.contains('cine') && !document.querySelector('#modal').hidden)), 'le bonus ne s\'affiche pas par-dessus l\'intro');
   for (let i = 0; i < 6; i++){ await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); document.querySelector('.tskip')?.click(); }); await p.waitForTimeout(800); }
-  // la question d'accord arrive après le bonus
-  for (let i = 0; i < 40 && !(await p.$('#modal:not([hidden]) [data-m=yes]')); i++){ await p.evaluate(() => { const m = document.querySelector('#modal'); if (m.hidden) return; const b = m.querySelector('button, [data-m], .ok, .claim'); if (b) b.click(); else m.click(); }); await p.waitForTimeout(900); }
-  await p.screenshot({path: 'out/suivi-accord.png'});
-  ok(!!(await p.$('#modal:not([hidden]) [data-m=yes]')), 'question d\'accord posée une fois');
-  await p.click('#modal [data-m=yes]'); await p.waitForTimeout(3000);
+  // l'accord d'analyse a été donné dans la fenêtre « Conditions et confidentialité » : plus de question ensuite
+  for (let i = 0; i < 12; i++){ await p.evaluate(() => { const m = document.querySelector('#modal'); if (m.hidden) return; const b = m.querySelector('button, [data-m]'); if (b) b.click(); }); await p.waitForTimeout(700); }
+  ok(await p.evaluate(() => __v2.S.legal?.analyse === true), 'accord d\'analyse enregistré (date, version, choix)');
   // jouer : écrans, achat simulé, étoiles (remplir les tickets), niveau
   for (const n of ['shop', 'games', 'profile', 'fish']) { await p.evaluate(n => __v2.openPanel(n), n); await p.waitForTimeout(400); }
   await p.evaluate(() => { __v2.S.games.tickets = 0; __v2.openPanel('games'); }); await p.waitForTimeout(500);

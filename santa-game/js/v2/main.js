@@ -10,6 +10,7 @@ let b3p = null; const B3 = () => (b3p ||= import('../battle3d.js'));
 import {portrait as villainPortrait} from '../villains.js';
 import * as ACC from '../account.js';
 import * as TR from '../track.js';
+import {LEGAL_V, ageMin} from '../legal.js';
 import * as T from './town.js';
 import * as M from './meta.js';
 
@@ -1029,7 +1030,7 @@ function renderPanel(){
     const bonus = [x.rod ? `Canne niv. ${x.rod}` : '', x.bait > 0 ? `Appâts dorés : ${x.bait} lancers` : '', x.charm > now() ? `Porte-bonheur : <b data-until="${x.charm}"></b>` : '', x.net ? `${x.net} filet${x.net > 1 ? 's' : ''}` : ''].filter(Boolean);
     h = hd(`Carnet : ${got} / ${T.FISH.length} espèces`, 'Pêche sur glace') + `<div class="fishtop"><button class="btn green wide big" data-a="fishcast"><span class="costs">${costChips(c)}</span>Lancer la ligne</button>
         <p class="meta">Attends la vraie touche, ferre, puis garde la tension dans le <b style="color:#2fae48">vert</b> : maintiens pour remonter, relâche quand il tire.</p></div>
-      <h3>Chances de chaque prise</h3><div class="fodds">${od.map((v, r) => `<div class="fo" style="--rc:${T.RARITY[r].c}"><b>${String(v).replace('.', ',')} %</b><small>${T.RARITY[r].name}${v !== base[r] && r ? ` <em>(base ${base[r]} %)</em>` : ''}</small></div>`).join('')}</div>
+      <h3>Chances de chaque prise ${oddsBtn('peche')}</h3><div class="fodds">${od.map((v, r) => `<div class="fo" style="--rc:${T.RARITY[r].c}"><b>${String(v).replace('.', ',')} %</b><small>${T.RARITY[r].name}${v !== base[r] && r ? ` <em>(base ${base[r]} %)</em>` : ''}</small></div>`).join('')}</div>
       <p class="meta">Plafonds avec bonus : rare ${T.FISH_CAP[1]} %, épique ${T.FISH_CAP[2]} %, légendaire ${T.FISH_CAP[3]} % (jamais plus du double).</p>
       <h3>Garanties</h3><div class="fpity">${[1, 2, 3].map(r => `<div><small>${T.RARITY[r].name} ou mieux</small><div class="bar"><i style="width:${(1 - pity.left[r] / (T.FISH_PITY[r] - 1)) * 100}%;background:${T.RARITY[r].c}"></i></div><b>${pity.left[r] ? `dans ${pity.left[r]} prise${pity.left[r] > 1 ? 's' : ''} au plus` : 'assuré à la prochaine prise !'}</b></div>`).join('')}</div>
       ${bonus.length ? `<p class="fbon">Actif : ${bonus.join(' · ')}</p>` : ''}
@@ -1136,7 +1137,7 @@ function renderPanel(){
       h = hd(`Étage ${M.floor} · record ${M.best || M.floor}`, 'Grotte aux cristaux') + `<div class="minebar"><span class="picks"><i class="pk"></i><b>${M.picks} / ${max}</b></span><small>${next ? `+1 pioche dans <b data-until="${next}"></b>` : 'Pioches au maximum'}</small>${M.picks < max ? `<button class="btn gold sm" data-a="refill">Remplir <i class="i star"></i>${T.PICK_REFILL}</button>` : ''}</div>
         <div class="mgrid f${Math.min(5, Math.ceil(M.floor / 10))}">${M.cells.map((c, i) => c.open ? `<div class="mc open k-${c.k}">${cellIcon(c)}</div>` : `<button class="mc" data-a="dig" data-i="${i}" aria-label="Creuser"></button>`).join('')}</div>
         ${M.stairs ? `<button class="btn green wide" data-a="down">Descendre à l'étage ${M.floor + 1}</button>` : '<p class="meta">Chaque case coûte une pioche. Trouve l’<b>escalier</b> pour descendre : plus profond, plus de cristaux, de lingots et de colis rares.</p>'}
-        <div class="acts"><button class="btn blue sm" data-a="bldinfo">Améliorer la grotte (niv. ${o.lv})</button></div>`;
+        <div class="acts"><button class="btn blue sm" data-a="bldinfo">Améliorer la grotte (niv. ${o.lv})</button>${oddsBtn('grotte')}</div>`;
     }
   }
   else if (panel === 'exp'){
@@ -1148,7 +1149,7 @@ function renderPanel(){
       return `<div class="dest ${lock ? 'locked' : ''}"><div class="dt"><b>${d.name}</b><small>${fmtTime(d.time * T.deerSpeed(S, now()) / 1000)} · ${d.n} colis</small></div><div class="odds">${d.odds.map((p, r) => p ? `<i style="flex:${p};background:${T.RARITY[r].c}" title="${T.RARITY[r].name} ${p} %"></i>` : '').join('')}</div><div class="oddl">${d.odds.map((p, r) => p ? `<span style="color:${T.RARITY[r].c}">${T.RARITY[r].name} ${p} %</span>` : '').join('')}</div>
         ${lock ? `<span class="why">Écurie niv. ${d.lv}</span>` : `<div class="acts"><span class="costs">${costChips(T.expCost(S, d))}</span><button class="btn green sm" data-a="expgo" data-k="${d.k}" ${why && why !== 'Pas assez de biscuits pour les rennes' ? 'disabled' : ''}>Partir</button></div>`}</div>`; }).join('')}</div>
       <p class="meta">Les rennes rapportent des <b>colis mystère</b> : plus la destination est lointaine, plus les colis rares sont fréquents.</p>
-      <div class="acts wrap2"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Fiche de l'écurie</button></div>`;
+      <div class="acts wrap2"><button class="btn blue sm" data-a="games">Mini-jeux</button><button class="btn blue sm" data-a="bldinfo">Fiche de l'écurie</button>${oddsBtn('exped')}</div>`;
   }
   else if (panel === 'shop'){
     const tab = panelArg || 'offers', tabs = [['offers', 'Offres'], ['skins', 'Skins'], ['stars', 'Étoiles'], ['res', '<span class="tl">Ressources</span><span class="ts">Ress.</span>'], ['chests', 'Coffres']];
@@ -1167,8 +1168,8 @@ function renderPanel(){
       <h3>Packs exclusifs</h3>${Object.keys(M.PACKS).map(k => packCard(k)).join('')}`;
     if (tab === 'stars') h += `<p class="help">Les étoiles d'or terminent un chantier tout de suite, engagent des bâtisseurs, achètent des ressources et des coffres.</p><div class="packs">${['p1', 'p2', 'p3', 'p4', 'p5'].map(k => { const p = M.IAP[k]; return `<button class="pack" data-a="iap" data-k="${k}">${p.tag ? `<span class="ptag">${p.tag}</span>` : ''}<i class="i star"></i><b>${fmt(p.give.stars)}</b><small>${p.name}</small><span class="btn green sm">${p.price}</span></button>`; }).join('')}</div>`;
     if (tab === 'res') h += `<p class="help">Il te manque quelque chose ? Achète-le en étoiles d'or. Plus le paquet est gros, moins c'est cher à l'unité.</p>${['wood', 'cookies', 'fabric', 'coins', 'ice', 'gold'].map(k => `<div class="rshop"><div class="rsh">${resImg(k)}<b>${RINFO[k].name}</b><small>${qty(k)}</small></div><div class="rpacks">${M.resPacks(S, k).map((p, i) => `<button class="rpack" data-a="rbuy" data-k="${k}" data-i="${i}" ${p.n ? '' : 'disabled'}><small>${p.name}</small><b>${p.n ? '+' + fmt(p.n) : 'Stock plein'}</b>${p.n ? `<span><i class="i star"></i>${p.stars}</span>` : ''}</button>`).join('')}</div></div>`).join('')}`;
-    if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture.</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
-    h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p><button class="btn blue wide" data-a="restoreiap">Restaurer mes achats</button><p class="meta"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
+    if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture. ${oddsBtn('colis')}</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
+    h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p><button class="btn blue wide" data-a="restoreiap">Restaurer mes achats</button><p class="meta">${oddsBtn('all')} <a href="cgu.html" target="_blank" rel="noopener">Conditions</a> · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
   }
   else if (panel === 'event'){
     const E = M.eventState(S), top = M.EV_STEPS[M.EV_STEPS.length - 1], next = M.EV_STEPS.find(p => p > E.pts);
@@ -1248,7 +1249,7 @@ function renderPanel(){
     const A = M.auction(S);
     h = hd(`${A.lots.length} lot${A.lots.length > 1 ? 's' : ''} à vendre`, 'Salle des ventes') + `<p class="help">Des rivaux veulent les mêmes lots. Tu ne vois qu'une partie du contenu : l'estimation peut mentir ! Paie l'entrée, surenchéris, puis découvre ce que tu as gagné.</p>
       <div class="lots">${A.lots.map((l, i) => lotCard(l, i)).join('') || '<p class="meta">Tous les lots sont partis.</p>'}</div>${A.next ? `<p class="meta">Nouveau lot dans <b data-until="${A.next}"></b></p>` : ''}
-      <button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
+      <div class="acts">${oddsBtn('ventes')}</div><button class="btn gold wide" data-a="aucrefill">Faire venir 3 nouveaux lots <i class="i star"></i>${M.AUC_REFILL}</button>`;
   }
   else if (panel === 'profile'){
     const st = [['Lettres livrées', S.cnt.orders || 0], ['Jouets fabriqués', S.cnt.make || 0], ['Colis ouverts', S.cnt.parcel || 0], ['Camps de trolls vaincus', (S.camps?.at || 0)], ['Espèces pêchées', Object.keys(S.fish || {}).length + ' / ' + T.FISH.length], ['Trouvailles du musée', T.RELICS.filter(x => (S.relics || {})[x.k]).length + ' / ' + T.RELICS.length]];
@@ -1262,10 +1263,14 @@ function renderPanel(){
       <div class="mis"><b>Rappels</b><button class="btn ${S.notif ? 'green' : 'blue'} sm" data-a="notif">${S.notif ? 'Activés' : 'Coupés'}</button></div>
       <div class="mis"><b>Taille des boutons</b><span class="segs">${[[.88, 'Petite'], [1, 'Normale'], [1.14, 'Grande']].map(([v, l]) => `<button class="btn ${uiSize === v ? 'green' : 'blue'} sm" data-a="uisize" data-k="${v}">${l}</button>`).join('')}</span></div>
       <div class="mis"><b>Moins d'animations</b><button class="btn ${lite ? 'green' : 'blue'} sm" data-a="lite">${lite ? 'Oui' : 'Non'}</button></div>
-      ${u ? `<div class="mis"><div><b>Aider à améliorer le jeu</b><small>Appareil, ville approximative et activité</small></div><button class="btn ${TR.consent() === 'yes' ? 'green' : 'blue'} sm" data-a="consent">${TR.consent() === 'yes' ? 'Oui' : 'Non'}</button></div>` : ''}</div>
+      <div class="mis"><div><b>Aider à améliorer le jeu</b><small>Analyse : appareil, ville approximative et activité (avec un compte)</small></div><button class="btn ${analyseOk() ? 'green' : 'blue'} sm" data-a="consent">${analyseOk() ? 'Oui' : 'Non'}</button></div></div>
       <h3>Aide et légal</h3><div class="mlist"><div class="mis"><b>Revoir le tutoriel</b><button class="btn blue sm" data-a="retuto">Revoir</button></div>
       <div class="mis"><b>Changer d'appareil sans compte</b><button class="btn blue sm" data-a="savepanel">Ouvrir</button></div>
-      <div class="mis"><b>Confidentialité</b><a class="btn blue sm" href="privacy.html" target="_blank" rel="noopener">Lire</a></div></div>
+      <div class="mis"><b>Conditions d'utilisation</b><a class="btn blue sm" href="cgu.html" target="_blank" rel="noopener">Lire</a></div>
+      <div class="mis"><b>Confidentialité</b><a class="btn blue sm" href="privacy.html" target="_blank" rel="noopener">Lire</a></div>
+      <div class="mis"><b>Mentions légales</b><a class="btn blue sm" href="mentions.html" target="_blank" rel="noopener">Lire</a></div>
+      <div class="mis"><b>Chances des colis et de la pêche</b><button class="btn blue sm" data-a="odds" data-k="all">Voir</button></div>
+      <div class="mis"><b>Mes choix de confidentialité</b><button class="btn blue sm" data-a="legalagain">Revoir</button></div></div>
       <details class="pdet pdet-help"><summary>Un problème ?</summary><p class="meta">Si quelque chose ne marche pas, envoie une capture de cet écran.</p>
         ${(() => { let e = null; try { e = localStorage.getItem('vdp-lasterr'); } catch(_){} return e ? `<p class="meta" style="word-break:break-all">Dernier souci : ${e.slice(0, 160).replace(/</g, '&lt;')}</p>` : ''; })()}
         <div class="mlist"><div class="mis"><b>Vérifier l'affichage</b><button class="btn blue sm" data-a="diag">Voir</button></div><div class="mis"><b>Recommencer à zéro</b><button class="btn red sm" data-a="reset">Effacer</button></div></div><p class="meta">Version ${GAME_V}</p></details>`;
@@ -1402,7 +1407,11 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'aucgo') return aucOpen(+b.dataset.i);
   if (a === 'aucpeek'){ const l = M.auction(S).lots[+b.dataset.i]; if (S.stars < M.AUC_PEEK){ sfx.err(); return openPanel('shop'); } if (l && M.aucPeek(S, l)){ sfx.tap(); save(); } return renderPanel(); }
   if (a === 'aucrefill'){ if (!M.aucRefill(S)){ sfx.err(); return openPanel('shop'); } sfx.level(); save(); return renderPanel(); }
-  if (a === 'consent'){ TR.setConsent(TR.consent() === 'yes' ? 'no' : 'yes'); return renderPanel(); }
+  if (a === 'consent'){ S.legal ||= {v: LEGAL_V, t: now(), cgu: true};
+    const flip = () => { S.legal = {...S.legal, analyse: !analyseOk(), parent: S.legal.mineur ? true : S.legal.parent, t: now()}; save(); TR.legalProof(S.legal); TR.setConsent(analyseOk() ? 'yes' : 'no'); renderPanel(); };
+    return !analyseOk() && minorNoParent() ? parentGate(flip) : flip(); }
+  if (a === 'odds') return showOdds(b.dataset.k);
+  if (a === 'legalagain'){ closePanel(); S.legal = {...S.legal, v: 'revoir'}; return legalGate(() => {}); }
   if (a === 'mute'){ S.mute = !S.mute; if (S.mute) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'music'){ S.noMusic = !(S.noMusic || S.mute); if (S.mute && !S.noMusic) S.mute = false; if (S.noMusic) musicStop(); else music(); save(); return renderPanel(); }
   if (a === 'retuto'){ S.tuto = 0; save(); closePanel(); return tuto.start(); }
@@ -1715,7 +1724,8 @@ function buyPack(k){
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'buy') return;
     S.iap ||= {}; S.iap[k] = (S.iap[k] || 0) + 1; logIap(k, P.name, P.price); for (const [c, s2] of P.skins) M.ownSkin(S, c, s2); closePanel(); save(); bravo(P.give, P.name + ' : apparences débloquées', 'MERCI !'); };
 }
-function buyIap(k){
+function buyIap(k, gated){
+  if (!gated && minorNoParent()) return parentGate(() => buyIap(k, true));
   const p = M.IAP[k]; if (!p) return; S.iap ||= {};
   if (p.once && S.iap[k]){ sfx.err(); return toast('Déjà acheté'); }
   const m = $('#modal'); m.className = 'glow rinfo';
@@ -1891,7 +1901,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 84;
+const GAME_V = 85;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2125,9 +2135,13 @@ async function accAction(a){
 }
 // cloudOk : on n'écrit en ligne qu'une fois sûr de ne pas écraser un village plus avancé (nouvel appareil, autre compte…)
 let cloudOk = false;
+// sans accord d'analyse, la sauvegarde en ligne ne garde du journal que les achats (nécessaires) : ni temps de jeu, ni chrono, ni actions
+function cloudCopy(){ if (analyseOk()) return S; const L = S.log || {ev: [], agg: {}};
+  return {...S, play: 0, race: undefined, log: {ev: L.ev.filter(e => e[1] === 'iap'), agg: {eur: L.agg.eur || 0, n_buy: L.agg.n_buy || 0}}}; }
 async function cloudPush(say, force){ if (!ACC.current() || saveLock || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); const W = welcomeDone || S.welcomeGot === ACC.current().uid;
-    try { await ACC.cloudSave(S, W ? {welcome: true} : {}); }
-    catch(e){ if (!W || !/permission/i.test(e?.code || e?.message || '')) throw e; await ACC.cloudSave(S); } /* règles pas encore à jour : le bonus reste noté dans la sauvegarde */
+    const C = cloudCopy(), X = {...(W ? {welcome: true} : {}), ...(S.legal ? {legal: S.legal} : {})};
+    try { await ACC.cloudSave(C, X); }
+    catch(e){ if (!W || !/permission/i.test(e?.code || e?.message || '')) throw e; await ACC.cloudSave(C); } /* règles pas encore à jour : le bonus reste noté dans la sauvegarde */
     if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
 if (ACC.ready()){
   ACC.init().then(() => ACC.onChange(async u => {
@@ -2175,7 +2189,7 @@ function showWelcome(go){
     ${ACC.googleUnavailable() ? '<p class="meta wnote">Sur iPhone, dans l’app de l’écran d’accueil, utilise ton e-mail.</p>' : '<button class="btn wide gbtn" data-w="google"><span class="g">G</span>Continuer avec Google</button>'}
     <button class="btn blue wide" data-w="mail">Créer un compte / Se connecter par e&#8209;mail</button>
     <div class="werr" hidden></div>
-    <button class="wguest" data-w="guest">Jouer en invité</button><small class="wfine">En invité, ton village reste sur cet appareil. <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></small></div>`;
+    <button class="wguest" data-w="guest">Jouer en invité</button><small class="wfine">En invité, ton village reste sur cet appareil.<br><a href="cgu.html" target="_blank" rel="noopener">Conditions</a> · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="mentions.html" target="_blank" rel="noopener">Mentions légales</a></small></div>`;
   document.body.appendChild(w);
   const done = () => { w.remove(); go(); };
   const off = ACC.onChange(u => { if (u && w.isConnected) done(); });
@@ -2244,22 +2258,80 @@ setInterval(() => {
   const h = T.hqLv(S); if (h !== wHq){ if (wHq && h > wHq){ T.logEv(S, 'hq', {L: h}); TR.ev('maison', {L: h}); } if (RACE_HQ.has(h)) race('maison' + h); if (h >= T.BUILDINGS.santa.max) race('sommet'); wHq = h; }
   const ch = T.chapterOf(S.quest?.i || 0); if (ch !== wCh){ if (wCh >= 0 && ch > wCh){ T.logEv(S, 'chap', {ch}); TR.ev('chapitre', {ch}); } if (ch > 0) race('chapitre' + ch); wCh = ch; }
 }, 1000);
-// à la connexion : fiche du joueur + (avec son accord) sessions, appareil, ville et actions
+// accord du joueur pour l'analyse (fenêtre « Conditions et confidentialité ») ; un mineur sous l'âge légal a besoin d'un parent
+const analyseOk = () => !!(S.legal?.analyse && (!S.legal.mineur || S.legal.parent));
+TR.setConsentSource(analyseOk);
+const minorNoParent = () => !!(S.legal?.mineur && !S.legal.parent);
+// à la connexion : fiche du joueur (nécessaire) + (avec son accord) sessions, appareil, ville et actions
 function trackStart(u){
   if (S.wasGuest == null){ const made = Date.parse(u.metadata?.creationTime || '') || now(); S.wasGuest = (S.guest || (S.created && S.created < made - 5 * 60e3)) ? 1 : 0; save(); }
-  TR.begin(u, trInfo(), trInfo).then(() => { for (const [k, t] of Object.entries(S.race || {})) TR.milestone(k, {t}); TR.ev('connexion', {}); });
-  if (TR.consent() == null) setTimeout(() => whenFree(() => modalBusy() ? modalQ.push(askConsent) : askConsent()), 2500);
+  const i = trInfo(), need = {village: i.village, creeLe: i.creeLe, niveau: i.niveau, maison: i.maison, eur: i.eur, achats: i.achats, inviteAvant: i.inviteAvant, legal: S.legal || null};
+  TR.begin(u, need, trInfo).then(() => { if (S.legal) TR.legalProof(S.legal); if (analyseOk()){ for (const [k, t] of Object.entries(S.race || {})) TR.milestone(k, {t}); TR.ev('connexion', {}); } });
 }
-function askConsent(){
-  if (TR.consent() != null || !ACC.current()) return;
-  const m = $('#modal'); m.className = 'glow rinfo';
-  m.querySelector('.mcard').innerHTML = `<small>Une petite question</small><h2 class="stroke">Nous aider à améliorer le jeu ?</h2>
-    <p>Si tu es d'accord, on enregistre ton appareil, ta ville approximative (d'après ton adresse IP) et ce que tu fais dans le jeu, pour l'équilibrer et corriger les bugs. Rien n'est vendu ni montré aux autres joueurs.</p>
-    <p class="meta">Tu peux changer d'avis à tout moment dans Profil → Réglages. <a href="privacy.html" target="_blank" rel="noopener">En savoir plus</a></p>
-    <div class="acts"><button class="btn blue" data-m="no">Non merci</button><button class="btn green" data-m="yes">D'accord</button></div>`;
-  m.hidden = false; m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; TR.setConsent(b.dataset.m); sfx.tap(); };
+/* ---------- CONDITIONS ET CONFIDENTIALITÉ : premier lancement, et à chaque nouvelle version des textes ---------- */
+function legalGate(go){
+  if (S.legal?.v === LEGAL_V) return go();
+  const prev = S.legal, Y = new Date().getFullYear(), seuil = ageMin();
+  const w = document.createElement('div'); w.id = 'legal';
+  w.innerHTML = `<div class="wcard lcard"><h2>${prev ? 'Nos conditions ont changé' : 'Conditions et confidentialité'}</h2>
+    <p>Pour jouer, accepte les <a href="cgu.html" target="_blank" rel="noopener">Conditions d'utilisation</a>. Lis aussi la <a href="privacy.html" target="_blank" rel="noopener">Politique de confidentialité</a> et les <a href="mentions.html" target="_blank" rel="noopener">Mentions légales</a>.</p>
+    <label class="lage"><b>Ton année de naissance</b><select id="lyear"><option value="">Choisir…</option>${Array.from({length: 95}, (_, k) => Y - 3 - k).map(y => `<option ${prev?.annee === y ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
+    <div class="lbox"><b>Nécessaire</b> <span class="lon">toujours actif</span><small>Ta sauvegarde, ton compte si tu en crées un (e-mail, nom), tes achats, et un journal de sécurité (adresse IP des connexions, gardé 6 mois).</small></div>
+    <div class="lbox"><b>Analyse</b> <span class="meta">au choix</span><small>Ton appareil, ta ville approximative, ce que tu fais dans le jeu et ton temps de jeu, pour améliorer le jeu. Seulement avec un compte. Tu peux changer d'avis dans Profil → Réglages.</small>
+      <label class="lpar" hidden><input type="checkbox" id="lpar"> Un parent ou tuteur a lu ces informations et est d'accord</label>
+      <div class="lch"><button class="btn blue" data-l="non">Refuser</button><button class="btn blue" data-l="oui">Accepter</button></div></div>
+    <p class="meta">Pas de publicité dans le jeu.</p>
+    <p class="lerr" hidden></p>
+    <button class="btn green wide" data-l="go">J'accepte les conditions et je joue</button></div>`;
+  document.body.appendChild(w);
+  let choix = null; const yr = w.querySelector('#lyear'), par = w.querySelector('.lpar'), err = w.querySelector('.lerr');
+  const age = () => yr.value ? Y - +yr.value : null;
+  const upd = () => { const a = age(), minor = a != null && a < seuil; par.hidden = !minor;
+    w.querySelectorAll('[data-l=oui],[data-l=non]').forEach(b => b.classList.toggle('on', b.dataset.l === choix)); };
+  yr.onchange = upd; upd();
+  w.addEventListener('click', e => { const b = e.target.closest('[data-l]'); if (!b) return; sfx.tap();
+    if (b.dataset.l === 'oui' || b.dataset.l === 'non'){ choix = b.dataset.l; err.hidden = true; return upd(); }
+    const a = age(); if (a == null){ err.hidden = false; err.textContent = 'Choisis ton année de naissance.'; return; }
+    if (!choix){ err.hidden = false; err.textContent = 'Choisis « Accepter » ou « Refuser » pour l’analyse.'; return; }
+    const minor = a < seuil, parent = minor && w.querySelector('#lpar').checked;
+    if (minor && choix === 'oui' && !parent){ err.hidden = false; err.textContent = `Moins de ${seuil} ans : il faut l'accord d'un parent pour l'analyse. Coche la case avec lui, ou choisis « Refuser ».`; return; }
+    S.legal = {v: LEGAL_V, t: now(), cgu: true, analyse: choix === 'oui', annee: +yr.value, mineur: minor, seuil, parent};
+    save(); TR.legalProof(S.legal); TR.setConsent(analyseOk() ? 'yes' : 'no'); w.remove(); go();
+  });
 }
+// porte parentale : avant un achat, un joueur sous l'âge légal sans accord parental doit faire répondre un adulte
+function parentGate(ok){
+  if (!minorNoParent()) return ok();
+  const x = 6 + Math.floor(Math.random() * 4), y = 6 + Math.floor(Math.random() * 4), m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Achat</small><h2 class="stroke">Demande à un parent</h2><p>Un adulte doit être d'accord pour cet achat. Combien font ${x} × ${y} ?</p>
+    <input id="pg" inputmode="numeric" autocomplete="off" style="font-size:20px;text-align:center;width:120px;margin:6px auto;display:block"><div class="acts"><button class="btn blue" data-m="no">Annuler</button><button class="btn green" data-m="ok">Valider</button></div>`;
+  m.hidden = false; setTimeout(() => m.querySelector('#pg')?.focus(), 50);
+  m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; if (b.dataset.m === 'ok' && +m.querySelector('#pg').value !== x * y){ sfx.err(); return toast('Ce n’est pas la bonne réponse'); } m.hidden = true; if (b.dataset.m === 'ok') ok(); };
+}
+/* ---------- chances affichées partout où l'on achète du hasard (exigence Apple et Google) ---------- */
+function oddsTables(){
+  const p = n => `${Math.round(n * 10) / 10} %`, rar = o => o.map((n, r) => n ? `<tr><td style="color:${T.RARITY[r].c}"><b>${T.RARITY[r].name}</b></td><td>${p(n)}</td></tr>` : '').join('');
+  const fo = T.fishOdds(S);
+  return {
+    colis: ['Contenu des colis (et des coffres de la boutique)', `<p class="meta">La rareté d'un colis acheté est garantie. Son contenu est tiré à l'ouverture :</p><table class="otab"><tr><th></th><th>Commun</th><th>Rare</th><th>Épique</th><th>Légendaire</th></tr>
+      <tr><td>Pièces + une ressource</td><td>100 %</td><td>100 %</td><td>100 %</td><td>100 %</td></tr><tr><td>Cristaux de glace</td><td>0 %</td><td>100 %</td><td>100 %</td><td>100 %</td></tr>
+      <tr><td>Lingots d'or (dès le niveau 8)</td><td>0 %</td><td>0 %</td><td>100 %</td><td>100 %</td></tr><tr><td>Étoiles d'or</td><td>0 %</td><td>0 %</td><td>8 % (1)</td><td>100 % (1 ou 2)</td></tr>
+      <tr><td>Hache</td><td>0 %</td><td>21 %</td><td>21 %</td><td>21 %</td></tr><tr><td>Scie</td><td>0 %</td><td>14 %</td><td>14 %</td><td>14 %</td></tr></table>`],
+    grotte: ['Grotte aux cristaux : chaque case', `<table class="otab"><tr><th></th><th>Étages 1-2</th><th>Étage 3 et plus</th></tr><tr><td>Cristaux de glace</td><td>40 %</td><td>40 %</td></tr><tr><td>Pièces</td><td>15 %</td><td>15 %</td></tr><tr><td>Ressource</td><td>6 %</td><td>6 %</td></tr>
+      <tr><td>Lingots d'or</td><td>0 %</td><td>11 %</td></tr><tr><td>Colis mystère</td><td>9 %</td><td>0 %</td></tr><tr><td>+2 pioches</td><td>3 %</td><td>1 %</td></tr><tr><td>Rien (roche)</td><td>27 %</td><td>27 %</td></tr></table>
+      <p class="meta">Un escalier est caché sous une des 25 cases de chaque étage. Rareté d'un colis trouvé :</p><table class="otab">${rar([60, 30, 9, 1])}</table>`],
+    ventes: ['Salle des ventes : rareté des lots', `<table class="otab"><tr><th></th><th>Lots qui arrivent seuls</th><th>3 lots achetés avec des étoiles</th></tr>${[0, 1, 2, 3].map(r => `<tr><td style="color:${T.RARITY[r].c}"><b>${T.RARITY[r].name}</b></td><td>${[55, 30, 12, 3][r]} %</td><td>${[50, 32, 14, 4][r]} %</td></tr>`).join('')}</table>`],
+    exped: ['Expéditions des rennes : rareté des colis', `<table class="otab"><tr><th></th>${[0, 1, 2, 3].map(r => `<th style="color:${T.RARITY[r].c}">${T.RARITY[r].name}</th>`).join('')}</tr>${T.EXP_DEST.map(d => `<tr><td>${d.name}</td>${d.odds.map(n => `<td>${n} %</td>`).join('')}</tr>`).join('')}</table>`],
+    peche: ['Pêche : chances à chaque prise', `<table class="otab"><tr><th></th><th>De base</th><th>Pour toi maintenant</th></tr>${[0, 1, 2, 3].map(r => `<tr><td style="color:${T.RARITY[r].c}"><b>${T.RARITY[r].name}</b></td><td>${T.FISH_ODDS[r]} %</td><td>${p(fo[r])}</td></tr>`).join('')}</table>
+      <p class="meta">Garanties : un poisson rare ou mieux au plus tard après ${T.FISH_PITY[1]} prises sans rare, épique ou mieux après ${T.FISH_PITY[2]}, légendaire après ${T.FISH_PITY[3]}. Les bonus (canne, porte-bonheur) ne font jamais plus que doubler une chance, avec un plafond affiché.</p>`],
+  };
+}
+const oddsBtn = k => `<button class="btn blue sm oddsb" data-a="odds" data-k="${k}">Chances</button>`;
+function showOdds(k){ const all = oddsTables(), L = k === 'all' ? Object.values(all) : [all[k]]; const m = $('#modal'); m.className = 'glow rinfo oddsm';
+  m.querySelector('.mcard').innerHTML = `<small>Chances</small>${L.map(([t, h]) => `<h3>${t}</h3>${h}`).join('')}<div class="acts"><button class="btn green" data-m="ok">OK</button></div>`;
+  m.hidden = false; m.onclick = e => { if (e.target.closest('[data-m]')) m.hidden = true; }; }
 if (ACC.ready()) ACC.init().then(() => ACC.onChange(u => { if (u) trackStart(u); else TR.stop(); })).catch(() => {});
+
 /* ---------- sauvegarde transférable ---------- */
 let saveCodeTxt = '';
 async function saveCopy(){
@@ -2627,7 +2699,7 @@ setTimeout(welcomeBack, 1400);
 try { if (sessionStorage.getItem('vdp-welcome')){ sessionStorage.removeItem('vdp-welcome'); welcomeDone = true; welcomeBravo(); } } catch(e){}
 // v76-v77 : un colis ouvert pouvait rester bloqué (récompense jamais donnée) → on rend un colis rare, une seule fois
 if (!S.fixParcel77 && (S.lvl || 1) >= 3){ S.fixParcel77 = 1; (S.parcels ||= []).unshift(1); save(); setTimeout(() => toast('Un colis rare t’a été rendu (bug des colis corrigé)'), 2600); }
-setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); gateWelcome(() => { if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } });}, 400);
+setTimeout(() => { $('#intro').classList.add('hide'); document.body.classList.add('playing'); setTimeout(() => $('#intro').remove(), 700); legalGate(() => gateWelcome(() => { if (tuto.active()){ const BACK = {5: 4, 7: 6, 9: 8, 10: 8}; if (BACK[S.tuto]) S.tuto = BACK[S.tuto]; if (!S.tuto && !S.introSeen) setTimeout(() => cinema(INTRO, () => { S.introSeen = 1; save(); setTimeout(() => tuto.start(), 500); }, 'Le Village du Pôle'), 600); else setTimeout(() => tuto.start(), 700); } }));}, 400);
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__v2 = {get S(){ return S; }, fits, startPlace: (t, x, y) => { ghost = {type: t, x, y}; showGhostUI(); }, get glide(){ return glide; }, get hold(){ return tutoHold - performance.now(); }, reminders: () => { armReminders(); const n = remindT.length; clearReminders(); return n; }, notify, cam, SPR, openPanel, tuto, screen: toScreen, centerOn, ICON, hud, gainXp, T, ripe, autoCollect, get autoT(){ return autoT; }};
 // sauvegarde : ouvrir un fichier

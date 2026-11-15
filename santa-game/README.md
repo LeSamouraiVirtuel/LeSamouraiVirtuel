@@ -24,6 +24,21 @@ Jeu de gestion de village de Noël pour téléphone, tablette et PC, dans la lig
    - la bataille ;
    - l'audit des textes de toutes les fenêtres.
 
+## Légal (à lire avant tout paiement réel)
+
+- Toutes les informations légales (éditeur, contact, hébergeurs, droit applicable) sont dans **`js/legal.js`**, à un seul endroit. Les pages `cgu.html`, `privacy.html` et `mentions.html` et le jeu les lisent.
+- **Quand les textes changent**, on change `LEGAL_V` dans `js/legal.js` : le jeu redemande l'accord à tous les joueurs.
+- **Avant tout paiement réel** (App Store, Google Play), il faudra le **nom complet** et l'**adresse postale** de l'éditeur (société ou personne). C'est obligatoire en France (LCEN) et en Suisse (LCD, art. 3 al. 1 let. s). Il faudra aussi :
+  - revoir les conditions de vente ;
+  - valider les achats côté serveur (`research/ANTI-TRICHE.md`).
+- Aujourd'hui, l'éditeur est un particulier et les achats sont simulés : il n'y a aucune activité commerciale.
+- **Durées de conservation**, appliquées par le jeu et par le bouton « Nettoyage » du tableau de bord :
+  - journal de sécurité : 6 mois ;
+  - sessions d'analyse : 13 mois ;
+  - comptes inactifs : 2 ans.
+  Les comptes de connexion Firebase inactifs se suppriment dans la console Firebase.
+- **Règles Firestore** : `firebase/firestore.rules`, testées par `tools/tests/regles.cjs` sur l'émulateur contre les sauvegardes de chaque version.
+
 ## Tests de non-régression
 
 ```bash

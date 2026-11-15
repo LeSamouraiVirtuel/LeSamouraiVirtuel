@@ -9,7 +9,7 @@ const MAC = {viewport: {width: 1440, height: 860}, userAgent: 'Mozilla/5.0 (Maci
 const PC = {viewport: {width: 1600, height: 900}, deviceScaleFactor: 1};
 (async () => {
   const wk = await webkit.launch(), cr = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || undefined});
-  const boot = async (br, opt, name) => { const p = await (await br.newContext(opt)).newPage(); p.on('pageerror', e => { if (!/access control|firestore|network/i.test(e.message)) log.push(`PAGEERR ${name} ${e.message}`); });
+  const boot = async (br, opt, name) => { const p = await (await br.newContext(opt)).newPage(); await p.addInitScript(require('./conditions.cjs'), false); p.on('pageerror', e => { if (!/access control|firestore|network/i.test(e.message)) log.push(`PAGEERR ${name} ${e.message}`); });
     await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); return p; };
   const over = p => p.evaluate(() => { const c = document.querySelector('#welcome .wcard'); if (!c) return 'absent'; const r = c.getBoundingClientRect(); const bs = [...c.querySelectorAll('button')].filter(b => b.scrollWidth > b.clientWidth + 2).length; return (r.left < 0 || r.right > innerWidth + 1 ? 'déborde ' : '') + (bs ? bs + ' bouton(s) coupés' : '') || 'ok'; });
   // 1) chaque appareil : l'écran apparaît, puis « invité »

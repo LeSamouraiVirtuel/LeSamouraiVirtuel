@@ -73,7 +73,7 @@ export async function deleteAccount(password){
   };
   if (password) await reauth();
   // le suivi du joueur (sessions + fiche) est effacé avec le compte
-  try { const ss = await F.getDocs(F.collection(db, 'track', u.uid, 's')); await Promise.all(ss.docs.map(d => F.deleteDoc(d.ref))); await F.deleteDoc(F.doc(db, 'track', u.uid)); } catch(e){}
+  try { for (const sub of ['s', 'secu']){ const ss = await F.getDocs(F.collection(db, 'track', u.uid, sub)); await Promise.all(ss.docs.map(d => F.deleteDoc(d.ref))); } await F.deleteDoc(F.doc(db, 'track', u.uid)); } catch(e){}
   await F.deleteDoc(F.doc(db, 'users', u.uid));
   try { await A.deleteUser(u); }
   catch(e){ if (e.code !== 'auth/requires-recent-login') throw e; await reauth(); await A.deleteUser(u); }

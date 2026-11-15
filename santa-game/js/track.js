@@ -2,7 +2,10 @@
 // par les règles Firestore). Seulement pour les joueurs avec un compte. Ce qui est enregistré est décrit dans privacy.html.
 //   track/{uid}          : fiche du joueur (identité du compte, appareil, dernière connexion, totaux, course)
 //   track/{uid}/s/{sid}  : une session (début, fin, durée, temps de jeu, appareil, IP et ville approximative, provenance, actions)
-// Le détail (appareil, IP, ville, actions) n'est enregistré qu'avec l'accord du joueur (consent === 'yes').
+//   track/{uid}/secu/{id}: journal de sécurité (IP + heure de connexion), NÉCESSAIRE, gardé 6 mois
+// Deux niveaux (choisis dans la fenêtre « Conditions et confidentialité ») :
+//   Nécessaire : compte, sauvegarde, achats, journal de sécurité — toujours.
+//   Analyse    : appareil détaillé, IP + ville par session, provenance, écrans, actions, temps de jeu, chrono — seulement avec l'accord.
 import * as ACC from './account.js';
 
 const day = t => new Date(t).toLocaleDateString('sv-SE'); // AAAA-MM-JJ, heure locale du joueur
@@ -62,35 +65,63 @@ async function geo(){
 
 let on = false, uid = null, sid = null, part = 0, nEv = 0, buf = [], t0 = 0, visFrom = 0, playAcc = 0, dev = null, ctx = null, lastHide = 0, timer = 0, busy = false;
 const db = () => ACC.fs();
-const consentKey = u => 'vdp-consent-' + u;
-export const consent = () => uid ? ls.get(consentKey(uid)) : null;           // 'yes' | 'no' | null (pas encore demandé)
+let src = () => false;                                   // accord pour l'analyse, fourni par le jeu (choix du joueur)
+export const setConsentSource = f => { src = f; };
+export const consent = () => src() ? 'yes' : 'no';
 export const active = () => on;
+const MOIS = 30.44 * 864e5;
 
-/** Fiche du joueur : appelé à chaque connexion. info = {village, created, lvl, hq, eur, nbuy, wasGuest} */
-export async function begin(user, info, getInfo){
+/** À chaque connexion. need = données nécessaires {village, creeLe, niveau, maison, eur, achats, inviteAvant, legal} ;
+ *  getInfo() = données d'analyse rafraîchies à chaque envoi. */
+export async function begin(user, need, getInfo){
   const D = db(); if (!D || !user) return; const {F, db: base} = D;
+  if (uid === user.uid && (on || starting)) return;            // déjà suivi (événement de connexion en double)
+  if (uid && uid !== user.uid) stop();
   uid = user.uid; ctx = getInfo;
   const pv = (user.providerData || []).map(p => p.providerId);
   const id = {email: user.email || '', nom: user.displayName || '', photo: user.photoURL || '', fournisseur: pv.includes('google.com') ? (pv.includes('password') ? 'Google + e-mail' : 'Google') : 'e-mail',
-    compteCree: Date.parse(user.metadata?.creationTime || '') || null, derniere: Date.now(), consent: consent() || 'non demandé', provenance: REF};
-  try { await F.setDoc(F.doc(base, 'track', uid), {...id, ...info}, {merge: true}); } catch(e){ return; }
-  if (consent() === 'yes') startSession();
+    compteCree: Date.parse(user.metadata?.creationTime || '') || null, derniere: Date.now(), analyse: !!src()};
+  try { await F.setDoc(F.doc(base, 'track', uid), {...id, ...need}, {merge: true}); } catch(e){ return; }
+  securite();
+  if (src()){ F.setDoc(F.doc(base, 'track', uid), {provenance: REF}, {merge: true}).catch(() => {}); startSession(); purgeOld(); }
 }
-/** Accord du joueur (une seule fois, modifiable dans les réglages) */
-export function setConsent(v){ if (!uid) return; ls.set(consentKey(uid), v); const D = db(); if (D) D.F.setDoc(D.F.doc(D.db, 'track', uid), {consent: v, consentT: Date.now()}, {merge: true}).catch(() => {});
-  if (v === 'yes' && !on) startSession(); if (v === 'no' && on) stop(); }
+// journal de sécurité (nécessaire) : IP et heure de chaque connexion, effacé après 6 mois
+async function securite(){
+  const D = db(); if (!D || !uid) return; const {F, db: base} = D, t = Date.now();
+  let ip = ''; try { ip = (await Promise.race([fetch('https://get.geojs.io/v1/ip.json', {cache: 'no-store'}).then(r => r.json()), new Promise(r => setTimeout(() => r({}), 5000))])).ip || ''; } catch(e){}
+  F.setDoc(F.doc(base, 'track', uid, 'secu', String(t)), {t, ip}).catch(() => {});
+  try { const old = await F.getDocs(F.query(F.collection(base, 'track', uid, 'secu'), F.where('t', '<', t - 6 * MOIS))); old.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {})); } catch(e){}
+}
+// analyse détaillée : les sessions de plus de 13 mois sont effacées (les totaux de la fiche restent, agrégés)
+async function purgeOld(){
+  const D = db(); if (!D || !uid) return; const {F, db: base} = D;
+  try { const old = await F.getDocs(F.query(F.collection(base, 'track', uid, 's'), F.where('debut', '<', Date.now() - 13 * MOIS))); old.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {})); } catch(e){}
+}
+/** Le joueur change d'avis (réglages ou nouvelle fenêtre d'accord). En cas de refus, l'analyse déjà enregistrée est effacée. */
+export async function setConsent(v){
+  const D = db(); if (!D || !uid) return; const {F, db: base} = D;
+  F.setDoc(F.doc(base, 'track', uid), {analyse: v === 'yes'}, {merge: true}).catch(() => {});
+  if (v === 'yes'){ if (!on){ F.setDoc(F.doc(base, 'track', uid), {provenance: REF}, {merge: true}).catch(() => {}); startSession(); } return; }
+  on = false; sid = null; buf = []; clearInterval(timer);   // pas d'envoi final : tout est effacé
+  try { const ss = await F.getDocs(F.collection(base, 'track', uid, 's')); ss.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {}));
+    const X = F.deleteField(); await F.updateDoc(F.doc(base, 'track', uid), {appareil: X, geo: X, ips: X, provenance: X, sessions: X, jours: X, tempsJeu: X, course: X, chapitre: X, etoilesDepensees: X, tempsGagne: X, jeuTotal: X}); } catch(e){}
+}
+/** Trace de l'accord légal (date, version des textes, choix), gardée dans le compte avec l'historique */
+export function legalProof(rec){ const D = db(); if (!D || !uid) return; D.F.setDoc(D.F.doc(D.db, 'track', uid), {legal: rec, legalHist: D.F.arrayUnion(rec)}, {merge: true}).catch(() => {}); }
 export function stop(){ if (on) flush(true); on = false; sid = null; clearInterval(timer); }
 
+let starting = false;
 async function startSession(){
-  const D = db(); if (!D || !uid) return; const {F, db: base} = D;
-  on = true; part = 0; nEv = 0; buf = []; t0 = Date.now(); playAcc = 0; visFrom = document.hidden ? 0 : t0;
+  const D = db(); if (!D || !uid || on || starting) return; const {F, db: base} = D;
+  starting = true; on = true; part = 0; nEv = 0; buf = []; t0 = Date.now(); playAcc = 0; visFrom = document.hidden ? 0 : t0;
   sid = new Date(t0).toISOString().slice(0, 19).replace(/[-:T]/g, '') + '-' + rnd();
   dev = device(); hiModel(dev);
   const s = {debut: t0, fin: t0, duree: 0, jeu: 0, appareil: dev, arrivee: here(), ev: [], niv: ctx?.()?.lvl || 0};
   try {
     await F.setDoc(F.doc(base, 'track', uid, 's', sid), s);
     await F.setDoc(F.doc(base, 'track', uid), {appareil: dev, sessions: F.increment(1), jours: {[day(t0)]: F.increment(1)}, derniere: t0}, {merge: true});
-  } catch(e){ on = false; return; }
+  } catch(e){ on = false; starting = false; return; }
+  starting = false;
   geo().then(g => { if (!g || !on) return; F.updateDoc(F.doc(base, 'track', uid, 's', sid), {geo: g}).catch(() => {});
     F.setDoc(F.doc(base, 'track', uid), {geo: g, ips: F.arrayUnion(g.ip)}, {merge: true}).catch(() => {}); });
   clearInterval(timer); timer = setInterval(() => flush(), 60e3);
@@ -112,11 +143,11 @@ async function flush(final){
   busy = false;
 }
 /** Jalon de la course (créé → sommet) : moment, euros affichés dépensés et nombre d'achats à cet instant */
-export function milestone(key, data){ const D = db(); if (!D || !uid) return; D.F.setDoc(D.F.doc(D.db, 'track', uid), {course: {[key]: {t: Date.now(), ...data}}}, {merge: true}).catch(() => {}); }
+export function milestone(key, data){ const D = db(); if (!D || !uid || !src()) return; D.F.setDoc(D.F.doc(D.db, 'track', uid), {course: {[key]: {t: Date.now(), ...data}}}, {merge: true}).catch(() => {}); }
 
 // fin de session quand le jeu est caché plus de 10 minutes ; nouvelle session au retour
 document.addEventListener('visibilitychange', () => {
   if (document.hidden){ playNow(); visFrom = 0; lastHide = Date.now(); if (on) flush(true); }
-  else { if (on && lastHide && Date.now() - lastHide > 10 * 60e3){ stop(); if (consent() === 'yes') startSession(); } else visFrom = Date.now(); }
+  else { if (on && lastHide && Date.now() - lastHide > 10 * 60e3){ stop(); if (src()) startSession(); } else visFrom = Date.now(); }
 });
 addEventListener('pagehide', () => { if (on) flush(true); });
