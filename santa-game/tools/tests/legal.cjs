@@ -17,6 +17,7 @@ const log = []; let bad = 0; const ok = (c, m) => { log.push((c ? '✓ ' : '✗ 
     const btn = await p.evaluate(() => [...document.querySelectorAll('#legal [data-l=oui],#legal [data-l=non]')].map(b => { const r = b.getBoundingClientRect(); return [b.className, Math.round(r.width), Math.round(r.height)].join(' '); }));
     ok(btn[0].split(' ').slice(1).join() === btn[1].split(' ').slice(1).join() && btn[0].split(' ')[0] === btn[1].split(' ')[0] && btn[0].split(' ')[1] === btn[1].split(' ')[1], `${name} : « Refuser » et « Accepter » aussi visibles l'un que l'autre (${btn.join(' / ')})`);
     // sans année : refusé ; mineur : analyse sans parent refusée
+    ok(!(await p.isVisible('#legal .lpar')), `${name} : pas de case « parent » tant que l'âge n'est pas choisi`);
     await p.click('#legal [data-l=go]'); ok(/année/.test(await p.innerText('#legal .lerr')), `${name} : il faut choisir l'année de naissance`);
     await p.selectOption('#lyear', String(new Date().getFullYear() - 11)); await p.click('#legal [data-l=oui]'); await p.click('#legal [data-l=go]');
     ok(await p.isVisible('#legal .lpar') && /parent/.test(await p.innerText('#legal .lerr')), `${name} : 11 ans → case « accord d'un parent », analyse refusée sans elle`);
