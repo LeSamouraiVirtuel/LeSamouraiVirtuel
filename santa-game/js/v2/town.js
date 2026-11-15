@@ -209,6 +209,8 @@ export const unlocksAt = L => Object.entries(TOYS).filter(([k, t]) => t.lvl === 
 // Coffres de la barre d'XP : à partir du niveau 8, les niveaux deviennent longs ; chaque tiers de barre franchi
 // donne un petit coffre (objectif à court terme, comme les coffres de la barre de niveau des jeux de référence).
 export const XP_CHEST_FROM = 8;
+// La course compte jusqu'au niveau 100. Au-delà, c'est des années de jeu : 120 laisse une marge, pas un million.
+export const LVL_MAX = 120;
 const marks = s => s.lvl < XP_CHEST_FROM ? 0 : (s.lvl - XP_CHEST_FROM) * 2 + Math.min(2, Math.floor(s.xp / xpNeed(s.lvl) * 3));
 export function addXp(s, n){
   const before = marks(s); s.xp += n; let up = 0;
@@ -810,6 +812,15 @@ export const SHOP = [
   {k: 'p4', stars: 2500, price: '39,99 €'},
   {k: 'p5', stars: 6500, price: '99,99 €', tag: 'Meilleure offre'},
 ];
+// Ce que les achats simulés ajoutent vraiment (mêmes chiffres que meta.js). Sert seulement au plafond :
+// recharger le jeu ne retire pas ce qu'un test a acheté. Le nombre compté est plafonné pour qu'un journal modifié
+// ne puisse pas ouvrir un plafond infini.
+const IAP_GIVE = {
+  starter: {stars: 500, coins: 5000, wood: 3000, cookies: 2000, ice: 30},
+  p1: {stars: 80}, p2: {stars: 500}, p3: {stars: 1200}, p4: {stars: 2500}, p5: {stars: 6500},
+  pk_ginger: {stars: 300, cookies: 5000}, pk_ice: {stars: 800, ice: 60}, pk_royal: {stars: 1500, gold: 10},
+};
+const IAP_MAX = {starter: 1, p1: 80, p2: 40, p3: 30, p4: 20, p5: 20, pk_ginger: 8, pk_ice: 8, pk_royal: 8};
 // Ce que les étoiles achètent en dehors des chantiers
 export const PICK_REFILL = 6;              // remplir les pioches de la grotte
 export const missingStars = (s, req) => {  // acheter les ressources qui manquent (comme Clash of Clans)
@@ -1355,27 +1366,134 @@ export const museumProd = s => RELIC_SETS.filter(st => relicSetDone(s, st)).leng
 export const relicSetReward = st => ({stars: 8, coins: 5000, xp: 150});
 export const relicSell = it => ({coins: [200, 600, 1800, 5000][it.r]});
 
+/* ===================== PLAFONDS (économie réelle + achats de test) ===================== */
+// Large : un joueur qui économise, ou qui achète les packs de test, reste en dessous.
+// Étroit face à une sauvegarde modifiée à la main (milliards de pièces). Appliqué au chargement ET à l'import.
+function boughtGrants(s){
+  const g = {stars: 0, coins: 0, wood: 0, cookies: 0, fabric: 0, ice: 0, gold: 0}, n = {};
+  for (const e of s.log?.ev || []) if (e[1] === 'iap' && e[2]?.k && IAP_GIVE[e[2].k]) n[e[2].k] = (n[e[2].k] || 0) + 1;
+  for (const [k, c] of Object.entries(s.iap || {})) if (IAP_GIVE[k]) n[k] = Math.max(n[k] || 0, Math.round(+c) || 0);
+  for (const [k, c] of Object.entries(n)){ const m = Math.min(IAP_MAX[k] || 1, Math.max(0, c)), give = IAP_GIVE[k];
+    for (const [r, q] of Object.entries(give)) g[r] += q * m; }
+  return g;
+}
+export function economyCap(s){
+  const L = Math.min(LVL_MAX, Math.max(1, Math.round(+s.lvl) || 1));
+  const hq = Math.min(BUILDINGS.santa.max, Math.max(1, hqLv(s) || 1));
+  const stores = Math.min(4, 1 + Math.floor(hq / 6));
+  const stock = hqStock(hq) + stores * storageAdd(Math.min(26, hq + 1));
+  const b = boughtGrants(s);
+  return {
+    coins: Math.round(200000 + 40000 * L * L + stock * 4 + b.coins * 3),
+    wood: Math.round(stock * 6 + 20000 + b.wood * 3),
+    cookies: Math.round(stock * 6 + 20000 + b.cookies * 3),
+    fabric: Math.round(stock * 6 + 20000 + b.fabric * 3),
+    stars: Math.round(3000 + 250 * L + b.stars * 1.1),
+    ice: Math.round(800 + 80 * L + b.ice * 3),
+    gold: Math.round(300 + 25 * L + b.gold * 3),
+    axe: 400, saw: 400, toy: 500 + 10 * L,
+  };
+}
+/** Ramène un village à des valeurs jouables. `note(kind, data)` sert aux alertes du tableau de bord. Ne rejette pas la sauvegarde. */
+export function sanitizeTown(s, note = () => {}){
+  if (!s || typeof s !== 'object') return s;
+  // testEditeur n'est pas retiré ici : le village de test de l'éditeur le garde au chargement.
+  // L'import, lui, l'enlève (importCode), sinon un code collé couperait les alertes.
+  s.inv ||= {}; s.objs ||= [];
+  for (const k of [...RES, 'stars', 'xp']) if (!Number.isFinite(+s[k]) || s[k] < 0){ note('valeur', {k, v: String(s[k]).slice(0, 20)}); s[k] = 0; }
+  const lvl = Math.round(+s.lvl);
+  if (!Number.isFinite(lvl) || lvl < 1 || lvl > LVL_MAX){ note('niveau', {n: s.lvl}); s.lvl = Math.min(LVL_MAX, Math.max(1, lvl || 1)); }
+  else s.lvl = lvl;
+  const bar = xpNeed(s.lvl);
+  if (s.xp >= bar){ note('xp', {n: s.xp}); s.xp = Math.max(0, bar - 1); }
+  const hq = s.objs.find(o => o && o.type === 'santa');
+  if (hq){ const lv = Math.round(+hq.lv) || 1; if (lv < 1 || lv > BUILDINGS.santa.max){ note('maison_niveau', {maison: hq.lv, niveau: s.lvl}); hq.lv = Math.min(BUILDINGS.santa.max, Math.max(1, lv)); } else hq.lv = lv; }
+  const capLv = hqLv(s) + 1;
+  let flaggedB = false;
+  for (const o of s.objs){ if (!o || typeof o !== 'object') continue; const b = BUILDINGS[o.type];
+    if (!b || b.kind === 'hq' || b.kind === 'deco' || b.kind === 'path' || o.lv == null) continue;
+    const lv = Math.round(+o.lv) || 1;
+    if (lv > capLv + 1){ if (!flaggedB){ note('batiment_niveau', {type: o.type, lv, max: capLv}); flaggedB = true; } o.lv = capLv + 1; }
+    else if (lv >= 1) o.lv = lv; else o.lv = 1; }
+  const cap = economyCap(s);
+  for (const k of RES) if (s[k] > cap[k]){ note(k === 'coins' ? 'pieces' : 'ressource', {k, n: s[k], max: cap[k]}); s[k] = cap[k]; }
+  if (s.stars > cap.stars){ note('etoiles', {n: s.stars, plausible: cap.stars});
+    if (s.stars > cap.stars * 10){ note('etoiles_ramenees', {avant: s.stars, apres: cap.stars}); s.stars = cap.stars; } }
+  for (const [k, n] of Object.entries(s.inv)){
+    if (!Number.isFinite(+n) || n < 0){ note('valeur', {k, v: String(n).slice(0, 20)}); s.inv[k] = 0; continue; }
+    const m = k === 'ice' ? cap.ice : k === 'gold' ? cap.gold : k === 'axe' ? cap.axe : k === 'saw' ? cap.saw : TOYS[k] ? cap.toy : 9999;
+    if (n > m){ note('stock', {k, n, max: m}); s.inv[k] = m; } }
+  if (Array.isArray(s.chunks) && s.chunks.length > 16) s.chunks = s.chunks.slice(0, 16);
+  if (Array.isArray(s.parcels) && s.parcels.length > 80) s.parcels = s.parcels.slice(0, 80);
+  return s;
+}
+
 /* ===================== SAUVEGARDE TRANSFÉRABLE (comme le compte Supercell ID, sans serveur) ===================== */
 // Le village tient dans un code (compressé quand le navigateur le permet) ou un fichier : on le recopie sur un autre appareil.
+// Anti-bricolage, pas une signature : la clé de la somme est dans ce fichier, donc chez le joueur. Ça refuse un fichier
+// abîmé ou un code modifié sans recalculer la somme. Quelqu'un qui lit le jeu peut la refaire. Les vrais plafonds sont ailleurs.
+// Les vieux codes, sans somme, restent acceptés (marqués ancienCode) et passent par les mêmes plafonds.
+const SIG_SALT = 'VillageDuPole.export.v1';
 const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(s); };
 const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+const stable = v => {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null';
+  if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+  const keys = Object.keys(v).filter(k => v[k] !== undefined && k !== 'sig' && k !== 'importNote').sort();
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}';
+};
+async function saveSig(s){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(SIG_SALT + '\n' + stable(s)));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
 export async function exportCode(s){
-  const json = JSON.stringify(s), bytes = new TextEncoder().encode(json);
+  const copy = JSON.parse(JSON.stringify(s)); delete copy.sig; delete copy.importNote; delete copy.testEditeur;
+  copy.sig = await saveSig(copy);
+  const json = JSON.stringify(copy), bytes = new TextEncoder().encode(json);
   if (typeof CompressionStream !== 'undefined'){
     const out = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
     return 'VDP2:' + b64(out);
   }
   return 'VDP1:' + b64(bytes);
 }
+function saveShapeError(s){
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return 'Sauvegarde illisible.';
+  if (s.v !== 5) return 'Cette sauvegarde ne vient pas du Village du Pôle.';
+  if (!Array.isArray(s.objs) || !s.objs.length || s.objs.length > 4000) return 'Sauvegarde illisible (village manquant ou trop gros).';
+  if (s.objs.some(o => !o || typeof o !== 'object' || Array.isArray(o) || typeof o.type !== 'string' || !o.type || o.type.length > 40)) return 'Sauvegarde illisible (bâtiment invalide).';
+  if (!s.objs.some(o => o.type === 'santa')) return 'Sauvegarde illisible (il manque la Maison du Père Noël).';
+  if (s.fmt != null && (typeof s.fmt !== 'number' || !Number.isFinite(s.fmt) || s.fmt < 5 || s.fmt > 40)) return 'Sauvegarde illisible.';
+  if (s.fmt > SAVE_FMT) return 'Ce village vient d’une version plus récente du jeu.';
+  for (const k of ['orders', 'chunks', 'parcels']) if (k in s && s[k] != null && !Array.isArray(s[k])) return 'Sauvegarde illisible.';
+  if (s.name != null && typeof s.name !== 'string') return 'Sauvegarde illisible.';
+  if (s.inv != null && (typeof s.inv !== 'object' || Array.isArray(s.inv))) return 'Sauvegarde illisible.';
+  return '';
+}
 export async function importCode(code){
   code = String(code || '').trim().replace(/\s+/g, '');
+  if (!code) throw new Error('Aucun code à charger.');
+  if (code.length > 2000000) throw new Error('Ce fichier est trop gros pour être une sauvegarde du Village du Pôle.');
   let json;
-  if (code.startsWith('VDP2:')){ json = await new Response(new Blob([unb64(code.slice(5))]).stream().pipeThrough(new DecompressionStream('gzip'))).text(); }
-  else if (code.startsWith('VDP1:')) json = new TextDecoder().decode(unb64(code.slice(5)));
-  else if (code.startsWith('{')) json = code;
-  else throw new Error('Ce code ne vient pas du Village du Pôle.');
-  const s = JSON.parse(json);
-  if (!s || s.v !== 5 || !Array.isArray(s.objs)) throw new Error('Sauvegarde illisible.');
+  try {
+    if (code.startsWith('VDP2:')) json = await new Response(new Blob([unb64(code.slice(5))]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    else if (code.startsWith('VDP1:')) json = new TextDecoder().decode(unb64(code.slice(5)));
+    else if (code.startsWith('{')) json = code;
+    else throw new Error('Ce code ne vient pas du Village du Pôle.');
+  } catch (e){ if (/Village du Pôle|version plus récente|illisible|Aucun code|trop gros/.test(e.message || '')) throw e; throw new Error('Ce code est illisible (fichier abîmé ou incomplet).'); }
+  let s; try { s = JSON.parse(json); } catch (e){ throw new Error('Ce code est illisible (fichier abîmé ou incomplet).'); }
+  const err = saveShapeError(s); if (err) throw new Error(err);
+  const officiel = typeof s.sig === 'string';
+  if (officiel){ const got = s.sig, want = await saveSig(s);
+    if (got !== want) throw new Error('Ce code a été modifié. Utilise un code copié depuis le jeu, sans rien changer.'); }
+  else if (s.sig != null) throw new Error('Ce code a été modifié. Utilise un code copié depuis le jeu, sans rien changer.');
+  delete s.sig;
+  delete s.testEditeur;
+  let adjusted = false; sanitizeTown(s, () => { adjusted = true; });
+  if (!officiel) s.ancienCode = 1;
+  const notes = [];
+  if (!officiel) notes.push('Ancien code, sans somme : chargé quand même.');
+  if (adjusted) notes.push('Certaines valeurs dépassaient le plafond du jeu : elles ont été ramenées à un niveau réaliste.');
+  if (notes.length) s.importNote = notes.join(' ');
   return s;
 }
 export function replaceTown(s){ s = migrate(s); if (!s || s.tooNew) return false; saveTown(s); return true; }

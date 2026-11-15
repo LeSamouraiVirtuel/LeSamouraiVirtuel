@@ -58,7 +58,8 @@ export async function cloudLoad(){ if (!user) return null; const d = await F.get
 // Document users/{uid} : uniquement les champs autorisés par firebase/firestore.rules (taille plafonnée).
 export async function cloudSave(state, extra = {}){
   if (!user) return false;
-  const data = {save: JSON.stringify(state), fmt: state.fmt || 5, lvl: Math.max(1, Math.round(state.lvl || 1)), t: Date.now(), name: (user.displayName || state.name || '').slice(0, 40), ...extra};
+  const lvl = Math.round(+state.lvl);   // les règles Firestore refusent un niveau au-delà de 150
+  const data = {save: JSON.stringify(state), fmt: state.fmt || 5, lvl: Math.max(1, Math.min(150, Number.isFinite(lvl) ? lvl : 1)), t: Date.now(), name: (user.displayName || state.name || '').slice(0, 40), ...extra};
   await F.setDoc(F.doc(db, 'users', user.uid), data); return true;
 }
 /** Supprimer son compte : le village en ligne d'abord, puis le compte. Firebase exige parfois une connexion récente. */
