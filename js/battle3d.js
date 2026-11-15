@@ -172,9 +172,11 @@ export async function openBattle(ctx){
   const setAim = e => { const rc = root.getBoundingClientRect(); ndc.set((e.clientX - rc.left) / rc.width * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(ndc, cam); const p = new THREE.Vector3();
     if (ray.ray.intersectPlane(groundP, p)){ aim.set(THREE.MathUtils.clamp(p.x, -6, 6), 0, THREE.MathUtils.clamp(p.z, -17, GATE_Z - 1)); } };
   let sid = null;
-  cv.addEventListener('pointerdown', e => { if (state !== 'play') return; sid = e.pointerId; cv.setPointerCapture(sid); aiming = true; setAim(e); root.querySelector('.b-hint')?.remove(); });
-  cv.addEventListener('pointermove', e => { if (e.pointerId === sid) setAim(e); });
-  const up0 = e => { if (e.pointerId !== sid) return; sid = null; aiming = false; };
+  cv.addEventListener('pointerdown', e => { if (state !== 'play') return; sid = e.pointerId; try { cv.setPointerCapture(sid); } catch(_){} aiming = true; cd = Math.min(cd, 0); setAim(e); root.querySelector('.b-hint')?.remove(); });
+  // souris (Mac, PC) : le viseur suit le curseur ; un simple clic tire tout de suite, bouton enfoncé = rafale
+  let mouseT = 0; cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') mouseT = performance.now(); });
+  cv.addEventListener('pointermove', e => { if (e.pointerId === sid || e.pointerType === 'mouse') setAim(e); });
+  const up0 = e => { if (e.pointerId !== sid) return; sid = null; if (e.pointerType === 'mouse' && performance.now() - mouseT < 250){ setTimeout(() => { if (sid === null) aiming = false; }, 380); return; } aiming = false; };
   cv.addEventListener('pointerup', up0); cv.addEventListener('pointercancel', up0);
   root.querySelector('.d-pow').addEventListener('pointerdown', e => { const b = e.target.closest('[data-p]'); if (!b) return; e.stopPropagation(); power(b.dataset.p); });
   function power(k){
