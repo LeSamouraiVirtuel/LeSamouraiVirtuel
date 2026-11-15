@@ -29,7 +29,7 @@ const log = []; let bad = 0; const ok = (c, m) => { log.push((c ? '✓ ' : '✗ 
     const links = await p.evaluate(() => [...document.querySelectorAll('#welcome a')].map(a => a.getAttribute('href')).join(' '));
     ok(/cgu\.html/.test(links) && /privacy\.html/.test(links) && /mentions\.html/.test(links), `${name} : liens des 3 pages sur l'écran d'accueil`);
     await p.click('#welcome [data-w=guest]'); await p.waitForTimeout(600);
-    await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(500);
+    for (let i = 0; i < 10; i++){ await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); document.querySelector('.tskip')?.click(); }); await p.waitForTimeout(600); } await p.waitForTimeout(500);
     // porte parentale avant un achat en euros
     await p.evaluate(() => __v2.openPanel('shop')); await p.waitForTimeout(500);
     await p.click('#sheet [data-a=iap]'); await p.waitForTimeout(500);

@@ -3,7 +3,7 @@ const {webkit, devices} = require('playwright');
   for (const dev of ['iPhone SE', 'iPhone 13']){ const tag = dev.replace(' ', ''); const p = await (await b.newContext({...devices[dev], deviceScaleFactor: 1})).newPage();
   p.on('pageerror', e => log.push(tag + ' PAGEERR ' + e.message));
   await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(2000);
-  await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(600); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(800);
+  for (let i = 0; i < 10; i++){ await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); document.querySelector('.tskip')?.click(); }); await p.waitForTimeout(600); } await p.waitForTimeout(800);
   await p.evaluate(() => { const S = __v2.S; S.lvl = 12; S.stars = 900; S.wood = 9e4; S.coins = 9e4; S.objs.find(o => o.type === 'santa').lv = 8; S.objs.push({id: 'w1', type: 'workshop', x: 27, y: 25, lv: 3, t: 0, q: []}); S.inv.train = 0; S.orders[0] = {items: {train: 2}, kid: 'Léa', coins: 50, xp: 5, msg: 'Un train !'}; });
   // 1 taille
   await p.evaluate(() => __v2.openPanel('profile')); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('[data-a=uisize][data-k="1.14"]')?.click()); await p.waitForTimeout(400);

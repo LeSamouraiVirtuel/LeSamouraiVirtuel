@@ -21,7 +21,7 @@ const PC = {viewport: {width: 1600, height: 900}, deviceScaleFactor: 1};
     log.push(`   ${name} mise en page : ${await over(p)} · boutons : ${await p.evaluate(() => [...document.querySelectorAll('#welcome button')].map(b => b.innerText.trim()).join(' | '))}`);
     await p.click('#welcome [data-w=guest]'); await p.waitForTimeout(1200);
     ok(!(await p.$('#welcome')), `${name} : invité → l'écran disparaît`);
-    await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(500);
+    for (let i = 0; i < 10; i++){ await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); document.querySelector('.tskip')?.click(); }); await p.waitForTimeout(600); } await p.waitForTimeout(500);
     await p.evaluate(() => __v2.openPanel('profile')); await p.waitForTimeout(700); await p.screenshot({path: OUT + name + '-profil.png'});
     const txt = await p.evaluate(() => document.querySelector('#sheet')?.innerText || '');
     ok(/Mon village/i.test(txt) && /Mon compte/i.test(txt) && /Réglages/i.test(txt) && /Aide/i.test(txt) && /Protéger mon village/i.test(txt), `${name} : profil en 4 parties avec « Protéger mon village »`);
