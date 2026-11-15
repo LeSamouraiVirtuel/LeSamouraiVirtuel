@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Rendu de la carte</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<style>body{margin:0;background:#cdd8ea}img{max-width:100%}</style></head><body>
+<script type="module">
+// Rend le fond de la carte et les 4 états de camp avec bake.js (même caméra / lumière / contour que le pack du jeu).
+import {loadAssets} from '../js/assets.js';
+import {bake} from '../js/v2/bake.js';
+import {terrain, camp, loadTrolls} from './carte3d.js';
+await loadAssets('../../assets/', () => {}); await loadTrolls('../../assets/');
+const outline = (src, r, color) => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d');
+  for (let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; x.drawImage(src, Math.round(Math.cos(t) * r), Math.round(Math.sin(t) * r)); }
+  x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height); x.globalCompositeOperation = 'source-over'; x.drawImage(src, 0, 0); return c; };
+const grade = (src, k = 1) => { const c = document.createElement('canvas'); c.width = Math.round(src.width * k); c.height = Math.round(src.height * k); const x = c.getContext('2d'); x.filter = 'saturate(1.28) contrast(1.06)'; x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height); return c; };
+const out = {};
+const bg = bake(terrain(), {density: 1.5, shadow: true});
+out.fond = {url: grade(bg.canvas).toDataURL('image/webp', .88), ax: bg.ax, ay: bg.ay, w: bg.w, h: bg.h};
+for (const st of ['troll', 'repris', 'chef', 'chefrepris']){ const s = bake(camp(st), {density: 3}); out[st] = {url: grade(outline(s.canvas, 5, 'rgba(46,32,44,.92)'), 2 / 3).toDataURL('image/webp', .9), ax: s.ax, ay: s.ay, w: s.w, h: s.h};
+  const im = new Image(); im.src = out[st].url; im.style.height = '240px'; document.body.appendChild(im); }
+// visuels du mini-jeu « Le traîneau des lanternes »
+import('./carte3d.js').then(() => {});
+{ const THREE = await import('three'); const {prop, tint} = await import('../js/assets.js');
+  const team = new THREE.Group(); team.add(prop('sled-long', {s: 1.25})); team.add(prop('present_A_red', {x: -.2, z: 0, s: .5}).translateY(.42)); team.add(prop('present_B_green', {x: .25, z: .15, s: .42, ry: .4}).translateY(.42)); team.add(prop('present_E_white', {x: .05, z: -.2, s: .38}).translateY(.7));
+  team.add(prop('reindeer', {x: 1.6, z: -.35, s: .75, ry: Math.PI / 2})); team.add(prop('reindeer', {x: 1.6, z: .45, s: .75, ry: Math.PI / 2}));
+  const boule = new THREE.Group(); { const m = new THREE.MeshStandardMaterial({color: '#9b4dff', emissive: '#3a0a6a', emissiveIntensity: .5, roughness: .55});
+    const b0 = new THREE.Mesh(new THREE.IcosahedronGeometry(.32, 2), m); b0.position.y = .32; boule.add(b0);
+    for (let i = 0; i < 9; i++){ const sp = new THREE.Mesh(new THREE.IcosahedronGeometry(.07, 0), new THREE.MeshStandardMaterial({color: '#e6d4ff'})); const a = i * 2.4, e = (i / 9) * 2 - 1; sp.position.set(Math.cos(a) * .3 * Math.sqrt(1 - e * e), .32 + e * .3, Math.sin(a) * .3 * Math.sqrt(1 - e * e)); boule.add(sp); } }
+  const parts = {equipe: team, lanterne: prop('lantern-hanging', {s: 1.3}), boule};
+  for (const [k, o] of Object.entries(parts)){ const s = bake(o, {density: 3, shadow: false}); out[k] = {url: grade(outline(s.canvas, 4, 'rgba(46,32,44,.92)'), 2 / 3).toDataURL('image/webp', .9), ax: s.ax, ay: s.ay, w: s.w, h: s.h}; } }
+const im = new Image(); im.src = out.fond.url; document.body.appendChild(im);
+window.__out = out;
+</script></body></html>

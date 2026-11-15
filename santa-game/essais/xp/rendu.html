@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>Rendu des essais</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<style>body{margin:0;background:#dfe8f4;font:14px system-ui}#grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:8px}.c{background:#eef3fb;border-radius:10px;padding:6px;text-align:center}.c img,.c canvas{max-width:100%;height:220px;object-fit:contain}</style></head>
+<body><div id="grid"></div>
+<script type="module">
+// Rend les bâtiments d'essai avec le pipeline du jeu (bake.js) : même caméra, même lumière, même contour que tools/export-pack.mjs,
+// puis réduction ×2/3 et saturation comme le pack. Résultat dans window.__out = {clé: {url, ax, ay, w, h}}.
+import {loadAssets} from '../js/assets.js';
+import {bake} from '../js/v2/bake.js';
+import {model2, ESSAI_TYPES} from './batiments.js';
+await loadAssets('../../assets/', () => {});
+const outline = (src, r, color) => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d');
+  for (let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; x.drawImage(src, Math.round(Math.cos(t) * r), Math.round(Math.sin(t) * r)); }
+  x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height); x.globalCompositeOperation = 'source-over'; x.drawImage(src, 0, 0); return c; };
+const finish = src => { const w = Math.round(src.width * 2 / 3), h = Math.round(src.height * 2 / 3), c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.filter = 'saturate(1.28) contrast(1.06)'; x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, h); return c; };
+const only = new URLSearchParams(location.search).get('only'), out = {};
+for (const type of ESSAI_TYPES) for (const t of (new URLSearchParams(location.search).get('t') || '1,2,3').split(',').map(Number)){
+  if (only && !only.split(',').includes(type)) continue;
+  const m = model2(type, t); if (!m) continue;
+  const s = bake(m, {density: 3}); const c = finish(outline(s.canvas, 5, 'rgba(46,32,44,.92)'));
+  out[`b:${type}:${t}`] = {url: c.toDataURL('image/webp', .9), ax: s.ax, ay: s.ay, w: s.w, h: s.h};
+  const d = document.createElement('div'); d.className = 'c'; d.innerHTML = `<b>${type} · apparence ${t}</b><br>`; const im = new Image(); im.src = out[`b:${type}:${t}`].url; d.appendChild(im);
+  const cur = new Image(); cur.src = `../../assets/pack/s_b_${type}_${t}.webp`; d.appendChild(cur); document.getElementById('grid').appendChild(d);
+  await new Promise(r => setTimeout(r, 0));
+}
+window.__out = out;
+</script></body></html>

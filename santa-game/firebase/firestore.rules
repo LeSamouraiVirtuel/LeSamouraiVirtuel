@@ -1,0 +1,86 @@
+rules_version = '2';
+// Règles de sécurité de la base Firestore du Village du Pôle (projet village-du-pole).
+// À publier dans la console Firebase : Firestore Database → Règles → coller ce fichier → Publier.
+// Testées contre les vraies sauvegardes de chaque version du jeu (v80 sans « fmt », v81 à v85) : tools/tests/regles.cjs.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Le tableau de bord de l'éditeur : seul ce compte Google (adresse vérifiée, connecté avec Google) peut lire
+    // les données de tous les joueurs. Il ne peut rien écrire ; il peut seulement effacer ce qui a dépassé
+    // les durées de conservation (sécurité 6 mois, analyse 13 mois, compte inactif 2 ans).
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'better.ask.yannis@gmail.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function olderThan(ms, days) { return ms is number && ms < request.time.toMillis() - days * 86400000; }
+
+    // users/{uid} — un village. Champs réellement écrits par le jeu :
+    //   save (texte), fmt (absent avant la v81), lvl, t, name, welcome (bonus de bienvenue), legal (accord : date, version, choix)
+    //   stats et log : réservés (jamais écrits pour l'instant).
+    function validVillage(d) {
+      return d.keys().hasOnly(['save', 'fmt', 'lvl', 't', 'name', 'welcome', 'legal', 'stats', 'log'])
+        && d.keys().hasAll(['save', 'lvl', 't'])
+        && d.save is string && d.save.size() <= 900000
+        && (!('fmt' in d) || (d.fmt is int && d.fmt >= 5 && d.fmt <= 1000))
+        && d.lvl is number && d.lvl >= 1 && d.lvl <= 100000
+        && d.t is int
+        && (!('name' in d) || (d.name is string && d.name.size() <= 100))
+        && (!('welcome' in d) || d.welcome is bool)
+        && (!('legal' in d) || (d.legal is map && d.legal.size() <= 20))
+        && (!('stats' in d) || (d.stats is map && d.stats.size() <= 80))
+        && (!('log' in d) || (d.log is string && d.log.size() <= 250000));
+    }
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(uid) && validVillage(request.resource.data);
+      // le bonus de bienvenue ne se donne qu'une fois : « welcome » ne peut jamais repasser explicitement à faux.
+      // (Un ancien jeu resté ouvert, v80-v82, renvoie la sauvegarde sans ce champ : c'est accepté, sinon ses sauvegardes
+      // seraient refusées ; le jeu retrouve le bonus déjà reçu dans la sauvegarde elle-même, « welcomeGot ».)
+      allow update: if isOwner(uid) && validVillage(request.resource.data)
+        && !(resource.data.get('welcome', false) == true && request.resource.data.get('welcome', true) == false);
+      allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.t, 730));
+    }
+
+    // track/{uid} — fiche de suivi (identité du compte, accord légal, totaux ; appareil, lieu et course seulement avec l'accord d'analyse).
+    // Écrite par le joueur pendant qu'il joue ; lue par l'éditeur, et par le joueur seulement pour pouvoir tout effacer.
+    match /track/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid) && request.resource.data.size() <= 80;
+      allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.get('derniere', 0), 730));
+
+      // sessions d'analyse (début, fin, durée, appareil, IP et ville, actions) — effacées après 13 mois
+      match /s/{sid} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isOwner(uid) && request.resource.data.size() <= 20;
+        allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.get('debut', 0), 395));
+      }
+      // journal de sécurité (IP + heure de connexion) — effacé après 6 mois
+      match /secu/{id} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid) && request.resource.data.keys().hasOnly(['t', 'ip']) && request.resource.data.t is int
+          && request.resource.data.ip is string && request.resource.data.ip.size() <= 64;
+        allow update: if false;
+        allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.get('t', 0), 182));
+      }
+    }
+    // tableau de bord : recherche des sessions et des journaux trop anciens, tous joueurs confondus
+    match /{path=**}/s/{sid} { allow read: if isAdmin(); }
+    match /{path=**}/secu/{id} { allow read: if isAdmin(); }
+
+    // purchases/{uid}/… : achats réels validés (plus tard). Écrits UNIQUEMENT par le serveur (Cloud Functions,
+    // après vérification du reçu Apple ou Google) : aucun joueur ne peut s'attribuer un achat.
+    match /purchases/{uid}/{doc=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    // tout le reste est fermé
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

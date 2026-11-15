@@ -1,0 +1,20 @@
+#xpbar{position:fixed;right:max(10px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 120px);z-index:60;width:min(300px,calc(100vw - 20px));display:flex;flex-direction:column;align-items:stretch;gap:5px;
+  background:rgba(20,24,52,.88);color:#fff;border:2px solid #ffd34a;border-radius:14px;padding:6px 8px;font:700 12px Fredoka,system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.35);max-width:calc(100vw - 16px)}
+#xpbar b{color:#ffd34a;letter-spacing:1px}
+#xpbar button{font:700 12px Fredoka,system-ui,sans-serif;border:0;border-radius:9px;padding:5px 9px;background:#3a4380;color:#fff;cursor:pointer}
+#xpbar .seg{display:flex;background:#0d1030;border-radius:10px;padding:2px}#xpbar .seg button{background:none;padding:5px 10px}#xpbar .seg button.on{background:#2fae48}
+#xpbar .hr{display:flex;align-items:center;gap:4px}#xpbar input{width:110px}#xpbar #xphl{min-width:58px}
+body.cine #xpbar,body.in-game #xpbar{display:none}
+.xpov{position:fixed;inset:0;z-index:70;background:#0b0f24;color:#fff;display:flex;flex-direction:column;font-family:Fredoka,system-ui,sans-serif}
+.xpov header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,0,0,.35)}.xpov header h2{margin:0;font:400 20px "Lilita One",sans-serif;flex:1;color:#ffd34a}
+.xpov header button,.xpov .xbtn{font:700 14px Fredoka,sans-serif;border:0;border-radius:10px;padding:8px 14px;background:#e8323f;color:#fff;cursor:pointer}
+.xpov .xbtn.g{background:#2fae48}.xpov .xbtn.b{background:#3a6ad8}
+.xpov canvas{flex:1;width:100%;min-height:0;touch-action:none}
+.xcard{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(380px,calc(100% - 24px));background:#fffaf0;color:#3a2412;border:3px solid #2a1a0e;border-radius:16px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.xcard h3{margin:0 0 4px;font:400 19px "Lilita One",sans-serif}.xcard p{margin:4px 0;font-weight:600;font-size:14px}.xcard .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.lorebox{overflow:auto;padding:14px 16px 30px;max-width:760px;margin:0 auto;line-height:1.5}.lorebox h3{color:#ffd34a;font:400 20px "Lilita One",sans-serif;margin:18px 0 4px}.lorebox .act{background:rgba(255,255,255,.06);border-radius:12px;padding:10px 12px;margin:8px 0}
+.lorebox .act.lock{opacity:.45}.lorebox small{color:#b9c2ff}
+#xpbar .xptog{background:#ffd34a!important;color:#2a1a0e!important}#xpbar .xprow{display:flex;gap:5px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:4px}
+#xpbar.fold{width:auto}#xpbar.fold .xpbody{display:none}
+@media (max-width:560px){#xpbar{top:calc(env(safe-area-inset-top,0px) + 92px);right:50%;transform:translateX(50%);padding:4px 6px}#xpbar input{width:90px}#xpbar button{padding:4px 7px;font-size:11px}}
+.xhint{position:absolute;top:64px;left:0;right:0;text-align:center;margin:0;color:#cfd8ff;font-weight:700;pointer-events:none}
