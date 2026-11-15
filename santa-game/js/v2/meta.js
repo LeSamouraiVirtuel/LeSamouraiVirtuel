@@ -33,6 +33,7 @@ export const IAP = {
   p4: {name: 'Traîneau d’étoiles', price: '39,99 €', give: {stars: 2500}},
   p5: {name: 'Étable d’étoiles', price: '99,99 €', tag: 'Meilleure offre', give: {stars: 6500}},
   pass: {name: 'Pass de Noël Or', price: '9,99 €', once: true, give: {}},
+  fishpack: {name: 'Pack du pêcheur', price: '7,99 €', give: {}, fish: {bait: 30, net: 5, charm: 60}},
 };
 // Coffres en étoiles : rareté garantie (pas de tirage caché : on sait ce qu'on achète)
 export const CHESTS = [{r: 1, stars: 40}, {r: 2, stars: 120}, {r: 3, stars: 350}];

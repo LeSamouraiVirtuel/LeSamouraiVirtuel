@@ -3,6 +3,7 @@
 // (tools/export-pack.mjs → assets/pack/). Le téléphone ne fait que télécharger des images et les poser sur un
 // canvas 2D : chargement rapide, fluide, net, et aucune 3D à calculer sur l'appareil.
 import {createTuto} from '../tuto.js';
+import {openFishing} from '../fishing.js';
 import {openMinigame, GAMES} from '../minigames.js';
 // la bataille (three.js + modèles 3D, ~4 Mo) ne se charge qu'à la première bataille : le village n'en a pas besoin
 let b3p = null; const B3 = () => (b3p ||= import('../battle3d.js'));
@@ -1023,11 +1024,18 @@ function renderPanel(){
       <p class="meta">Un ticket revient toutes les 15 minutes. Les gains montent avec ton niveau et ton Écurie.</p>`;
   }
   else if (panel === 'fish'){
-    const F = S.fish || {}, got = T.FISH.filter(f => F[f.k]).length, c = T.baitCost(S);
-    h = hd(`Carnet : ${got} / ${T.FISH.length} espèces`, 'Pêche sur glace') + `<div class="fishhole ${fishSt.mode}" data-a="fishtap"><div class="ice"></div><div class="hole"><span class="bob"></span></div>
-        <div class="fmsg">${fishSt.msg || 'Lance ta ligne dans le trou !'}</div>${fishSt.got ? `<div class="fgot">${fishSvg(fishSt.got.c, 70)}<b>${fishSt.got.name}</b><small>${fishSt.got.size} cm · ${T.RARITY[fishSt.got.r].name}${fishSt.first ? ' · <em>Nouvelle espèce !</em>' : fishSt.rec ? ' · <em>Record !</em>' : ''}</small></div>` : ''}</div>
-      ${fishSt.mode === 'wait' || fishSt.mode === 'bite' ? `<button class="btn red wide big" data-a="fishtap">${fishSt.mode === 'bite' ? 'FERRER !' : 'Attendre… (touche quand ça mord)'}</button>` : `<button class="btn green wide" data-a="fishcast"><span class="costs">${costChips(c)}</span>Lancer la ligne</button>`}
-      <h3>Carnet de pêche</h3><div class="fishbook">${T.FISH.map(f => { const x = F[f.k]; return `<div class="fb ${x ? '' : 'no'}" style="--rc:${T.RARITY[f.r].c}">${fishSvg(x ? f.c : '#c9bda4', 40)}<b>${x ? f.name : '???'}</b><small>${x ? `${x.n} pêché${x.n > 1 ? 's' : ''} · ${x.best} cm` : T.RARITY[f.r].name}</small></div>`; }).join('')}</div>`;
+    const F = S.fish || {}, got = T.FISH.filter(f => F[f.k]).length, c = T.baitCost(S), x = T.fishState(S), od = T.fishOdds(S), base = T.FISH_ODDS, pity = T.fishPity(S);
+    const bonus = [x.rod ? `Canne niv. ${x.rod}` : '', x.bait > 0 ? `Appâts dorés : ${x.bait} lancers` : '', x.charm > now() ? `Porte-bonheur : <b data-until="${x.charm}"></b>` : '', x.net ? `${x.net} filet${x.net > 1 ? 's' : ''}` : ''].filter(Boolean);
+    h = hd(`Carnet : ${got} / ${T.FISH.length} espèces`, 'Pêche sur glace') + `<div class="fishtop"><button class="btn green wide big" data-a="fishcast"><span class="costs">${costChips(c)}</span>Lancer la ligne</button>
+        <p class="meta">Attends la vraie touche, ferre, puis garde la tension dans le <b style="color:#2fae48">vert</b> : maintiens pour remonter, relâche quand il tire.</p></div>
+      <h3>Chances de chaque prise</h3><div class="fodds">${od.map((v, r) => `<div class="fo" style="--rc:${T.RARITY[r].c}"><b>${String(v).replace('.', ',')} %</b><small>${T.RARITY[r].name}${v !== base[r] && r ? ` <em>(base ${base[r]} %)</em>` : ''}</small></div>`).join('')}</div>
+      <p class="meta">Plafonds avec bonus : rare ${T.FISH_CAP[1]} %, épique ${T.FISH_CAP[2]} %, légendaire ${T.FISH_CAP[3]} % (jamais plus du double).</p>
+      <h3>Garanties</h3><div class="fpity">${[1, 2, 3].map(r => `<div><small>${T.RARITY[r].name} ou mieux</small><div class="bar"><i style="width:${(1 - pity.left[r] / (T.FISH_PITY[r] - 1)) * 100}%;background:${T.RARITY[r].c}"></i></div><b>${pity.left[r] ? `dans ${pity.left[r]} prise${pity.left[r] > 1 ? 's' : ''} au plus` : 'assuré à la prochaine prise !'}</b></div>`).join('')}</div>
+      ${bonus.length ? `<p class="fbon">Actif : ${bonus.join(' · ')}</p>` : ''}
+      <h3>Matériel de pêche</h3><div class="fshop">${Object.entries(T.FISH_SHOP).map(([k, it]) => `<div class="fs"><b>${it.name}</b><small>${it.desc}</small><button class="btn gold sm" data-a="fbuy" data-k="${k}"><i class="i star"></i>${it.stars}</button></div>`).join('')}
+        <div class="fs"><b>Canne améliorée ${x.rod < T.ROD_MAX ? `niv. ${x.rod + 1}` : '(max)'}</b><small>Pour toujours : +0,5 pt épique et +0,15 pt légendaire par niveau, zone verte plus large, plus de temps pour ferrer.</small>${x.rod < T.ROD_MAX ? `<button class="btn gold sm" data-a="frod"><i class="i star"></i>${T.ROD_COST[x.rod + 1]}</button>` : '<span class="meta">niveau max</span>'}</div>
+        <div class="fs pack"><b>${M.IAP.fishpack.name}</b><small>30 lancers d'appâts dorés, 5 filets, 1 h de porte-bonheur · achat simulé</small><button class="btn green sm" data-a="iap" data-k="fishpack">${M.IAP.fishpack.price}</button></div></div>
+      <h3>Carnet de pêche</h3><div class="fishbook">${T.FISH.map(f => { const y = F[f.k]; return `<div class="fb ${y ? '' : 'no'}" style="--rc:${T.RARITY[f.r].c}">${fishSvg(y ? f.c : '#c9bda4', 40)}<b>${y ? f.name : '???'}</b><small>${y ? `${y.n} pêché${y.n > 1 ? 's' : ''} · record ${y.best} cm` : T.RARITY[f.r].name}</small></div>`; }).join('')}</div>`;
   }
   else if (panel === 'pet'){
     const p = T.petState(S);
@@ -1077,12 +1085,12 @@ function renderPanel(){
   else if (panel === 'account'){
     const u = ACC.current(), pv = ACC.providers();
     if (!ACC.ready()) h = hd('', 'Mon compte') + '<p class="help">La connexion (Google ou e-mail) arrive très bientôt. En attendant, ton village est gardé sur ce téléphone : ne supprime pas l\'app.</p>';
-    else if (!u) h = hd('Garde ton village pour toujours', 'Mon compte') + `<p class="help">Connecte-toi : ton village est sauvegardé en ligne et tu le retrouves sur n'importe quel téléphone.</p>
-      <button class="btn wide gbtn" data-a="accgoogle"><span class="g">G</span>Continuer avec Google</button>
+    else if (!u) h = hd('Garde ton village pour toujours', 'Mon compte') + `${accErr ? `<div class="accerr">${accErr}</div>` : ''}<p class="help">Connecte-toi : ton village est sauvegardé en ligne et tu le retrouves sur n'importe quel téléphone.</p>
+      ${ACC.googleUnavailable() ? '<p class="meta accnote">Sur iPhone, dans l’app de l’écran d’accueil, Google ne peut pas s’ouvrir : crée ton compte avec ton e-mail ci-dessous. Tu pourras relier Google plus tard depuis Safari (Mon compte → Relier).</p>' : '<button class="btn wide gbtn" data-a="accgoogle"><span class="g">G</span>Continuer avec Google</button>'}
       <h3>Ou avec ton e-mail</h3><div class="accform"><input id="accname" placeholder="Ton prénom (pour créer un compte)" autocomplete="nickname"><input id="accmail" type="email" placeholder="E-mail" autocomplete="email"><input id="accpass" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password"></div>
       <div class="savebtns"><button class="btn green" data-a="acclogin">Se connecter</button><button class="btn blue" data-a="accsignup">Créer un compte</button></div>
       <button class="lnk" data-a="accreset">Mot de passe oublié ?</button><p class="meta">Ton village actuel est gardé : en créant un compte, c'est lui qui est sauvegardé en ligne. <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
-    else h = hd(u.email || '', 'Mon compte') + `<div class="mis"><div><b>${u.displayName || 'Père Noël'}</b><small>Connecté · village sauvegardé en ligne ${S.cloudT ? '· dernière sauvegarde ' + new Date(S.cloudT).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : ''}</small></div></div>
+    else h = hd(u.email || '', 'Mon compte') + `${accErr ? `<div class="accerr">${accErr}</div>` : ''}<div class="mis"><div><b>${u.displayName || 'Père Noël'}</b><small>Connecté · village sauvegardé en ligne ${S.cloudT ? '· dernière sauvegarde ' + new Date(S.cloudT).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : ''}</small></div></div>
       <h3>Moyens de connexion</h3><div class="mlist"><div class="mis"><b>Google</b>${pv.includes('google.com') ? '<span class="meta">relié ✓</span>' : '<button class="btn blue sm" data-a="acclinkg">Relier</button>'}</div>
       <div class="mis"><b>E-mail et mot de passe</b>${pv.includes('password') ? '<span class="meta">relié ✓</span>' : '<button class="btn blue sm" data-a="acclinkm">Relier</button>'}</div></div>
       ${pv.includes('password') ? '' : '<div class="accform"><input id="accmail" type="email" placeholder="E-mail à relier"><input id="accpass" type="password" placeholder="Mot de passe"></div>'}
@@ -1410,6 +1418,8 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'pet') return openPanel('pet');
   if (a === 'skinwear'){ M.skinState(S)[b.dataset.c || 'pet'] = b.dataset.k; sfx.pop(); save(); toast('Nouvelle apparence !'); return renderPanel(); }
   if (a === 'pack') return buyPack(b.dataset.k);
+  if (a === 'fbuy'){ const m = fishBuy(b.dataset.k); toast(m); return renderPanel(); }
+  if (a === 'frod'){ const x = T.fishState(S), c = T.ROD_COST[x.rod + 1]; if (!c) return; if (S.stars < c){ sfx.err(); return showMissing({stars: c}, 'Canne améliorée', null); } S.stars -= c; x.rod++; T.logEv(S, 'star', {what: 'fish:rod', n: c, lv: x.rod}); T.logAdd(S, 'stars_fish', c); sfx.level(); toast(`Canne niveau ${x.rod} !`); save(); return renderPanel(); }
   if (a === 'restoreiap') return restoreIap();
   if (a === 'buytix'){ const g = tickets(); if (g.tickets >= TMAX) return; if (S.stars < TIX_STARS){ sfx.err(); return showMissing({stars: TIX_STARS}, 'Tickets de mini-jeux', null); } S.stars -= TIX_STARS; g.tickets = TMAX; g.t = now(); sfx.collect(); toast('Tickets remplis !'); save(); return renderPanel(); }
   if (a === 'lite'){ lite = !lite; try { localStorage.setItem('vdp-lite', lite ? '1' : '0'); } catch(e){} document.body.classList.toggle('lite', lite); sfx.pop(); return renderPanel(); }
@@ -1430,7 +1440,6 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'saveload') return saveLoad($('#loadcode')?.value);
   if (a === 'relicsell'){ const it = T.RELICS.find(x => x.k === b.dataset.k); if (!it || (S.relics[it.k] || 0) < 2) return; S.relics[it.k]--; giveReward(T.relicSell(it), b); sfx.collect(); save(); return renderPanel(); }
   if (a === 'relicclaim'){ const st = T.RELIC_SETS.find(x => x.k === b.dataset.k); if (!st || !T.relicSetDone(S, st) || S.relicClaim[st.k]) return; S.relicClaim[st.k] = 1; save(); bravo(T.relicSetReward(st), st.name, 'COLLECTION !'); return renderPanel(); }
-  if (a === 'fishtap') return fishTap();
   if (a === 'petfeed'){ const r = T.petFeed(S, b.dataset.k); if (r.why){ sfx.err(); return r.cost ? showMissing(r.cost, 'Nourrir Flocon', null) : toastOnce(r.why); } sfx.collect(); petUp(r.up, b); save(); return renderPanel(); }
   if (a === 'petpat'){ const r = T.petPat(S); if (!r) return; T.track(S, 'petpat'); sfx.pop(); giveReward(r.gift, b); petUp(r.up, b); toast('Flocon est tout content !'); save(); return renderPanel(); }
   if (a === 'campgo') return campGo(+b.dataset.i);
@@ -1689,6 +1698,8 @@ function packCard(k, featured = false){
     <div class="xpinfo"><b>${P.name}</b><small>${P.skins.map(([c, s2]) => M.SKIN_LISTS[c].find(x => x.k === s2).name).join(' · ')}</small><span class="costs">${rewardChips(P.give)}</span>${featured ? `<small class="meta">Disponible encore <b data-until="${F.end}"></b></small>` : ''}</div>
     ${owned ? '<span class="tagw">Acheté ✓</span>' : `<button class="btn green" data-a="pack" data-k="${k}">${P.price}</button>`}</div>`;
 }
+// journal silencieux d'un achat (prix affiché en euros, niveau du joueur, Maison) : lu seulement par le tableau de bord de l'éditeur
+function logIap(k, name, price){ const eur = parseFloat(String(price).replace(',', '.').replace(/[^\d.]/g, '')) || 0; T.logEv(S, 'iap', {k, name, eur, lvl: S.lvl, hq: T.hqLv(S)}); T.logAdd(S, 'eur', eur); T.logAdd(S, 'n_buy', 1); save(); }
 function buyPack(k){
   const P = M.PACKS[k]; if (!P || M.packOwned(S, k)){ sfx.err(); return toast('Déjà à toi'); }
   const m = $('#modal'); m.className = 'glow rinfo';
@@ -1697,7 +1708,7 @@ function buyPack(k){
     <div class="acts"><button class="btn green" data-m="buy">Acheter · ${P.price}</button><button class="btn blue" data-m="ok">Annuler</button></div>`;
   m.hidden = false;
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'buy') return;
-    S.iap ||= {}; S.iap[k] = (S.iap[k] || 0) + 1; for (const [c, s2] of P.skins) M.ownSkin(S, c, s2); closePanel(); save(); bravo(P.give, P.name + ' : apparences débloquées', 'MERCI !'); };
+    S.iap ||= {}; S.iap[k] = (S.iap[k] || 0) + 1; logIap(k, P.name, P.price); for (const [c, s2] of P.skins) M.ownSkin(S, c, s2); closePanel(); save(); bravo(P.give, P.name + ' : apparences débloquées', 'MERCI !'); };
 }
 function buyIap(k){
   const p = M.IAP[k]; if (!p) return; S.iap ||= {};
@@ -1708,7 +1719,8 @@ function buyIap(k){
     <div class="acts"><button class="btn green" data-m="buy">Acheter · ${p.price}</button><button class="btn blue" data-m="ok">Annuler</button></div>`;
   m.hidden = false;
   m.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true; if (b.dataset.m !== 'buy') return;
-    S.iap[k] = (S.iap[k] || 0) + 1; closePanel();
+    S.iap[k] = (S.iap[k] || 0) + 1; closePanel(); logIap(k, p.name, p.price);
+    if (p.fish){ const x = T.fishState(S); x.bait += p.fish.bait; x.net += p.fish.net; x.charm = Math.max(x.charm, now()) + p.fish.charm * 60e3; save(); sfx.level(); toast(p.name + ' : matériel ajouté !'); return openPanel('fish'); }
     if (k === 'pass'){ M.pass(S).premium = true; save(); sfx.level(); toast('Pass de Noël Or activé !'); return openPanel('pass'); }
     save(); bravo(p.give, p.name, 'MERCI !'); };
 }
@@ -1874,7 +1886,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 81;
+const GAME_V = 82;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2090,7 +2102,9 @@ function oldVillage(){
 }
 /* ---------- comptes (Firebase) ---------- */
 const accVal = id => ($('#' + id)?.value || '').trim();
+let accErr = '';
 async function accAction(a){
+  accErr = '';
   try {
     if (a === 'accgoogle') await ACC.signInGoogle();
     if (a === 'acclogin') await ACC.signInEmail(accVal('accmail'), $('#accpass')?.value || '');
@@ -2102,7 +2116,7 @@ async function accAction(a){
     if (a === 'accdelete') return confirmDelete();
     if (a === 'acclogout'){ await cloudPush(); await ACC.signOut(); toast('Déconnecté.'); }
     renderPanel();
-  } catch(e){ sfx.err(); toast(ACC.friendlyError(e)); }
+  } catch(e){ sfx.err(); accErr = ACC.friendlyError(e) + (e?.code && !/^vdp/.test(e.code) ? ` <small>(${e.code})</small>` : ''); toast(ACC.friendlyError(e)); if (panel === 'account'){ panelHtml = ''; renderPanel(); } }
 }
 // cloudOk : on n'écrit en ligne qu'une fois sûr de ne pas écraser un village plus avancé (nouvel appareil, autre compte…)
 let cloudOk = false;
@@ -2177,24 +2191,38 @@ function relicFound(rar){
   return it;
 }
 /* ---------- pêche sur glace ---------- */
-const fishSt = {mode: 'idle', msg: '', got: null, t: 0};
 const fishSvg = (c, w) => `<svg viewBox="0 0 64 36" width="${w}" height="${w * .56}"><path d="M8 18 C18 2 44 2 52 18 C44 34 18 34 8 18 Z" fill="${c}" stroke="#2a1a0e" stroke-width="2.5"/><path d="M50 18 L63 6 L60 18 L63 30 Z" fill="${c}" stroke="#2a1a0e" stroke-width="2.5" stroke-linejoin="round"/><circle cx="20" cy="15" r="3" fill="#2a1a0e"/><path d="M28 10 Q32 18 28 26" stroke="#2a1a0e" stroke-width="2" fill="none" opacity=".5"/></svg>`;
 function fishCast(){
-  if (!T.canFish(S)) return toast('Ouvre le Lac Gelé pour pêcher.');
-  const c = T.baitCost(S); if (!T.has(S, c)){ sfx.err(); return showMissing(c, 'Appât pour la pêche', fishCast); }
-  T.take(S, c); sfx.pop(); clearTimeout(fishSt.t);
-  Object.assign(fishSt, {mode: 'wait', msg: 'Chut… on attend que ça morde.', got: null});
-  const f = T.fishRoll(S), wait = 1500 + Math.random() * 3500;
-  fishSt.t = setTimeout(() => { Object.assign(fishSt, {mode: 'bite', msg: 'ÇA MORD !', fish: f}); sfx.collect(); if (panel === 'fish') renderPanel();
-    fishSt.t = setTimeout(() => { Object.assign(fishSt, {mode: 'idle', msg: 'Trop tard… le poisson s’est échappé.'}); sfx.err(); if (panel === 'fish') renderPanel(); }, T.FISH_WIN[f.r] * 1000); }, wait);
-  renderPanel(); save();
+  const c = T.baitCost(S); if (!T.has(S, c)){ sfx.err(); return showMissing(c, 'Appât de pêche', () => fishCast()); }
+  T.take(S, c); T.logAdd(S, 'fish_casts', 1); save(); closePanel(); document.body.classList.add('in-game');
+  const x = T.fishState(S);
+  openFishing({
+    roll: () => T.fishRoll(S), rod: x.rod, sfx, tone, fishSvg,
+    nets: () => x.net, useNet: () => { if (x.net <= 0) return false; x.net--; T.logAdd(S, 'fish_nets_used', 1); save(); return true; },
+    onCatch: (f, {perfect, combo}) => { const r = T.fishCatch(S, f), bonus = perfect ? Math.min(1.5, 1.2 + .1 * (combo - 1)) : 1; if (bonus > 1) r.rw.coins = Math.round(r.rw.coins * bonus);
+      T.logAdd(S, 'fish_r' + f.r, 1); if (perfect) T.logAdd(S, 'fish_perfect', 1);
+      if (f.r >= 2 && Math.random() < (f.r === 3 ? .5 : .12)) setTimeout(() => relicFound(f.r), 1500);
+      giveReward(r.rw, null); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save();
+      return `<div class="costs" style="justify-content:center">${rewardChips(r.rw)}</div>${bonus > 1 ? `<p class="meta">Bonus prise parfaite : pièces ×${bonus.toFixed(1).replace('.', ',')}</p>` : ''}${r.first ? '<p><b>Nouvelle espèce dans le carnet !</b></p>' : ''}`; },
+    onMiss: (f, why) => { T.logAdd(S, 'fish_miss_' + why, 1); save(); return fishOffer(why); },
+    canRecast: () => T.has(S, T.baitCost(S)), recast: () => { const c2 = T.baitCost(S); if (!T.has(S, c2)) return false; T.take(S, c2); T.logAdd(S, 'fish_casts', 1); save(); return true; },
+    buy: k => fishBuy(k, true),
+    onClose: () => { document.body.classList.remove('in-game'); save(); openPanel('fish'); },
+  });
 }
-function fishTap(){
-  if (fishSt.mode === 'wait'){ clearTimeout(fishSt.t); Object.assign(fishSt, {mode: 'idle', msg: 'Trop tôt ! Le poisson a eu peur.'}); sfx.err(); return renderPanel(); }
-  if (fishSt.mode !== 'bite') return;
-  clearTimeout(fishSt.t); const f = fishSt.fish, r = T.fishCatch(S, f);
-  Object.assign(fishSt, {mode: 'idle', msg: 'Bien ferré !', got: f, first: r.first, rec: r.rec});
-  sfx.level(); if (f.r >= 2 && Math.random() < (f.r === 3 ? .5 : .12)) relicFound(f.r); giveReward(r.rw, $('#sheet .fishhole')); if (r.rw.xp) gainXp(r.rw.xp, null); T.track(S, 'fish'); save(); renderPanel();
+// une offre, au bon moment seulement (prise ratée ou longue série sans rare) ; prix et effets affichés honnêtement
+function fishOffer(why){
+  const x = T.fishState(S), long = x.since[1] >= 4;
+  if (!long && why === 'early') return '';
+  const k = why === 'break' || why === 'escape' ? 'net' : 'bait', it = T.FISH_SHOP[k];
+  return `<div class="fx-offer"><b>${it.name}</b><small>${it.desc}</small><button class="btn gold sm" data-x="buy:${k}" data-price="${it.stars}">${it.stars} ⭐</button></div>`;
+}
+function fishBuy(k, quiet){
+  const it = T.FISH_SHOP[k], x = T.fishState(S); if (!it) return '';
+  if (S.stars < it.stars){ if (!quiet) showMissing({stars: it.stars}, it.name, null); return "Pas assez d'étoiles"; }
+  S.stars -= it.stars; if (k === 'bait') x.bait += it.casts; if (k === 'charm') x.charm = Math.max(x.charm, now()) + it.min * 60e3; if (k === 'net') x.net += it.n;
+  T.logEv(S, 'star', {what: 'fish:' + k, n: it.stars}); T.logAdd(S, 'stars_fish', it.stars); save(); sfx.collect();
+  return it.name + ' : c’est prêt !';
 }
 /* ---------- Flocon, le renne magique ---------- */
 const petImg = (st = T.petStage(S.pet?.lv || 1), sk = M.skinState(S).pet) => ICON[`pet_${st}_${sk}`] || ICON.mg_deer;
