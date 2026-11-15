@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
 <title>Tableau de bord</title>
 <style>
   :root{--bg:#f6f3ee;--card:#fff;--ink:#2a2420;--mute:#7a6e64;--line:#e6ded3;--acc:#b8122a;--a2:#1f6fd1;--ok:#1d7a44;--warn:#b86e00}
@@ -71,10 +72,21 @@ $('#purge').onclick = async () => {
     alert(`${n} élément(s) effacé(s). Les comptes de connexion (Firebase Authentication) inactifs se suppriment dans la console Firebase.`); load();
   } catch(e){ alert('Nettoyage impossible : ' + (e.code || e.message)); }
 };
-A.onAuthStateChanged(auth, u => { $('#who').textContent = u ? u.email : ''; $('#out').hidden = $('#reload').hidden = $('#purge').hidden = !u; $('#login').hidden = !!u; $('#app').hidden = !u; if (u) load(); });
+// contrôle côté page AVANT toute requête (la vraie protection reste les règles Firestore publiées) :
+// seul le compte Google de l'éditeur, adresse vérifiée, ouvre le tableau de bord ; sinon « accès refusé » et aucune lecture.
+const ADMIN = 'better.ask.yannis@gmail.com';
+const isAdmin = u => !!u && u.email === ADMIN && u.emailVerified && (u.providerData || []).some(p => p.providerId === 'google.com');
+A.onAuthStateChanged(auth, u => {
+  const ok = isAdmin(u);
+  $('#who').textContent = u ? u.email : ''; $('#out').hidden = !u; $('#reload').hidden = $('#purge').hidden = !ok;
+  $('#login').hidden = ok; $('#app').hidden = !ok;
+  $('#lerr').textContent = u && !ok ? 'Accès refusé : ce tableau de bord est réservé au compte Google de l’éditeur.' : '';
+  if (ok) load(); else P = [];
+});
 
 let P = [];
 async function load(){
+  if (!isAdmin(auth.currentUser)) return;
   $('#kpis').innerHTML = '<p class="mute">Chargement…</p>';
   let us, ts;
   try { [us, ts] = await Promise.all([F.getDocs(F.collection(db, 'users')), F.getDocs(F.collection(db, 'track'))]); }
