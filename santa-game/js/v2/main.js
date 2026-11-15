@@ -112,7 +112,8 @@ const elfPortrait = portrait;
 T.setTrackHook((s, key, n) => { const add = M.eventOnTrack(s, key, n); if (add && typeof evPing === 'function') evPing(add); });
 const saved = T.loadTown();
 let S = saved || T.newTown();
-let saveLock = false;
+let saveLock = T.localTooNew;   // sauvegarde d'une version plus récente du jeu : on ne l'écrase jamais
+if (T.localTooNew) setTimeout(() => { try { toast('Ton village vient d’une version plus récente du jeu : mise à jour en cours…'); } catch(e){} checkUpdate?.(); }, 1500);
 const save = () => { if (!saveLock) T.saveTown(S); };
 let actx = null;
 function tone(f, d = .12, type = 'sine', v = .06, when = 0){
@@ -1080,12 +1081,13 @@ function renderPanel(){
       <button class="btn wide gbtn" data-a="accgoogle"><span class="g">G</span>Continuer avec Google</button>
       <h3>Ou avec ton e-mail</h3><div class="accform"><input id="accname" placeholder="Ton prénom (pour créer un compte)" autocomplete="nickname"><input id="accmail" type="email" placeholder="E-mail" autocomplete="email"><input id="accpass" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password"></div>
       <div class="savebtns"><button class="btn green" data-a="acclogin">Se connecter</button><button class="btn blue" data-a="accsignup">Créer un compte</button></div>
-      <button class="lnk" data-a="accreset">Mot de passe oublié ?</button>`;
+      <button class="lnk" data-a="accreset">Mot de passe oublié ?</button><p class="meta">Ton village actuel est gardé : en créant un compte, c'est lui qui est sauvegardé en ligne. <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
     else h = hd(u.email || '', 'Mon compte') + `<div class="mis"><div><b>${u.displayName || 'Père Noël'}</b><small>Connecté · village sauvegardé en ligne ${S.cloudT ? '· dernière sauvegarde ' + new Date(S.cloudT).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : ''}</small></div></div>
       <h3>Moyens de connexion</h3><div class="mlist"><div class="mis"><b>Google</b>${pv.includes('google.com') ? '<span class="meta">relié ✓</span>' : '<button class="btn blue sm" data-a="acclinkg">Relier</button>'}</div>
       <div class="mis"><b>E-mail et mot de passe</b>${pv.includes('password') ? '<span class="meta">relié ✓</span>' : '<button class="btn blue sm" data-a="acclinkm">Relier</button>'}</div></div>
       ${pv.includes('password') ? '' : '<div class="accform"><input id="accmail" type="email" placeholder="E-mail à relier"><input id="accpass" type="password" placeholder="Mot de passe"></div>'}
-      <button class="btn green wide" data-a="accsave">Sauvegarder maintenant</button><button class="btn red wide" data-a="acclogout">Se déconnecter</button>`;
+      <button class="btn green wide" data-a="accsave">Sauvegarder maintenant</button><button class="btn blue wide" data-a="restoreiap">Restaurer mes achats</button><button class="btn red wide" data-a="acclogout">Se déconnecter</button>
+      <h3>Mes données</h3><p class="meta">Ce que nous gardons, où et combien de temps : <a href="privacy.html" target="_blank" rel="noopener">page Confidentialité</a>.</p><button class="btn wide accdel" data-a="accdelete">Supprimer mon compte et mon village</button>`;
   }
   else if (panel === 'save'){
     h = hd('Ton village voyage avec toi', 'Sauvegarde') + (S.lvl < 9 && !S.restored ? `<div class="restorebox"><b>Tu as perdu ta partie ?</b><small>Réinstaller l'app sur l'écran d'accueil efface sa mémoire. On peut te rendre ton village tel qu'il était (niveau 9, Maison niveau 14, tes ressources et tes étoiles).</small><button class="btn gold wide" data-a="restoreold">Récupérer mon village</button></div>` : '') + `<p class="help">Ton village est gardé sur ce téléphone. Pour le retrouver ailleurs (nouveau téléphone, autre navigateur), copie ton <b>code de sauvegarde</b> ou enregistre le <b>fichier</b>, puis charge-le sur l'autre appareil.</p>
@@ -1157,7 +1159,7 @@ function renderPanel(){
     if (tab === 'stars') h += `<p class="help">Les étoiles d'or terminent un chantier tout de suite, engagent des bâtisseurs, achètent des ressources et des coffres.</p><div class="packs">${['p1', 'p2', 'p3', 'p4', 'p5'].map(k => { const p = M.IAP[k]; return `<button class="pack" data-a="iap" data-k="${k}">${p.tag ? `<span class="ptag">${p.tag}</span>` : ''}<i class="i star"></i><b>${fmt(p.give.stars)}</b><small>${p.name}</small><span class="btn green sm">${p.price}</span></button>`; }).join('')}</div>`;
     if (tab === 'res') h += `<p class="help">Il te manque quelque chose ? Achète-le en étoiles d'or. Plus le paquet est gros, moins c'est cher à l'unité.</p>${['wood', 'cookies', 'fabric', 'coins', 'ice', 'gold'].map(k => `<div class="rshop"><div class="rsh">${resImg(k)}<b>${RINFO[k].name}</b><small>${qty(k)}</small></div><div class="rpacks">${M.resPacks(S, k).map((p, i) => `<button class="rpack" data-a="rbuy" data-k="${k}" data-i="${i}" ${p.n ? '' : 'disabled'}><small>${p.name}</small><b>${p.n ? '+' + fmt(p.n) : 'Stock plein'}</b>${p.n ? `<span><i class="i star"></i>${p.stars}</span>` : ''}</button>`).join('')}</div></div>`).join('')}`;
     if (tab === 'chests') h += `<p class="help">Rareté garantie : tu sais exactement quel colis tu achètes. Son contenu est tiré à l'ouverture.</p><div class="chests">${M.CHESTS.map(c => `<div class="chest"><div class="pbig r${c.r}" style="--rc:${T.RARITY[c.r].c}"></div><b style="color:${T.RARITY[c.r].c}">Colis ${T.RARITY[c.r].name.toLowerCase()}</b><small>${['', 'Pièces, ressources, cristaux', 'Cristaux, lingots, parfois une étoile', 'Lingots, cristaux et étoiles'][c.r]}</small><button class="btn gold sm" data-a="chest" data-k="${c.r}"><i class="i star"></i>${c.stars}</button></div>`).join('')}</div>`;
-    h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p>`;
+    h += `<p class="meta">Version de test : les achats en euros sont simulés et gratuits. Dans la version App Store, le paiement passera par Apple.</p><button class="btn blue wide" data-a="restoreiap">Restaurer mes achats</button><p class="meta"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a></p>`;
   }
   else if (panel === 'event'){
     const E = M.eventState(S), top = M.EV_STEPS[M.EV_STEPS.length - 1], next = M.EV_STEPS.find(p => p > E.pts);
@@ -1408,6 +1410,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'pet') return openPanel('pet');
   if (a === 'skinwear'){ M.skinState(S)[b.dataset.c || 'pet'] = b.dataset.k; sfx.pop(); save(); toast('Nouvelle apparence !'); return renderPanel(); }
   if (a === 'pack') return buyPack(b.dataset.k);
+  if (a === 'restoreiap') return restoreIap();
   if (a === 'buytix'){ const g = tickets(); if (g.tickets >= TMAX) return; if (S.stars < TIX_STARS){ sfx.err(); return showMissing({stars: TIX_STARS}, 'Tickets de mini-jeux', null); } S.stars -= TIX_STARS; g.tickets = TMAX; g.t = now(); sfx.collect(); toast('Tickets remplis !'); save(); return renderPanel(); }
   if (a === 'lite'){ lite = !lite; try { localStorage.setItem('vdp-lite', lite ? '1' : '0'); } catch(e){} document.body.classList.toggle('lite', lite); sfx.pop(); return renderPanel(); }
   if (a === 'mktool'){ const o = panelArg, k = b.dataset.k, c = toolCost(o, k); if (now() - (o.toolT || 0) < TOOL_CD) return; if (!T.has(S, c)){ sfx.err(); return showMissing(c, ITEMS[k].name, null); } T.take(S, c); T.give(S, k, 1); o.toolT = now(); sfx.collect(); fly(k, 1, b); toast(`${ITEMS[k].name} fabriquée !`); save(); return renderPanel(); }
@@ -1871,7 +1874,7 @@ let pendingReload = null; function reloadWhenCalm(fn){ pendingReload = fn; if (c
 setInterval(() => { if (pendingReload && calm()){ const f = pendingReload; pendingReload = null; f(); } }, 800);
 try { const c = JSON.parse(sessionStorage.getItem('vdp-cam') || 'null'); if (c){ sessionStorage.removeItem('vdp-cam'); Object.assign(cam, c); } } catch(e){}
 /* ---------- mise à jour automatique : l'app de l'écran d'accueil garde parfois l'ancienne version ---------- */
-const GAME_V = 80;
+const GAME_V = 81;
 async function checkUpdate(){
   try { const r = await fetch('version.json?t=' + Date.now(), {cache: 'no-store'}); const j = await r.json();
     if (j.v > GAME_V){ const k = 'vdp-upd-' + j.v; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, 1); save();
@@ -2096,13 +2099,14 @@ async function accAction(a){
     if (a === 'acclinkg'){ await ACC.linkGoogle(); toast('Google relié !'); }
     if (a === 'acclinkm'){ await ACC.linkEmail(accVal('accmail'), $('#accpass')?.value || ''); toast('E-mail relié !'); }
     if (a === 'accsave'){ await cloudPush(true, true); }
+    if (a === 'accdelete') return confirmDelete();
     if (a === 'acclogout'){ await cloudPush(); await ACC.signOut(); toast('Déconnecté.'); }
     renderPanel();
   } catch(e){ sfx.err(); toast(ACC.friendlyError(e)); }
 }
 // cloudOk : on n'écrit en ligne qu'une fois sûr de ne pas écraser un village plus avancé (nouvel appareil, autre compte…)
 let cloudOk = false;
-async function cloudPush(say, force){ if (!ACC.current() || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); await ACC.cloudSave(S); if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
+async function cloudPush(say, force){ if (!ACC.current() || saveLock || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); await ACC.cloudSave(S); if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
 if (ACC.ready()){
   ACC.init().then(() => ACC.onChange(async u => {
     if (!u){ cloudOk = false; return; }
@@ -2116,6 +2120,25 @@ if (ACC.ready()){
   })).catch(() => {});
   setInterval(() => cloudPush(), 60e3); document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
 }
+// supprimer son compte (obligation App Store / RGPD) : le village en ligne, le compte, et le village de cet appareil
+function confirmDelete(){
+  const u = ACC.current(); if (!u) return; const pw = ACC.providers().includes('password');
+  const m = $('#modal'); m.className = 'glow rinfo';
+  m.querySelector('.mcard').innerHTML = `<small>Mon compte</small><h2 class="stroke">Tout supprimer ?</h2><p>Ton compte, ton village en ligne et le village de cet appareil seront <b>effacés définitivement</b>. Ce n'est pas réversible.</p>
+    ${pw ? '<input id="delpass" type="password" placeholder="Ton mot de passe" class="delin">' : '<p class="meta">Google te demandera peut-être de confirmer.</p>'}
+    <input id="delword" placeholder="Écris SUPPRIMER pour confirmer" class="delin" autocapitalize="characters">
+    <div class="acts"><button class="btn red" data-m="del">Supprimer</button><button class="btn blue" data-m="no">Annuler</button></div>`;
+  m.hidden = false;
+  m.onclick = async e => { const b = e.target.closest('[data-m]'); if (!b) return; if (b.dataset.m === 'no'){ m.hidden = true; return; }
+    if (($('#delword')?.value || '').trim().toUpperCase() !== 'SUPPRIMER'){ sfx.err(); return toast('Écris SUPPRIMER pour confirmer'); }
+    b.disabled = true; try { await ACC.deleteAccount(pw ? $('#delpass')?.value || '' : ''); saveLock = true; T.clearTown(); m.hidden = true; toast('Compte et village supprimés.'); setTimeout(() => location.reload(), 1200); }
+    catch(err){ b.disabled = false; sfx.err(); toast(ACC.friendlyError(err)); } };
+}
+// restaurer les achats : les packs et le pass déjà achetés redonnent leurs apparences (sur l'App Store : redemandés à Apple)
+function restoreIap(){
+  let n = 0; for (const k of Object.keys(S.iap || {})){ if (M.PACKS[k]) for (const [c, sk] of M.PACKS[k].skins) if (!M.hasSkin(S, sk, c)){ M.ownSkin(S, c, sk, false); n++; } if (k === 'pass' && !M.pass(S).premium){ M.pass(S).premium = true; n++; } }
+  save(); sfx.collect(); toast(n ? `${n} achat${n > 1 ? 's' : ''} restauré${n > 1 ? 's' : ''}` : 'Tous tes achats sont déjà dans ton village.');
+}
 function chooseVillage(cs, t, u){
   const m = $('#modal'); m.className = 'glow rinfo';
   const when = t ? new Date(t).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : '';
@@ -2125,7 +2148,7 @@ function chooseVillage(cs, t, u){
     <div class="acts" style="flex-direction:column"><button class="btn green wide" data-m="cloud">Reprendre le village du compte</button><button class="btn blue wide" data-m="local">Garder celui de cet appareil (remplace le compte)</button></div>`;
   m.hidden = false;
   m.onclick = async e => { const b = e.target.closest('[data-m]'); if (!b) return; m.hidden = true;
-    if (b.dataset.m === 'cloud'){ saveLock = true; T.replaceTown({...cs, cloudT: t}); location.reload(); return; }
+    if (b.dataset.m === 'cloud'){ if (!T.replaceTown({...cs, cloudT: t})) return toast('Ce village vient d’une version plus récente : recharge le jeu pour le récupérer.'); saveLock = true; location.reload(); return; }
     cloudOk = true; await cloudPush(true, true); };
 }
 /* ---------- sauvegarde transférable ---------- */

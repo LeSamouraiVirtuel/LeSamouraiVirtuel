@@ -40,15 +40,32 @@ export const providers = () => (user?.providerData || []).map(p => p.providerId)
 
 /* ---------- sauvegarde dans le cloud : un document par joueur, users/{uid} ---------- */
 export async function cloudLoad(){ if (!user) return null; const d = await F.getDoc(F.doc(db, 'users', user.uid)); return d.exists() ? d.data() : null; }
-export async function cloudSave(state){
+// Document users/{uid} : uniquement les champs autorisés par firebase/firestore.rules (taille plafonnée).
+export async function cloudSave(state, extra = {}){
   if (!user) return false;
-  const data = {save: JSON.stringify(state), lvl: state.lvl || 1, t: Date.now(), name: user.displayName || ''};
+  const data = {save: JSON.stringify(state), fmt: state.fmt || 5, lvl: Math.max(1, Math.round(state.lvl || 1)), t: Date.now(), name: (user.displayName || state.name || '').slice(0, 40), ...extra};
   await F.setDoc(F.doc(db, 'users', user.uid), data); return true;
+}
+/** Supprimer son compte : le village en ligne d'abord, puis le compte. Firebase exige parfois une connexion récente. */
+export async function deleteAccount(password){
+  await init(); if (!user) throw new Error('Connecte-toi d’abord');
+  const u = user, pv = providers();
+  try { await u.getIdToken(true); } catch(e){}
+  const reauth = async () => {
+    if (pv.includes('password') && password) await A.reauthenticateWithCredential(u, A.EmailAuthProvider.credential(u.email, password));
+    else if (pv.includes('google.com')) await A.reauthenticateWithPopup(u, google());
+    else throw Object.assign(new Error('reconnexion'), {code: 'auth/requires-recent-login'});
+  };
+  if (password) await reauth();
+  await F.deleteDoc(F.doc(db, 'users', u.uid));
+  try { await A.deleteUser(u); }
+  catch(e){ if (e.code !== 'auth/requires-recent-login') throw e; await reauth(); await A.deleteUser(u); }
+  return true;
 }
 export function friendlyError(e){
   const c = e?.code || '';
   return {'auth/invalid-email': 'Adresse e-mail invalide.', 'auth/email-already-in-use': 'Un compte existe déjà avec cet e-mail : connecte-toi.', 'auth/weak-password': 'Mot de passe trop court (6 caractères minimum).',
     'auth/invalid-credential': 'E-mail ou mot de passe incorrect.', 'auth/wrong-password': 'Mot de passe incorrect.', 'auth/user-not-found': 'Aucun compte avec cet e-mail.', 'auth/too-many-requests': 'Trop d’essais : réessaie dans quelques minutes.',
     'auth/credential-already-in-use': 'Ce compte Google est déjà relié à un autre joueur.', 'auth/provider-already-linked': 'C’est déjà relié.', 'auth/network-request-failed': 'Pas de connexion internet.',
-    'auth/popup-closed-by-user': 'Fenêtre fermée avant la fin.', 'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Comptes pas encore configurés (clé du projet manquante).', 'auth/operation-not-allowed': 'Ce mode de connexion n’est pas activé dans Firebase.', 'auth/popup-blocked': 'Fenêtre bloquée par le navigateur : réessaie.', 'auth/unauthorized-domain': 'Domaine non autorisé dans Firebase (Authentication → Paramètres → Domaines autorisés).'}[c] || (e?.message || 'Erreur inconnue');
+    'auth/popup-closed-by-user': 'Fenêtre fermée avant la fin.', 'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Comptes pas encore configurés (clé du projet manquante).', 'auth/operation-not-allowed': 'Ce mode de connexion n’est pas activé dans Firebase.', 'auth/popup-blocked': 'Fenêtre bloquée par le navigateur : réessaie.', 'auth/requires-recent-login': 'Par sécurité, entre ton mot de passe (ou reconnecte-toi avec Google) pour confirmer.', 'permission-denied': 'Sauvegarde refusée par le serveur.', 'auth/unauthorized-domain': 'Domaine non autorisé dans Firebase (Authentication → Paramètres → Domaines autorisés).'}[c] || (e?.message || 'Erreur inconnue');
 }

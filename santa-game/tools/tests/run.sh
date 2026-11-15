@@ -12,4 +12,4 @@ echo "=== audit des textes (SE + PC)"; timeout 1500 node audit-textes.cjs 2>&1 |
 echo "=== robot : tous les bâtiments et boutons"; timeout 900 node robot-batiments.cjs 2>&1 | tail -3
 echo "=== PC souris : tickets, gains, bataille"; timeout 600 node tickets-souris-pc.cjs 2>&1 | tail -5
 echo "=== Mac (Safari) souris"; timeout 600 node tickets-souris-mac.cjs 2>&1 | tail -5
-echo "=== comptes (création, connexion, reprise sur un autre appareil)"; timeout 600 node comptes.cjs 2>&1 | grep -v PAGEERR | tail -4
+echo "=== comptes (création, connexion, reprise sur un autre appareil)"; timeout 600 node comptes2.cjs 2>&1 | tail -5

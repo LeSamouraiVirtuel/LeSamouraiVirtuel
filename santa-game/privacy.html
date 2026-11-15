@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confidentialité — Le Village du Pôle</title>
+<style>
+  :root{--ink:#3a2412;--paper:#fbf3e2;--accent:#b8122a;--line:#e3cfa8}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#f3e6cf;--paper:#1d1a24;--accent:#ff7a8a;--line:#4a3f55}}
+  body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+  main{max-width:720px;margin:0 auto;padding:24px 16px 48px}
+  h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:28px 0 6px;color:var(--accent)}
+  p,li{margin:6px 0}ul{padding-left:22px}small{opacity:.75}
+  table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  a{color:var(--accent)}
+</style>
+</head>
+<body><main>
+<h1>Confidentialité</h1>
+<small>Le Village du Pôle · mise à jour le 15 novembre 2026</small>
+
+<h2>En bref</h2>
+<ul>
+  <li><b>Sans compte</b>, ton village reste uniquement sur ton appareil (dans la mémoire du navigateur). Rien n'est envoyé.</li>
+  <li><b>Avec un compte</b>, ton village et ton journal de jeu sont gardés en ligne, en Europe, pour que tu le retrouves sur n'importe quel appareil.</li>
+  <li>Il n'y a <b>aucune publicité</b>, et rien n'est vendu ni partagé avec d'autres entreprises.</li>
+  <li>Tu peux <b>tout supprimer à tout moment</b> : Profil → Mon compte → « Supprimer mon compte et mon village ».</li>
+</ul>
+
+<h2>Ce que nous gardons (avec un compte)</h2>
+<table>
+  <tr><th>Donnée</th><th>Pourquoi</th></tr>
+  <tr><td>Ton adresse e-mail, ou ton compte Google (nom affiché, adresse e-mail), et un identifiant de compte</td><td>Te connecter et retrouver ton village.</td></tr>
+  <tr><td>La sauvegarde de ton village (bâtiments, ressources, objets, progression)</td><td>Retrouver ton village sur un autre appareil.</td></tr>
+  <tr><td>Un journal de jeu : tes montées de niveau et étapes de l'histoire (avec la date et l'heure), ton temps de jeu, tes achats dans la boutique (pack, prix affiché, moment), tes dépenses d'étoiles, tes parties de pêche</td><td>Ces données servent à l'éditeur du jeu pour équilibrer la difficulté et la boutique, et pour suivre la progression des joueurs. Elles ne sont pas affichées aux autres joueurs.</td></tr>
+</table>
+<p>Les achats de la version actuelle sont <b>simulés</b> : aucun paiement n'est demandé, et aucune donnée bancaire n'est collectée. Dans une future version des stores, les paiements passeront uniquement par Apple ou Google.</p>
+
+<h2>Où sont gardées ces données</h2>
+<p>Chez Google Firebase. La sauvegarde et le journal sont stockés dans la base Firestore, dans l'Union européenne (région « eur3 » : Belgique et Pays-Bas). La connexion passe par Firebase Authentication. Seuls toi et l'éditeur du jeu peuvent lire ces données : des règles de sécurité interdisent l'accès à tout autre compte.</p>
+
+<h2>Combien de temps</h2>
+<ul>
+  <li>Tant que ton compte existe.</li>
+  <li>« Supprimer mon compte » efface immédiatement ton compte, ton village en ligne, ton journal de jeu et le village de l'appareil.</li>
+  <li>Les comptes inactifs pendant 3 ans sont supprimés.</li>
+</ul>
+
+<h2>Tes droits</h2>
+<p>Tu peux accéder à tes données, les corriger, les emporter (Profil → Sauvegarde → « Copier mon code ») ou les effacer (bouton ci-dessus). Pour toute question ou demande, écris à l'éditeur du jeu : <b>[adresse de contact à compléter]</b>. Tu peux aussi saisir la CNIL (cnil.fr).</p>
+<p><b>Moins de 15 ans :</b> demande l'accord d'un parent avant de créer un compte.</p>
+
+<h2>Sur ton appareil</h2>
+<p>Le jeu utilise la mémoire du navigateur pour ton village et tes réglages (taille de l'interface, animations). Il n'utilise aucun cookie publicitaire ni traceur.</p>
+
+<p><a href="./">← Retour au jeu</a></p>
+</main></body>
+</html>
