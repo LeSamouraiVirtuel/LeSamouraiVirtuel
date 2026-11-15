@@ -1,9 +1,10 @@
 // Écran d'accueil + bonus de bienvenue + profil, sur iPhone SE, iPhone 13, Mac (Safari) et PC (Chrome).
+const EMU = require('./emu.cjs');
 // Compte e-mail de test créé puis supprimé. Vérifie : écran visible au 1er lancement, invité → plus d'écran, e-mail → bonus une seule fois,
 // rechargement connecté → pas d'écran ni de 2e bonus, autre appareil → pas de 2e bonus.
 const {webkit, chromium, devices} = require('playwright');
 const KEY = require('fs').readFileSync(__dirname + '/../../js/firebase-config.js', 'utf8').match(/apiKey: '([^']+)'/)[1];
-const api = (path, body) => fetch(`https://identitytoolkit.googleapis.com/v1/${path}?key=${KEY}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+const api = (path, body) => fetch(`${EMU.AU}${path}?key=${KEY}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
 const OUT = __dirname + '/out/accueil-'; const log = []; let bad = 0; const ok = (c, m) => { log.push((c ? '✓ ' : '✗ ') + m); if (!c) bad++; };
 const MAC = {viewport: {width: 1440, height: 860}, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15', deviceScaleFactor: 1};
 const PC = {viewport: {width: 1600, height: 900}, deviceScaleFactor: 1};
@@ -57,8 +58,8 @@ const PC = {viewport: {width: 1600, height: 900}, deviceScaleFactor: 1};
   await B.evaluate(() => __v2.openPanel('profile')); await B.waitForTimeout(700); await B.screenshot({path: OUT + 'pc-profil-connecte.png'});
   // document en ligne
   const r = await api('accounts:signInWithPassword', {email: mail, password: pass, returnSecureToken: true});
-  const doc = await (await fetch(`https://firestore.googleapis.com/v1/projects/village-du-pole/databases/(default)/documents/users/${r.localId}`, {headers: {Authorization: 'Bearer ' + r.idToken}})).json();
+  const doc = await (await fetch(`${EMU.FS}users/${r.localId}`, {headers: {Authorization: 'Bearer ' + r.idToken}})).json();
   log.push(`   document en ligne : welcome=${JSON.stringify(doc.fields?.welcome)} · welcomeGot dans la sauvegarde=${/"welcomeGot":"/.test(doc.fields?.save?.stringValue || '')}`);
-  const d = await fetch(`https://firestore.googleapis.com/v1/projects/village-du-pole/databases/(default)/documents/users/${r.localId}`, {method: 'DELETE', headers: {Authorization: 'Bearer ' + r.idToken}});
+  const d = await fetch(`${EMU.FS}users/${r.localId}`, {method: 'DELETE', headers: {Authorization: 'Bearer ' + r.idToken}});
   const a = await api('accounts:delete', {idToken: r.idToken}); log.push(`   nettoyage : document ${d.status}, compte ${a.error ? 'erreur' : 'ok'}`);
   console.log(log.join('\n')); console.log(bad ? `ÉCHECS : ${bad}` : 'TOUT EST BON'); await wk.close(); await cr.close(); })();

@@ -1,13 +1,14 @@
 // Comptes, parcours complet sans Google : vieux village (format 5, sans compte) → création de compte e-mail (le village est gardé)
+const EMU = require('./emu.cjs');
 // → autre appareil : connexion, reprise du village → suppression du compte (compte + document + village local).
 const {webkit, devices} = require('playwright');
 const KEY = require('fs').readFileSync(__dirname + '/../../js/firebase-config.js', 'utf8').match(/apiKey: '([^']+)'/)[1];
 const mail = `vdp-test-${Date.now()}@example.com`, pass = 'Essai-' + Math.random().toString(36).slice(2, 10);
-const api = (path, body) => fetch(`https://identitytoolkit.googleapis.com/v1/${path}?key=${KEY}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+const api = (path, body) => fetch(`${EMU.AU}${path}?key=${KEY}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
 (async () => { const b = await webkit.launch(); const log = [];
   const ctx = async () => (await b.newContext({...devices['iPhone 13']})).newPage();
   const boot = async p => { p.on('pageerror', e => { if (!/access control|firestore/.test(e.message)) log.push('PAGEERR ' + e.message); }); await p.addInitScript(require('./invite.cjs')); await p.goto('http://localhost:8765/'); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(1500);
-    await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); }); await p.waitForTimeout(500); await p.evaluate(() => document.querySelector('.tskip')?.click()); await p.waitForTimeout(600); };
+    for (let i = 0; i < 10; i++){ await p.evaluate(() => { document.querySelector('#cine .cskip')?.click(); document.querySelector('.tskip')?.click(); }); await p.waitForTimeout(700); } };
   // appareil A : un vieux village au format 5 (sans numéro de format, sans compte)
   // on fabrique le vieux village dans un premier onglet, puis on l'injecte AVANT le démarrage du jeu dans un appareil neuf
   const A0 = await ctx(); await boot(A0);

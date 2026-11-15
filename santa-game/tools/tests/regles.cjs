@@ -1,4 +1,5 @@
 // Règles Firestore (firebase/firestore.rules) testées sur l'ÉMULATEUR contre les vraies sauvegardes de chaque version du jeu.
+require('./emu.cjs');
 // Chaque version : son propre town.js (tiré de git) fabrique un village neuf ET un village avancé, envoyé avec les champs
 // exacts que cette version écrivait (v80 : sans « fmt » ; v81-v84 : fmt + welcome ; v85 : + legal).
 // Lancer d'abord : firebase emulators:start (auth 9099, firestore 8080) avec firebase/firestore.rules.

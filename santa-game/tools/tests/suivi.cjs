@@ -1,4 +1,5 @@
 // Suivi invisible + tableau de bord de Sora, de bout en bout sur l'ÉMULATEUR Firebase (règles du fichier firebase/firestore.rules).
+require('./emu.cjs');
 // Lancer d'abord : firebase emulators:start (auth 9099, firestore 8080) avec ces règles.
 // 1) un joueur (iPhone 13) arrive par un lien partagé, crée un compte e-mail, accepte le suivi, joue (écrans, achat simulé, étoiles, niveau)
 // 2) Sora (PC) ouvre le tableau de bord avec son compte Google : il voit le joueur, sa fiche, ses sessions et actions
