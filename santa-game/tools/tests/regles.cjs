@@ -119,5 +119,28 @@ const cg = (u, id) => fetch(FS.replace(/documents\/$/, 'documents:runQuery'), {m
   ok(await del(adm, `track/${c.uid}/s/old`) === 200, 'nettoyage : session de plus de 13 mois');
   ok(await del(adm, 'users/' + c.uid) === 200 && await del(adm, 'track/' + c.uid) === 200, 'nettoyage : compte inactif depuis plus de 2 ans');
   ok(await del(a, 'users/' + a.uid) === 200 && await del(a, 'track/' + a.uid) === 200, 'le joueur supprime ses données');
+  // retrait du consentement : v94 efface les champs (analyse déjà à faux), v95 supprime le document
+  const cons = await user('consent-' + Date.now() + '@example.com');
+  await swap("rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if true; } } }");
+  await put(cons, 'track/' + cons.uid, {email: 'v94@example.com', derniere: Date.now(), analyse: true, vu: Date.now(), appareil: {os: 'Android', model: 'Pixel', sw: 390, sh: 844, pwa: false, touch: true}, geo: {ip: '1.2.3.4', ville: 'Paris', src: 'geojs'}, ips: ['1.2.3.4'], course: {niv10: {t: Date.now(), eur: 0, achats: 0, niv: 10, jeu: 20}}});
+  await swap(rulesTxt);
+  const docC = `projects/village-du-pole/databases/(default)/documents/track/${cons.uid}`;
+  const wipeOn = await commit(cons, [{update: {name: docC, fields: {}}, updateMask: {fieldPaths: ['course', 'vu', 'appareil', 'geo', 'ips']}}]);
+  ok(wipeOn === 403, 'v94 : retirer course et vu pendant que l’analyse est acceptée : refusé');
+  const off = await commit(cons, [{update: {name: docC, fields: fields({analyse: false})}, updateMask: {fieldPaths: ['analyse']}}]);
+  ok(off === 200, 'v94 : l’analyse passe à faux');
+  const wipe = await commit(cons, [{update: {name: docC, fields: {}}, updateMask: {fieldPaths: ['course', 'vu', 'appareil', 'geo', 'ips']}}]);
+  ok(wipe === 200, 'v94 : après le refus, course, vu, appareil, lieu et IP partent');
+  const left = await (await fetch(FS + 'track/' + cons.uid, {headers: {Authorization: 'Bearer ' + cons.tok}})).json();
+  const keys = Object.keys(left.fields || {});
+  ok(!keys.includes('course') && !keys.includes('vu') && !keys.includes('appareil') && !keys.includes('geo') && !keys.includes('ips') && left.fields.analyse.booleanValue === false, 'v94 : la fiche reste, sans les données d’analyse (' + keys.join(',') + ')');
+  const v95 = await user('v95-' + Date.now() + '@example.com');
+  await swap("rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if true; } } }");
+  await put(v95, 'track/' + v95.uid, {email: 'v95@example.com', derniere: Date.now(), analyse: true, vu: Date.now(), appareil: {os: 'iOS'}, course: {sommet: {t: Date.now(), eur: 0, achats: 0, niv: 25, jeu: 100}}});
+  await put(v95, `track/${v95.uid}/s/s1`, {debut: Date.now(), fin: Date.now(), duree: 2, jeu: 1, ev: []});
+  await put(v95, `track/${v95.uid}/secu/1`, {t: Date.now(), ip: '8.8.8.8'});
+  await swap(rulesTxt);
+  ok(await del(v95, `track/${v95.uid}/s/s1`) === 200 && await del(v95, `track/${v95.uid}/secu/1`) === 200 && await del(v95, 'track/' + v95.uid) === 200, 'v95 : retrait du consentement, sessions, journal et document track supprimés');
+  ok(await get(v95, 'track/' + v95.uid) === 404, 'v95 : la fiche n’existe plus');
   console.log(log.join('\n')); console.log(bad ? `ÉCHECS : ${bad}` : 'TOUT EST BON');
 })();

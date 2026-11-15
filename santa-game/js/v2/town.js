@@ -1397,8 +1397,8 @@ export function economyCap(s){
 /** Ramène un village à des valeurs jouables. `note(kind, data)` sert aux alertes du tableau de bord. Ne rejette pas la sauvegarde. */
 export function sanitizeTown(s, note = () => {}){
   if (!s || typeof s !== 'object') return s;
-  // Avant les alertes : sinon flag() (main.js) voit encore le drapeau et ne signale rien.
-  delete s.testEditeur;
+  // testEditeur n'est pas retiré ici : le village de test de l'éditeur le garde au chargement.
+  // L'import, lui, l'enlève (importCode), sinon un code collé couperait les alertes.
   s.inv ||= {}; s.objs ||= [];
   for (const k of [...RES, 'stars', 'xp']) if (!Number.isFinite(+s[k]) || s[k] < 0){ note('valeur', {k, v: String(s[k]).slice(0, 20)}); s[k] = 0; }
   const lvl = Math.round(+s.lvl);
