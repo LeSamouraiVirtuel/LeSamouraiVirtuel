@@ -138,6 +138,6 @@ export function openFishing(ctx){
   }
   function loop(now){ raf = requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; T += dt; step(dt); draw(); }
   function close(){ if (closed) return; closed = true; cancelAnimationFrame(raf); removeEventListener('resize', resize); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); removeEventListener('keydown', key); removeEventListener('keyup', key); root.remove(); ctx.onClose?.(); }
-  window.__fish = {get st(){ return st; }, set hold(v){ hold = v; }, down, close};
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__fish = {get st(){ return st; }, set hold(v){ hold = v; }, down, close};
   cast(); raf = requestAnimationFrame(loop);
 }

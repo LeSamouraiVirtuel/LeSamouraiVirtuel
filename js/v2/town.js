@@ -353,10 +353,36 @@ export function buildBlock(s, type){
   if (!(s.tokens?.[type] > 0) && !has(s, upCost(type, 1))) return 'Ressources insuffisantes';
   return null;
 }
+/* ===================== FIN DE PARTIE : la course vers le sommet ne s'achète pas ===================== */
+// Les derniers niveaux de la Maison du Père Noël demandent des « défis » actifs : des jouets fabriqués à l'atelier
+// (consommés), des espèces de poissons pêchées et des camps de trolls battus. Ni les uns ni les autres ne s'achètent.
+export const HQ_CHALLENGE = {
+  14: {toys: {bell: 2}, fish: 3, camps: 5},       15: {toys: {ginger: 3}, fish: 4, camps: 8},
+  16: {toys: {choco: 3}, fish: 5, camps: 10},     17: {toys: {wagon: 2}, fish: 5, camps: 12},
+  18: {toys: {wreath: 2}, fish: 6, camps: 15},    19: {toys: {ball: 2}, fish: 7, camps: 18},
+  20: {toys: {lamp: 2}, fish: 8, camps: 20},      21: {toys: {minitree: 2}, fish: 8, camps: 24},
+  22: {toys: {snowball: 2}, fish: 9, camps: 28},  23: {toys: {gbhouse: 2}, fish: 10, camps: 32},
+  24: {toys: {bigsled: 1, gbhouse: 1}, fish: 11, camps: 36}, 25: {toys: {bigsled: 2}, fish: 12, camps: 40},
+};
+/** Ce qui manque pour le défi de la Maison au niveau lv : [{k: 'toy'|'fish'|'camps', item, have, need}] (vide = prêt) */
+export function hqNeeds(s, lv){
+  const c = HQ_CHALLENGE[lv]; if (!c) return [];
+  const out = [];
+  for (const [k, n] of Object.entries(c.toys)) if ((s.inv[k] || 0) < n) out.push({k: 'toy', item: k, have: s.inv[k] || 0, need: n});
+  const sp = Object.keys(s.fish || {}).length; if (sp < c.fish) out.push({k: 'fish', have: sp, need: c.fish});
+  const cp = s.camps?.at || 0; if (cp < c.camps) out.push({k: 'camps', have: cp, need: c.camps});
+  return out;
+}
+/* Plafond d'accélération : au plus 24 h d'attente évitées avec des étoiles par jour (heure locale). */
+export const SPEED_DAY_CAP = 24 * 3600;
+const dayOf = t => new Date(t).toDateString();
+export function speedLeft(s, t = Date.now()){ const d = s.spd; return d && d.d === dayOf(t) ? Math.max(0, SPEED_DAY_CAP - d.sec) : SPEED_DAY_CAP; }
+export function speedUse(s, sec, t = Date.now()){ if (!s.spd || s.spd.d !== dayOf(t)) s.spd = {d: dayOf(t), sec: 0}; s.spd.sec += Math.max(0, Math.round(sec)); }
+
 export function upBlock(s, o){
   const b = BUILDINGS[o.type];
   if (o.build || o.up) return 'Déjà en travaux';
-  if (b.kind === 'hq'){ if (o.lv >= b.max) return 'Niveau maximum'; }
+  if (b.kind === 'hq'){ if (o.lv >= b.max) return 'Niveau maximum'; if (hqNeeds(s, o.lv + 1).length) return 'Défi de la Maison'; }
   else if (o.lv >= maxLv(s)) return `Améliore d'abord la Maison du Père Noël (niv. ${o.lv})`;
   if (busyBuilders(s) >= builders(s)) return 'Tous les bâtisseurs sont occupés';
   if (!has(s, upCost(o.type, o.lv + 1))) return 'Ressources insuffisantes';
@@ -371,6 +397,12 @@ const WISHES = ['pour jouer avec ma petite sœur.', 'parce que j’ai été trè
 const ARTICLE = {train: 'un', box: 'une', sled: 'une', plush: 'un', nut: 'un', cane: 'un', sock: 'une', bell: 'une', ginger: 'un', choco: 'un', wagon: 'un', wreath: 'une', ball: 'une', lamp: 'une', minitree: 'un', snowball: 'un', gbhouse: 'une', bigsled: 'un'};
 export const TOY_KEYS = Object.keys(TOYS).filter(k => !TOYS[k].wrap);
 export const toysAvailable = s => TOY_KEYS.filter(k => TOYS[k].lvl <= s.lvl);
+// « un train en bois et 2 boîtes de biscuits » : la lettre cite tout ce qui est demandé, avec les quantités
+const plural = n => { let stop = false; return n.split(' ').map(w => { if (stop || /^(en|de|d’|d'|à|au|aux|du|des|pour)$/.test(w) || /^d[’']/.test(w)){ stop = true; return w; } return /[sx]$/.test(w) ? w : w + (/(eau|eu)$/.test(w) ? 'x' : 's'); }).join(' '); };
+function wishList(items){
+  const parts = Object.entries(items).map(([k, q]) => { const n = ITEMS[k].name.toLowerCase(); return q > 1 ? `${q} ${plural(n)}` : `${ARTICLE[k] || 'un'} ${n}`; });
+  return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' et ' + parts[parts.length - 1] : parts[0];
+}
 export function makeOrder(s, bureauLv = 1){
   const av = toysAvailable(s), n = av.length > 1 && Math.random() < .4 ? 2 : 1, items = {};
   for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
@@ -379,7 +411,7 @@ export function makeOrder(s, bureauLv = 1){
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const used = new Set((s.orders || []).map(o => o?.kid)), kid = pick(KIDS.filter(k => !used.has(k)).length ? KIDS.filter(k => !used.has(k)) : KIDS);
   const first = Object.keys(items)[0], why = pick(WISHES);
-  const o = {kid, age: 4 + Math.floor(Math.random() * 7), city: pick(CITIES), msg: `${pick(HELLO)} je voudrais ${ARTICLE[first] || 'un'} ${ITEMS[first].name.toLowerCase()} ${why}`, items, coins: Math.round(value * 1.3 * m * (1 + zoneB(s, 'letters'))), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
+  const o = {kid, age: 4 + Math.floor(Math.random() * 7), city: pick(CITIES), msg: `${pick(HELLO)} je voudrais ${wishList(items)} ${why}`, items, coins: Math.round(value * 1.3 * m * (1 + zoneB(s, 'letters'))), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
   const r = Math.random();
   if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .23) o.stars = 1;   // étoiles d'or : rares
   return o;
