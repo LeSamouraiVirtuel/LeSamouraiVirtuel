@@ -342,3 +342,11 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - Réglage « Animations réduites » (neige, fumée et animations d'interface coupées ; activé d'office si le téléphone demande moins de mouvement).
 - Flocon se promène autour de l'Écurie avec son stade et son skin.
 - Tests de non-régression dans le dépôt : tools/tests/run.sh (tutoriel, colis, bataille sur iPhone SE et PC, lettres, audit des textes, robot). Tests rendus robustes (attente des boutons et de la fin des transitions du tutoriel).
+
+## 15 novembre 2026 (soir) — v87 à v89, pendant l'absence de Sora
+- **Règles Firestore** : la règle « welcome » refusait les sauvegardes d'un ancien jeu (v80-v82) resté ouvert ailleurs après un bonus reçu. Corrigée (seul un retour explicite à faux est refusé), testée sur l'émulateur, à republier.
+- **v87 — Pêche** : vraie touche lisible (gros plouf, « ! » jaune, flash, son fort), petites touches grises discrètes avec « petite touche… », le doigt qui vient de lancer est ignoré, la 1re touche trop tôt donne un avertissement (la 2e fait fuir le poisson).
+- **v88 — Course plus dure** : défis de la Maison du niveau 14 au niveau 25 (jouets fabriqués consommés, espèces de poissons, camps de trolls), qui ne s'achètent pas. Plafond de 24 h d'accélération par jour. Simulation `tools/course-sim.mjs` : sommet en 2 min avant, 41 jours après pour un joueur qui achète tout ; le joueur normal n'est pas ralenti (Maison 15 vers J39).
+- **v88 — Anti-triche** : le jeu se cale sur l'heure du serveur (horloge avancée sans effet), valeurs impossibles corrigées, crochets de test réservés à localhost, alertes silencieuses dans le tableau de bord.
+- **v88 — Audit** : lettres qui citent tous les jouets avec les quantités, barres de progression vides lisibles, tickets en forme de ticket, pastille de stock courte, Illuminations « Voir ce qui manque », raretés de pêche sans coupure, icône des rennes.
+- **v89** : choix Google / e-mail / invité à chaque lancement tant qu'il n'y a pas de compte (bonus mis en avant) ; code mort des terrains réservés retiré ; appât 15 + 5 × niveau (≈ 1,5-2 min de production) ; tâches sans fin qui mènent aussi à la pêche et aux combats ; tableau de bord : contrôle du compte avant toute requête, noindex.
