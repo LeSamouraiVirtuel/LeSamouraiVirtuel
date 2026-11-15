@@ -147,7 +147,7 @@ function postShape(g, T){
 /** Hangar à traîneau : long, bas, sans mur sur le côté visible (+z). */
 function hangarShape(g, T){
   const len = 2.35 + T * .38, h = .7 + T * .05, d = 1.45;
-  const wall = '#7c3028', roof = '#f4f7fc', hole = '#241612';
+  const wall = '#7c3028', roof = '#3a4658', hole = '#241612';
   solid(g, new THREE.BoxGeometry(len, .08, d), '#6a5140', 0, .04, 0);
   solid(g, new THREE.BoxGeometry(len, h, .1), wall, 0, h / 2, -d / 2);
   solid(g, new THREE.BoxGeometry(.1, h, d), wall, -len / 2, h / 2, 0);
