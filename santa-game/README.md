@@ -37,7 +37,8 @@ Jeu de gestion de village de Noël pour téléphone, tablette et PC, dans la lig
   - sessions d'analyse : 13 mois ;
   - comptes inactifs : 2 ans.
   Les comptes de connexion Firebase inactifs se suppriment dans la console Firebase.
-- **Règles Firestore** : `firebase/firestore.rules`, testées par `tools/tests/regles.cjs` sur l'émulateur contre les sauvegardes de chaque version.
+- **Règles Firestore** : `firebase/firestore.rules`, testées par `tools/tests/regles.cjs` sur l'émulateur contre les sauvegardes de chaque version. Pas de Cloud Functions. Avant de publier une nouvelle version des règles : dans la console Firebase, créer le document `admins/{uid}` de l'éditeur (Authentication → Users → copier l'uid ; un champ `ok` = true suffit). Sinon le tableau de bord ne s'ouvre plus. L'adresse e-mail n'est plus dans les règles. Une mise à jour ne peut plus retirer `vu` ni un jalon déjà classé ; effacer le document `track/{uid}` reste possible. Les clients v93/v94 en cache écrivent encore leur fiche (`derniere` en nombre, `creeLe`) ; seul leur jalon, qui n'a pas l'heure du serveur, est refusé.
+- **Codes de village** : la somme sur les exports est un anti-bricolage. La clé est dans `js/v2/town.js`, côté joueur. Un code sans somme est accepté, plafonné, et marqué « ancien code ». `testEditeur` est toujours retiré à l'import.
 
 ## Tests de non-régression
 

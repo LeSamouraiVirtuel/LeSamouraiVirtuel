@@ -30,4 +30,4 @@
 
 ## Limites honnêtes
 - Les ressources ou les étoiles gagnées en jouant peuvent être trichées en modifiant la sauvegarde. Ce n'est grave que pour les classements entre joueurs. Si un classement public apparaît un jour, il faudra des contrôles côté serveur (vitesse de progression plausible, etc.).
-- Le chrono de course du tableau de bord se base sur la sauvegarde : un joueur qui modifie sa sauvegarde peut fausser son temps.
+- Le classement de la course ne lit plus la sauvegarde. L'heure d'un jalon est celle du serveur Firestore (`request.time`), au plus tôt un délai minimum après la première connexion suivie. Un temps choisi par le joueur est refusé par les règles. Les achats simulés de la version de test ne sont pas concernés.

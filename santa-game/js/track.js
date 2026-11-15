@@ -80,8 +80,13 @@ export async function begin(user, need, getInfo){
   uid = user.uid; ctx = getInfo;
   const pv = (user.providerData || []).map(p => p.providerId);
   const id = {email: user.email || '', nom: user.displayName || '', photo: user.photoURL || '', fournisseur: pv.includes('google.com') ? (pv.includes('password') ? 'Google + e-mail' : 'Google') : 'e-mail',
-    compteCree: Date.parse(user.metadata?.creationTime || '') || null, derniere: Date.now(), analyse: !!src()};
-  try { await F.setDoc(F.doc(base, 'track', uid), {...id, ...need}, {merge: true}); } catch(e){ return; }
+    compteCree: Date.parse(user.metadata?.creationTime || '') || null, derniere: F.serverTimestamp(), analyse: !!src()};
+  try {
+    const prev = await F.getDoc(F.doc(base, 'track', uid));
+    // « vu » : première fois que le serveur voit ce joueur. L'horloge officielle de la course part de là, et ne bouge plus.
+    if (!prev.exists() || !prev.data()?.vu) id.vu = F.serverTimestamp();
+    await F.setDoc(F.doc(base, 'track', uid), {...id, ...need}, {merge: true});
+  } catch(e){ return; }
   securite();
   if (src()){ F.setDoc(F.doc(base, 'track', uid), {provenance: REF}, {merge: true}).catch(() => {}); startSession(); purgeOld(); }
 }
@@ -104,7 +109,8 @@ export async function setConsent(v){
   if (v === 'yes'){ if (!on){ F.setDoc(F.doc(base, 'track', uid), {provenance: REF}, {merge: true}).catch(() => {}); startSession(); } return; }
   on = false; sid = null; buf = []; clearInterval(timer);   // pas d'envoi final : tout est effacé
   try { const ss = await F.getDocs(F.collection(base, 'track', uid, 's')); ss.docs.forEach(d => F.deleteDoc(d.ref).catch(() => {}));
-    const X = F.deleteField(); await F.updateDoc(F.doc(base, 'track', uid), {appareil: X, geo: X, ips: X, provenance: X, sessions: X, jours: X, tempsJeu: X, course: X, chapitre: X, etoilesDepensees: X, tempsGagne: X, jeuTotal: X}); } catch(e){}
+    // « course » et « vu » ne s'enlèvent pas par une mise à jour (règles) : pour tout effacer, le joueur supprime le document.
+    const X = F.deleteField(); await F.updateDoc(F.doc(base, 'track', uid), {appareil: X, geo: X, ips: X, provenance: X, sessions: X, jours: X, tempsJeu: X, chapitre: X, etoilesDepensees: X, tempsGagne: X, jeuTotal: X}); } catch(e){}
 }
 /** Trace de l'accord légal (date, version des textes, choix), gardée dans le compte avec l'historique */
 export function legalProof(rec){ const D = db(); if (!D || !uid) return; D.F.setDoc(D.F.doc(D.db, 'track', uid), {legal: rec, legalHist: D.F.arrayUnion(rec)}, {merge: true}).catch(() => {}); }
@@ -119,7 +125,7 @@ async function startSession(){
   const s = {debut: t0, fin: t0, duree: 0, jeu: 0, appareil: dev, arrivee: here(), ev: [], niv: ctx?.()?.lvl || 0};
   try {
     await F.setDoc(F.doc(base, 'track', uid, 's', sid), s);
-    await F.setDoc(F.doc(base, 'track', uid), {appareil: dev, sessions: F.increment(1), jours: {[day(t0)]: F.increment(1)}, derniere: t0}, {merge: true});
+    await F.setDoc(F.doc(base, 'track', uid), {appareil: dev, sessions: F.increment(1), jours: {[day(t0)]: F.increment(1)}, derniere: F.serverTimestamp()}, {merge: true});
   } catch(e){ on = false; starting = false; return; }
   starting = false;
   geo().then(g => { if (!g || !on) return; F.updateDoc(F.doc(base, 'track', uid, 's', sid), {geo: g}).catch(() => {});
@@ -138,12 +144,37 @@ async function flush(final){
     const up = {fin: t, duree: Math.round((t - t0) / 1000), jeu: F.increment(jeu), niv: info.lvl || 0};
     if (evs.length) up.ev = F.arrayUnion(...evs);
     await F.updateDoc(F.doc(base, 'track', uid, 's', sid), up); nEv += evs.length;
-    await F.setDoc(F.doc(base, 'track', uid), {...info, derniere: t, tempsJeu: F.increment(jeu)}, {merge: true});
+    await F.setDoc(F.doc(base, 'track', uid), {...info, derniere: F.serverTimestamp(), tempsJeu: F.increment(jeu)}, {merge: true});
   } catch(e){ buf.unshift(...evs); }
   busy = false;
 }
-/** Jalon de la course (créé → sommet) : moment, euros affichés dépensés et nombre d'achats à cet instant */
-export function milestone(key, data){ const D = db(); if (!D || !uid || !src()) return; D.F.setDoc(D.F.doc(D.db, 'track', uid), {course: {[key]: {t: Date.now(), ...data}}}, {merge: true}).catch(() => {}); }
+// Jalons officiels de la course. L'heure écrite est celle du serveur (request.time), jamais celle du téléphone.
+// Un jalon déjà enregistré ne se réécrit pas. S'il est trop tôt (règles Firestore), on réessaie tant que la partie est ouverte.
+// Seulement les jalons que les règles Firestore vérifient (le langage des règles plafonne le nombre de contrôles).
+const RACE_KEY = /^(niv(5|10|20|100)|maison(10|20|25)|sommet)$/;
+const pendingRace = new Map(); let raceBusy = false;
+function raceBody(data){
+  const n = (v, max) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+  return {eur: Math.max(0, Math.min(1000000, Math.round((Number(data.eur) || 0) * 100) / 100)), achats: n(data.achats, 100000), niv: Math.max(1, Math.min(150, n(data.niv, 150) || 1)), jeu: n(data.jeu, 200000000)};
+}
+async function sendRace(){
+  const D = db(); if (!D || !uid || !src() || raceBusy || !pendingRace.size) return; const {F, db: base} = D;
+  raceBusy = true;
+  try {
+    const ref = F.doc(base, 'track', uid), snap = await F.getDoc(ref), course = snap.exists() ? snap.data()?.course || {} : {};
+    for (const [key, data] of [...pendingRace]){
+      const prev = course[key];
+      if (prev && prev.t != null && typeof prev.t !== 'number'){ pendingRace.delete(key); continue; }   // déjà une heure serveur
+      if (prev && typeof prev.t === 'number'){ pendingRace.delete(key); continue; }                     // ancien jalon (heure du téléphone) : on ne le réécrit pas
+      try { await F.setDoc(ref, {course: {[key]: {t: F.serverTimestamp(), ...raceBody(data)}}}, {merge: true}); pendingRace.delete(key); }
+      catch(e){}   // trop tôt, ou pas encore « vu » : on réessaiera
+    }
+  } catch(e){}
+  raceBusy = false;
+}
+/** Jalon de la course (créé → sommet). L'heure officielle est celle du serveur au moment où il accepte le jalon. */
+export function milestone(key, data = {}){ if (!RACE_KEY.test(key) || !uid || !src()) return; pendingRace.set(key, data); sendRace(); }
+setInterval(() => sendRace(), 60e3);
 
 // fin de session quand le jeu est caché plus de 10 minutes ; nouvelle session au retour
 document.addEventListener('visibilitychange', () => {

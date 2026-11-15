@@ -1,21 +1,32 @@
 rules_version = '2';
 // Règles de sécurité de la base Firestore du Village du Pôle (projet village-du-pole).
+// Pas de Cloud Functions (forfait gratuit) : tout le contrôle est ici.
 // À publier dans la console Firebase : Firestore Database → Règles → coller ce fichier → Publier.
-// Testées contre les vraies sauvegardes de chaque version du jeu (v80 sans « fmt », v81 à v85) : tools/tests/regles.cjs.
+// AVANT de publier : créer le document admins/{uid} de l'éditeur (voir isAdmin), sinon plus personne
+// ne peut ouvrir le tableau de bord. L'adresse e-mail n'est plus dans les règles (le dépôt est public).
+// Testées sur l'émulateur : tools/tests/regles.cjs.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Le tableau de bord de l'éditeur : seul ce compte Google (adresse vérifiée, connecté avec Google) peut lire
-    // les données de tous les joueurs. Il ne peut rien écrire ; il peut seulement effacer ce qui a dépassé
+    // Éditeur du tableau de bord. Deux façons, au choix (les deux marchent en même temps) :
+    //   1. Document admins/{uid} créé à la main dans la console Firestore (Ajouter un document).
+    //      L'uid est dans Authentication → Users. Un champ suffit, par exemple ok = true.
+    //      La console écrit sans passer par ces règles. Personne d'autre ne peut créer ce document.
+    //   2. Custom claim admin = true sur le compte (script Admin SDK, une fois, pas une Cloud Function).
+    // Il ne peut rien écrire dans les villages ; il peut seulement effacer ce qui a dépassé
     // les durées de conservation (sécurité 6 mois, analyse 13 mois, compte inactif 2 ans).
     function isAdmin() {
-      return request.auth != null
-        && request.auth.token.email == 'better.ask.yannis@gmail.com'
-        && request.auth.token.email_verified == true
-        && request.auth.token.firebase.sign_in_provider == 'google.com';
+      return request.auth != null && (
+        request.auth.token.admin == true
+        || (request.auth.token.email_verified == true
+            && exists(/databases/$(database)/documents/admins/$(request.auth.uid)))
+      );
     }
     function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
-    function olderThan(ms, days) { return ms is number && ms < request.time.toMillis() - days * 86400000; }
+    function olderThan(ms, days) {
+      return (ms is number && ms < request.time.toMillis() - days * 86400000)
+        || (ms is timestamp && ms.toMillis() < request.time.toMillis() - days * 86400000);
+    }
 
     // users/{uid} — un village. Champs réellement écrits par le jeu :
     //   save (texte), fmt (absent avant la v81), lvl, t, name, welcome (bonus de bienvenue), legal (accord : date, version, choix)
@@ -24,9 +35,9 @@ service cloud.firestore {
       return d.keys().hasOnly(['save', 'fmt', 'lvl', 't', 'name', 'welcome', 'legal', 'stats', 'log'])
         && d.keys().hasAll(['save', 'lvl', 't'])
         && d.save is string && d.save.size() <= 900000
-        && (!('fmt' in d) || (d.fmt is int && d.fmt >= 5 && d.fmt <= 1000))
-        && d.lvl is number && d.lvl >= 1 && d.lvl <= 100000
-        && d.t is int
+        && (!('fmt' in d) || (d.fmt is int && d.fmt >= 5 && d.fmt <= 40))
+        && d.lvl is number && d.lvl >= 1 && d.lvl <= 150
+        && d.t is int && d.t > 1700000000000 && d.t < request.time.toMillis() + 600000
         && (!('name' in d) || (d.name is string && d.name.size() <= 100))
         && (!('welcome' in d) || d.welcome is bool)
         && (!('legal' in d) || (d.legal is map && d.legal.size() <= 20))
@@ -45,34 +56,177 @@ service cloud.firestore {
       allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.t, 730));
     }
 
-    // track/{uid} — fiche de suivi (identité du compte, accord légal, totaux ; appareil, lieu et course seulement avec l'accord d'analyse).
-    // Écrite par le joueur pendant qu'il joue ; lue par l'éditeur, et par le joueur seulement pour pouvoir tout effacer.
+    // Heure : un nombre (anciens jeux, millisecondes) ne peut pas être dans le futur.
+    // Une fois que le champ est l'heure du serveur (timestamp), il ne peut plus redevenir un nombre :
+    // soit il ne change pas, soit il est remis à request.time.
+    function serverOrPastInt(name) {
+      let n = request.resource.data[name];
+      let had = resource != null && name in resource.data;
+      return !(name in request.resource.data)
+        || n == request.time
+        || (had && n == resource.data[name])
+        || ((n is int) && n > 1700000000000 && n < request.time.toMillis() + 600000
+            && (!had || !(resource.data[name] is timestamp)));
+    }
+    function vuOk() {
+      let had = resource != null && 'vu' in resource.data;
+      // Une mise à jour ne peut pas retirer « vu » ni le changer. L'effacement du document entier reste permis (vie privée).
+      return had
+        ? 'vu' in request.resource.data && request.resource.data.vu == resource.data.vu
+        : !('vu' in request.resource.data) || request.resource.data.vu == request.time;
+    }
+    // Un jalon de course déjà écrit ne change plus. Un jalon nouveau a l'heure du serveur,
+    // et seulement si le joueur est « vu » depuis assez longtemps (temps impossible refusé).
+    // courseOk refuse aussi de retirer une clé déjà là (hasAll), classée ou non.
+    // Le langage des règles plafonne à 1000 expressions par écriture : on ne détaille que les jalons
+    // qui décident du classement. Les autres noms connus sont acceptés seulement s'ils sont dans la liste,
+    // et une clé inconnue est refusée. sec = délai minimum en secondes après « vu » (0 = pas de délai en plus).
+    function lock(key, sec) {
+      return !(key in request.resource.data.course) || (
+        resource != null && resource.data.keys().hasAll(['course']) && key in resource.data.course
+          ? request.resource.data.course[key] == resource.data.course[key]
+          : request.resource.data.course[key].t == request.time
+            && request.resource.data.course[key].keys().hasOnly(['t', 'eur', 'achats', 'niv', 'jeu'])
+            && request.resource.data.course[key].eur is number
+            && request.resource.data.course[key].eur >= 0 && request.resource.data.course[key].eur <= 1000000
+            && request.resource.data.course[key].achats is int
+            && request.resource.data.course[key].niv is int
+            && request.resource.data.course[key].jeu is int
+            && resource != null && resource.data.vu is timestamp
+            && (sec == 0 || request.time.toMillis() >= resource.data.vu.toMillis() + sec * 1000));
+    }
+    function courseOk() {
+      let had = resource != null && 'course' in resource.data;
+      let has = 'course' in request.resource.data;
+      // Retirer toute la carte, ou une clé déjà enregistrée, est refusé. Effacer le document entier reste permis.
+      // hasAll tient en une expression : appeler lock() pour chaque clé ferait dépasser 1000 expressions.
+      return (!had && !has)
+        || (has && request.resource.data.course is map
+          && request.resource.data.course.size() <= 40
+          && (!had || request.resource.data.course.keys().hasAll(resource.data.course.keys()))
+          && request.resource.data.course.keys().hasOnly([
+            'niv5', 'niv10', 'niv15', 'niv20', 'niv25', 'niv30', 'niv40', 'niv50', 'niv60', 'niv75', 'niv100',
+            'maison3', 'maison5', 'maison10', 'maison15', 'maison20', 'maison25', 'sommet',
+            'chapitre1', 'chapitre2', 'chapitre3', 'chapitre4', 'chapitre5', 'chapitre6', 'chapitre7', 'chapitre8',
+            'chapitre9', 'chapitre10', 'chapitre11', 'chapitre12', 'chapitre13', 'chapitre14', 'chapitre15',
+            'chapitre16', 'chapitre17', 'chapitre18'])
+          && lock('niv5', 5) && lock('niv10', 30) && lock('niv20', 120) && lock('niv100', 7200)
+          && lock('maison10', 60) && lock('maison20', 600) && lock('maison25', 1200) && lock('sommet', 1200));
+    }
+    function deviceOk(d) {
+      // Liste des clés seulement : un contrôle par champ ferait dépasser 1000 expressions sur une fiche déjà remplie.
+      return d is map && d.size() >= 1 && d.size() <= 20
+        && d.keys().hasOnly(['os', 'osv', 'model', 'br', 'sw', 'sh', 'dpr', 'vw', 'vh', 'lang', 'tz', 'pwa', 'touch']);
+    }
+    function geoOk(d) {
+      return d is map && d.size() <= 10
+        && d.keys().hasOnly(['ip', 'pays', 'cc', 'region', 'ville', 'fai', 'src']);
+    }
+    function numOk(name, max) {
+      return !(name in request.resource.data)
+        || (request.resource.data[name] is number && request.resource.data[name] >= 0 && request.resource.data[name] <= max);
+    }
+    // track/{uid} — fiche de suivi. Le joueur écrit la sienne ; l'éditeur lit ; le joueur peut tout effacer.
+    // Clients v93 et v94 encore en cache : « derniere » en nombre et « creeLe » restent acceptés,
+    // donc une écriture de fiche (sans jalon, ou qui laisse les jalons déjà là) passe.
+    // Un jalon de ces versions a une heure choisie par le jeu. Les règles ne peuvent pas retirer
+    // un seul champ : l'écriture qui pose ce jalon est refusée en entier. Le jeu v94 l'envoie
+    // à part, donc la fiche déjà enregistrée n'est pas perdue. Effacer le document entier reste permis.
+    function validTrack(d) {
+      return d.size() <= 80
+        && d.keys().hasOnly([
+          'email', 'nom', 'photo', 'fournisseur', 'compteCree', 'derniere', 'analyse', 'vu',
+          'village', 'creeLe', 'niveau', 'maison', 'chapitre', 'eur', 'achats', 'inviteAvant', 'legal', 'legalHist',
+          'provenance', 'appareil', 'sessions', 'jours', 'geo', 'ips',
+          'tempsJeu', 'jeuTotal', 'course', 'etoilesDepensees', 'tempsGagne', 'lvl',
+          'consent', 'consentT', 'created', 'hq', 'nbuy', 'wasGuest'])
+        && (!('email' in d) || (d.email is string && d.email.size() <= 200))
+        && (!('nom' in d) || (d.nom is string && d.nom.size() <= 80))
+        && (!('photo' in d) || (d.photo is string && d.photo.size() <= 500))
+        && (!('fournisseur' in d) || (d.fournisseur is string && d.fournisseur.size() <= 40))
+        && (!('village' in d) || (d.village is string && d.village.size() <= 40))
+        && (!('compteCree' in d) || d.compteCree == null || (d.compteCree is int && d.compteCree > 1700000000000 && d.compteCree < request.time.toMillis() + 600000))
+        && serverOrPastInt('derniere')
+        && vuOk()
+        && (!('analyse' in d) || d.analyse is bool)
+        && (!('inviteAvant' in d) || d.inviteAvant is bool)
+        && (!('wasGuest' in d) || d.wasGuest is bool)
+        && numOk('niveau', 150) && numOk('lvl', 150) && numOk('maison', 25) && numOk('hq', 25) && numOk('chapitre', 40)
+        && numOk('eur', 1000000) && numOk('achats', 100000) && numOk('nbuy', 100000)
+        && numOk('etoilesDepensees', 5000000) && numOk('tempsGagne', 300000000) && numOk('jeuTotal', 300000000) && numOk('tempsJeu', 300000000)
+        && numOk('sessions', 100000)
+        && (!('creeLe' in d) || d.creeLe == null || (d.creeLe is int && d.creeLe > 1700000000000 && d.creeLe < request.time.toMillis() + 600000)
+            || (resource != null && 'creeLe' in resource.data && d.creeLe == resource.data.creeLe))
+        && (!('created' in d) || d.created == null || d.created is int)
+        && (!('consent' in d) || (d.consent is string && d.consent.size() <= 40))
+        && (!('consentT' in d) || d.consentT is int)
+        && (!('legal' in d) || d.legal == null || (d.legal is map && d.legal.size() <= 20))
+        && (!('legalHist' in d) || (d.legalHist is list && d.legalHist.size() <= 40))
+        && (!('jours' in d) || (d.jours is map && d.jours.size() <= 800))
+        && (!('ips' in d) || (d.ips is list && d.ips.size() <= 40))
+        && (!('appareil' in d) || deviceOk(d.appareil))
+        && (!('geo' in d) || geoOk(d.geo))
+        && (!('provenance' in d) || (d.provenance is map && d.provenance.size() <= 6
+            && d.provenance.keys().hasOnly(['ref', 'q', 't'])
+            && (!('ref' in d.provenance) || (d.provenance.ref is string && d.provenance.ref.size() <= 300))
+            && (!('q' in d.provenance) || (d.provenance.q is string && d.provenance.q.size() <= 200))
+            && (!('t' in d.provenance) || (d.provenance.t is int && d.provenance.t > 1700000000000 && d.provenance.t < request.time.toMillis() + 600000))))
+        && courseOk();
+    }
+    function validSession(d) {
+      return d.keys().hasOnly(['debut', 'fin', 'duree', 'jeu', 'appareil', 'arrivee', 'ev', 'niv', 'geo', 'suite'])
+        && d.keys().hasAll(['debut', 'fin', 'duree', 'jeu'])
+        && d.debut is int && d.fin is int && d.debut > 1700000000000 && d.fin >= d.debut
+        && d.fin < request.time.toMillis() + 600000
+        && d.duree is int && d.duree >= 0 && d.duree <= 172800
+        && d.duree <= (d.fin - d.debut) / 1000 + 300
+        && d.jeu is int && d.jeu >= 0 && d.jeu <= 604800
+        && (resource == null
+          ? (d.debut > request.time.toMillis() - 600000 && d.jeu <= d.duree + 600)
+          : (d.debut == resource.data.debut && d.fin >= resource.data.fin
+              && d.jeu >= resource.data.jeu && d.jeu <= resource.data.jeu + 172800))
+        && (!('ev' in d) || (d.ev is list && d.ev.size() <= 950))
+        && (!('niv' in d) || (d.niv is number && d.niv >= 0 && d.niv <= 150))
+        && (!('suite' in d) || (d.suite is string && d.suite.size() <= 80))
+        && (!('appareil' in d) || deviceOk(d.appareil))
+        && (!('arrivee' in d) || (d.arrivee is map && d.arrivee.size() <= 4 && d.arrivee.keys().hasOnly(['ref', 'q'])))
+        && (!('geo' in d) || geoOk(d.geo));
+    }
     match /track/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow create, update: if isOwner(uid) && request.resource.data.size() <= 80;
+      allow create, update: if isOwner(uid) && validTrack(request.resource.data);
       allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.get('derniere', 0), 730));
 
-      // sessions d'analyse (début, fin, durée, appareil, IP et ville, actions) — effacées après 13 mois
+      // sessions d'analyse — effacées après 13 mois. Le début est l'heure réelle de la création (pas une date choisie).
       match /s/{sid} {
         allow read: if isOwner(uid) || isAdmin();
-        allow create, update: if isOwner(uid) && request.resource.data.size() <= 20;
+        allow create, update: if isOwner(uid) && validSession(request.resource.data);
         allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.get('debut', 0), 395));
       }
-      // journal de sécurité (IP + heure de connexion) — effacé après 6 mois
+      // journal de sécurité (IP + heure) — pas d'heure dans le futur. Effacé après 6 mois.
       match /secu/{id} {
         allow read: if isOwner(uid) || isAdmin();
-        allow create: if isOwner(uid) && request.resource.data.keys().hasOnly(['t', 'ip']) && request.resource.data.t is int
+        allow create: if isOwner(uid) && request.resource.data.keys().hasOnly(['t', 'ip'])
+          && request.resource.data.t is int
+          && request.resource.data.t > 1700000000000
+          && request.resource.data.t < request.time.toMillis() + 600000
           && request.resource.data.ip is string && request.resource.data.ip.size() <= 64;
         allow update: if false;
         allow delete: if isOwner(uid) || (isAdmin() && olderThan(resource.data.get('t', 0), 182));
       }
     }
+    // Marqueur d'éditeur. Lecture : seulement son propre document (le tableau de bord vérifie qu'il existe).
+    // Écriture : personne. Yannis le crée dans la console Firebase, qui ne passe pas par ces règles.
+    match /admins/{uid} {
+      allow get: if isOwner(uid);
+      allow list, create, update, delete: if false;
+    }
     // tableau de bord : recherche des sessions et des journaux trop anciens, tous joueurs confondus
     match /{path=**}/s/{sid} { allow read: if isAdmin(); }
     match /{path=**}/secu/{id} { allow read: if isAdmin(); }
 
-    // purchases/{uid}/… : achats réels validés (plus tard). Écrits UNIQUEMENT par le serveur (Cloud Functions,
-    // après vérification du reçu Apple ou Google) : aucun joueur ne peut s'attribuer un achat.
+    // purchases/{uid}/… : achats réels, plus tard. Aucun joueur ne peut écrire ici.
+    // Le jour où on vendra pour de vrai, un serveur (pas le jeu) écrira après avoir vérifié le reçu. Pas de Cloud Function aujourd'hui.
     match /purchases/{uid}/{doc=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if false;
