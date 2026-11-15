@@ -2124,7 +2124,8 @@ async function accAction(a){
 let cloudOk = false;
 async function cloudPush(say, force){ if (!ACC.current() || saveLock || (!cloudOk && !force)) return; cloudOk = true; try { S.cloudT = Date.now(); const W = welcomeDone || S.welcomeGot === ACC.current().uid;
     try { await ACC.cloudSave(S, W ? {welcome: true} : {}); }
-    catch(e){ if (!W || !/permission/i.test(e?.code || e?.message || '')) throw e; await ACC.cloudSave(S); } // règles pas encore à jour : le bonus reste noté dans la sauvegarde if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
+    catch(e){ if (!W || !/permission/i.test(e?.code || e?.message || '')) throw e; await ACC.cloudSave(S); } /* règles pas encore à jour : le bonus reste noté dans la sauvegarde */
+    if (say) toast('Village sauvegardé en ligne ✓'); } catch(e){ if (say) toast(ACC.friendlyError(e)); } }
 if (ACC.ready()){
   ACC.init().then(() => ACC.onChange(async u => {
     if (!u){ cloudOk = false; return; }

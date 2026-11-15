@@ -7,6 +7,8 @@ SRC="$(cd "$(dirname "$0")/.." && pwd)"; DST="$1"
 V=$(python3 -c "import json;print(json.load(open('$SRC/version.json'))['v'])")
 grep -q "vdp-v$V'" "$SRC/sw.js" || { echo "sw.js n'a pas le cache vdp-v$V"; exit 1; }
 grep -q "main.js?v=$V\"" "$SRC/index.html" || { echo "index.html ne charge pas main.js?v=$V"; exit 1; }
+# chaque module doit se lire comme un module de navigateur (un contrôle « script » laisse passer des erreurs)
+T=$(mktemp -d); for f in "$SRC"/js/*.js "$SRC"/js/v2/*.js; do cp "$f" "$T/c.mjs"; node --check "$T/c.mjs" >/dev/null 2>&1 || { echo "erreur de syntaxe (module) : $f"; rm -rf "$T"; exit 1; }; done; rm -rf "$T"
 python3 - "$SRC" "$DST" <<'PY'
 # copie exacte : on garde seulement les fichiers servis, tout le reste est effacé dans gh-pages
 import sys, os, shutil, filecmp
