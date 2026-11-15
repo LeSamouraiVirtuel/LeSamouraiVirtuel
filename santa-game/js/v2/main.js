@@ -580,35 +580,6 @@ function plate(o){
   ctx.fillStyle = '#fff'; ctx.font = '600 11px Fredoka, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, -w / 2 + 21, .5);
   ctx.restore();
 }
-function drawLot(l){
-  const b = BUILDINGS[l.type], c = toScreen(l.x + b.w / 2, l.y + b.h / 2), ok = (b.hq || 1) <= T.hqLv(S);
-  diamond(l.x, l.y, b.w, b.h, ok ? 'rgba(90,200,110,.18)' : 'rgba(40,50,90,.16)', ok ? 'rgba(60,170,80,.7)' : 'rgba(255,255,255,.55)');
-  // poteau et panneau en bois au centre du terrain (plus de bâtiment fantôme en transparence)
-  { const z = Math.min(1.2, Math.max(.7, cam.z)); ctx.save(); ctx.translate(c.x, c.y); ctx.scale(z, z);
-    ctx.fillStyle = '#6b4220'; ctx.fillRect(-2.5, -26, 5, 28); ctx.strokeStyle = '#2e202c'; ctx.lineWidth = 2; ctx.strokeRect(-2.5, -26, 5, 28);
-    ctx.fillStyle = ok ? '#e9b65f' : '#b9a58a'; ctx.beginPath(); ctx.roundRect(-17, -44, 34, 22, 4); ctx.fill(); ctx.stroke();
-    if (ok){ ctx.fillStyle = '#2f9e44'; ctx.fillRect(-7, -35.5, 14, 4.5); ctx.fillRect(-2.25, -40.5, 4.5, 14.5); }
-    else { ctx.strokeStyle = '#5a3a10'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(0, -36, 4, Math.PI, 0); ctx.stroke(); ctx.fillStyle = '#5a3a10'; ctx.fillRect(-6, -36, 12, 9); }
-    ctx.restore(); }
-}
-/** Étiquette d'un terrain réservé (dessinée avec les autres étiquettes, après les bâtiments). */
-function lotLabel(l){
-  if (tuto.active() || cam.z < .7) return;
-  const b = BUILDINGS[l.type], ok = (b.hq || 1) <= T.hqLv(S); if (!ok) return;        // terrain verrouillé : le panneau au cadenas suffit
-  const p = toScreen(l.x + b.w, l.y + b.h), label = ok ? `${b.name} · à construire` : `${b.name} · Maison niv. ${b.hq}`;
-  ctx.font = '600 11px Fredoka, sans-serif'; const lw = ctx.measureText(label).width + 30;
-  const at = labelSpot(p.x, p.y - 10, lw, 18); if (!at) return;
-  ctx.save(); ctx.translate(at.x, at.y);
-  ctx.font = '600 11px Fredoka, sans-serif'; const w = ctx.measureText(label).width + 30, h = 18;
-  ctx.fillStyle = ok ? 'rgba(20,110,40,.85)' : 'rgba(18,22,44,.78)'; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, 5); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(label, -w / 2 + 21, .5);
-  // cadenas (verrouillé) ou « + » (constructible)
-  ctx.translate(-w / 2 + 10, 0);
-  if (ok){ ctx.fillStyle = '#7dff8a'; ctx.fillRect(-4.5, -1.2, 9, 2.4); ctx.fillRect(-1.2, -4.5, 2.4, 9); }
-  else { ctx.strokeStyle = '#ffd34a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, -2, 3, Math.PI, 0); ctx.stroke(); ctx.fillStyle = '#ffd34a'; ctx.fillRect(-4.5, -1.5, 9, 6.5); }
-  ctx.restore();
-}
-function lotAt(sx, sy){ return null; const t = toTile(sx, sy); return T.lotsShown(S).find(l => { const b = BUILDINGS[l.type]; return t.x >= l.x && t.x < l.x + b.w && t.y >= l.y && t.y < l.y + b.h; }); }
 const isOpen = (cx, cy) => S.chunks.includes(`${cx},${cy}`);
 const isNextToOpen = (cx, cy) => isOpen(cx - 1, cy) || isOpen(cx + 1, cy) || isOpen(cx, cy - 1) || isOpen(cx, cy + 1);
 let hudBottom = 0;
@@ -915,10 +886,6 @@ function tap(o, at){
   if (o) bounceAt.set(o, performance.now());
   if (S.visitor && visitorRect && at.x > visitorRect.left && at.x < visitorRect.right && at.y > visitorRect.top && at.y < visitorRect.bottom) return openVisitor();
   sfx.tap();
-  if (!o || o.wild){
-    const l = lotAt(at.x, at.y);
-    if (l){ const why = T.buildBlock(S, l.type); if (why){ sfx.err(); return toast(`${BUILDINGS[l.type].name} : ${why}`); } return startPlace(l.type, l); }
-  }
   if (!o){
     const t = toTile(at.x, at.y), cx = Math.floor(t.x / T.CHUNK), cy = Math.floor(t.y / T.CHUNK);
     if (cx >= 0 && cy >= 0 && cx < T.MAP / T.CHUNK && cy < T.MAP / T.CHUNK && !isOpen(cx, cy) && isNextToOpen(cx, cy)) return openPanel('expand', {cx, cy});
@@ -2200,17 +2167,18 @@ function restoreIap(){
 /* ---------- écran d'accueil : Google, e-mail ou invité (un joueur déjà connecté passe directement) ---------- */
 let welcomeWait = null;
 function gateWelcome(go){
-  if (!ACC.ready() || S.guest || T.localTooNew) return go();
+  // tant que le joueur n'a pas de compte, le choix revient à chaque lancement (un tap pour continuer en invité)
+  if (!ACC.ready() || T.localTooNew) return go();
   ACC.init().catch(() => {}); ACC.authReady.then(u => { if (u || ACC.current()) return go(); showWelcome(go); });
 }
 function showWelcome(go){
   const w = document.createElement('div'); w.id = 'welcome';
-  w.innerHTML = `<div class="wcard"><img class="wlogo" src="${portrait}" alt=""><h1>Le Village du Pôle</h1><p>Garde ton village pour toujours et retrouve-le sur tous tes appareils.</p>
+  w.innerHTML = `<div class="wcard"><img class="wlogo" src="${portrait}" alt=""><h1>Le Village du Pôle</h1><p>${S.guest ? 'Content de te revoir ! Crée ton compte pour ne jamais perdre ton village.' : 'Garde ton village pour toujours et retrouve-le sur tous tes appareils.'}</p>
     <div class="wbonus"><span>🎁</span><div><b>Bonus de bienvenue</b><small>${M.WELCOME_TXT}, en créant ton compte.</small></div></div>
     ${ACC.googleUnavailable() ? '<p class="meta wnote">Sur iPhone, dans l’app de l’écran d’accueil, utilise ton e-mail.</p>' : '<button class="btn wide gbtn" data-w="google"><span class="g">G</span>Continuer avec Google</button>'}
     <button class="btn blue wide" data-w="mail">Créer un compte / Se connecter par e&#8209;mail</button>
     <div class="werr" hidden></div>
-    <button class="wguest" data-w="guest">Jouer en invité</button><small class="wfine">En invité, ton village reste sur cet appareil.<br><a href="cgu.html" target="_blank" rel="noopener">Conditions</a> · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="mentions.html" target="_blank" rel="noopener">Mentions légales</a></small></div>`;
+    <button class="btn wide wguestb" data-w="guest">${S.guest ? 'Continuer en invité' : 'Jouer en invité'}</button><small class="wfine">En invité, ton village reste seulement sur cet appareil.<br><a href="cgu.html" target="_blank" rel="noopener">Conditions</a> · <a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="mentions.html" target="_blank" rel="noopener">Mentions légales</a></small></div>`;
   document.body.appendChild(w);
   const done = () => { w.remove(); go(); };
   const off = ACC.onChange(u => { if (u && w.isConnected) done(); });

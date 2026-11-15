@@ -27,7 +27,7 @@ const PC = {viewport: {width: 1600, height: 900}, deviceScaleFactor: 1};
     ok(/Mon village/i.test(txt) && /Mon compte/i.test(txt) && /Réglages/i.test(txt) && /Aide/i.test(txt) && /Protéger mon village/i.test(txt), `${name} : profil en 4 parties avec « Protéger mon village »`);
     ok(!/Diag|GAME_V|v\d{2}\b/.test(txt.split('Un problème')[0]), `${name} : rien de technique avant « Un problème ? »`);
     await p.reload(); await p.waitForFunction(() => window.__v2, null, {timeout: 600000}); await p.waitForTimeout(3000);
-    ok(!(await p.$('#welcome')), `${name} : invité, au rechargement l'écran ne revient pas`);
+    ok(!!(await p.waitForSelector('#welcome [data-w=guest]', {timeout: 15000}).catch(() => null)) && /Continuer en invité/i.test(await p.innerText('#welcome')), `${name} : invité, au rechargement le choix revient (« Continuer en invité »)`);
     await p.context().close();
   }
   // 2) e-mail depuis l'écran d'accueil (iPhone SE) → bonus

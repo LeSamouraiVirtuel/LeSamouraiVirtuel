@@ -1261,7 +1261,9 @@ export const FISH = [
 export const FISH_ODDS = [62, 27, 9, 2];
 export const FISH_WIN = [1.2, .9, .65, .45];          // secondes pour ferrer selon la rareté
 export const canFish = s => (s.chunks || []).some(k => ZONES[k]?.feat === 'lake');
-export const baitCost = s => ({cookies: R5(40 * (1 + s.lvl * .3))});
+// Appât : environ 1,5 à 2 minutes de production de biscuits d'un joueur moyen à son niveau (simulation tools/simulate.mjs),
+// pour que compléter le carnet (~300 lancers) reste faisable sans rien acheter.
+export const baitCost = s => ({cookies: R5(15 + 5 * (s.lvl || 1))});
 /* Chances honnêtes et affichées. Les achats ajoutent PEU et sont plafonnés (jamais plus du double de la chance de base),
    ils durent un nombre de lancers ou un temps limité. La vraie sécurité, ce sont les garanties : au bout d'une série sans
    rare (ou sans épique, ou sans légendaire), le poisson suivant est assuré de cette rareté ou mieux. */

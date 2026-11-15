@@ -64,10 +64,10 @@ const emu = () => { localStorage.setItem('vdp-emu', '1'); };
   log.push('   session : ' + sess.split('\n')[0].slice(0, 200)); log.push('   actions : ' + [...new Set(sess.split('\n').slice(1).map(l => l.split(' · ')[1]?.split(' ')[0]))].join(', '));
   await d.screenshot({path: 'out/tdb-session.png', fullPage: true});
   // autre compte Google
-  const c3 = await cr.newContext(); await c3.addInitScript(emu); const o = await c3.newPage();
+  const c3 = await cr.newContext(); await c3.addInitScript(emu); const o = await c3.newPage(); let fsReq = 0; o.on('request', r => { if (/127\.0\.0\.1:8080/.test(r.url()) && /users|track/.test(r.url() + (r.postData() || ''))) fsReq++; });
   await o.goto('http://localhost:8765/tdb-7q4x.html'); await o.waitForFunction(() => window.__emuLogin, null, {timeout: 20000});
   await o.evaluate(() => __emuLogin('un-autre@gmail.com')); await o.waitForTimeout(4000);
-  ok(/Accès refusé/.test(await o.evaluate(() => document.body.innerText)), 'autre compte Google : accès refusé');
+  ok(/Accès refusé/.test(await o.evaluate(() => document.body.innerText)) && !(await o.$('#players tr.p')), 'autre compte Google : accès refusé par la page, aucun joueur chargé'); ok(fsReq === 0, `autre compte : aucune requête vers les joueurs (${fsReq})`);
   // le joueur ne peut pas lire la fiche d'un autre joueur
   const other = await p.evaluate(async () => { const A = await import('/js/account.js'); const {F, db} = A.fs(); try { await F.getDocs(F.collection(db, 'track')); return 'LU'; } catch(e){ return e.code; } });
   ok(other !== 'LU', 'le joueur ne peut pas lister les autres joueurs (' + other + ')');
