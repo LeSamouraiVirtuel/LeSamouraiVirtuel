@@ -1,73 +1,59 @@
-// ESSAI — Vue du territoire troll : la montagne, les camps (repris / à attaquer / encore violets), leur force,
-// et la progression du joueur. Toucher un camp : sa fiche ; « Attaquer » lance la VRAIE bataille du jeu.
+// ESSAI — Carte de campagne des trolls : une vraie scène rendue avec les modèles du jeu (essais/pack2/carte_*.webp,
+// fabriquée par tools/essais-carte.cjs avec bake.js), les camps posés selon la VRAIE progression du joueur,
+// feux animés, camp actuel qui pulse, étoiles gagnées, fiche du camp et « Attaquer » qui lance la vraie bataille.
+import {CAMPS, iso} from './carte3d-pos.js';
 const E = () => window.__ess;
-export function openCamps(){
-  const {S, T} = E(), C = T.campState(S), total = 40;
+const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+export async function openCamps(){
+  const {S, T} = E(), C = T.campState(S), region = Math.floor(Math.min(C.at, 39) / 10), first = region * 10;
+  const J = await (await fetch('pack2/carte.json', {cache: 'no-store'})).json(), IMG = {};
+  for (const [k, v] of Object.entries(J)) IMG[k] = {...v, img: await load('pack2/' + v.f)};
   const ov = document.createElement('div'); ov.className = 'xpov';
-  ov.innerHTML = `<header><h2>Territoire des trolls</h2><span id="cprog"></span><button data-x="close">Fermer</button></header><canvas></canvas>`;
+  ov.innerHTML = `<header><h2>${T.CHAPTERS_CAMP[region]}</h2><span class="cprog">Région ${region + 1} · <b>${Math.max(0, C.at - first)}</b> / 10 camps repris · ${C.at} au total</span><button data-x="close">Fermer</button></header><canvas></canvas>`;
   document.body.appendChild(ov);
   const cv = ov.querySelector('canvas'), x = cv.getContext('2d'), dpr = Math.min(2, devicePixelRatio || 1);
-  ov.querySelector('#cprog').innerHTML = `<b>${C.at}</b> / ${total} camps repris`;
-  let W = 0, H = 0, MAPH = 0, scroll = 0, t0 = performance.now(), sel = null, raf = 0;
-  const nodes = [];
-  const layout = () => { W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    MAPH = Math.max(H * 3.2, total * 90); nodes.length = 0;
-    for (let i = 0; i < total; i++){ const k = i / (total - 1); nodes.push({i, x: W / 2 + Math.sin(k * 11) * W * .28 + Math.sin(k * 29) * W * .05, y: MAPH - 90 - k * (MAPH - 200)}); }
-    scroll = Math.max(0, Math.min(MAPH - H, nodes[Math.min(C.at, total - 1)].y - H * .6)); };
-  layout(); addEventListener('resize', layout);
-  const mtn = Array.from({length: 4}, (_, l) => Array.from({length: 14}, (_, j) => Math.random()));
+  let W, H, k = 1, ox = 0, oy = 0, raf = 0, sel = null, t0 = performance.now();
+  const fond = IMG.fond;
+  const fit = () => { W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    k = Math.max(W / (fond.w * .7), H / (fond.h * .72)); ox = W / 2 - (fond.w / 2) * k; oy = H / 2 - (fond.h * .52) * k; };
+  fit(); addEventListener('resize', fit);
+  const pos = i => { const [wx, wz] = CAMPS[i]; const [px, py] = iso(fond.ax, fond.ay, wx, wz); return [ox + px * k, oy + py * k]; };
+  const stateOf = i => { const g = first + i, boss = i === 9; return g < C.at ? (boss ? 'chefrepris' : 'repris') : (boss ? 'chef' : 'troll'); };
   function draw(){
     raf = requestAnimationFrame(draw); const t = (performance.now() - t0) / 1000;
-    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#120f35'); g.addColorStop(.5, '#2b2063'); g.addColorStop(1, '#3b5a8f'); x.fillStyle = g; x.fillRect(0, 0, W, H);
-    // aurores
-    x.globalCompositeOperation = 'lighter';
-    for (let k = 0; k < 3; k++){ x.beginPath(); for (let px = 0; px <= W; px += 14){ const py = 40 + k * 26 + Math.sin(px * .008 + t * .4 + k) * 18; px ? x.lineTo(px, py) : x.moveTo(px, py); } x.lineTo(W, 0); x.lineTo(0, 0); x.closePath();
-      x.fillStyle = ['rgba(90,255,180,.18)', 'rgba(140,120,255,.16)', 'rgba(230,110,255,.12)'][k]; x.fill(); }
-    x.globalCompositeOperation = 'source-over';
-    // montagnes en couches (parallaxe)
-    mtn.forEach((m, l) => { const off = -scroll * (.15 + l * .12), base = H * (.35 + l * .17) + off * .2; x.beginPath(); x.moveTo(0, H);
-      m.forEach((v, j) => x.lineTo(j / (m.length - 1) * W, base - v * 120 + (j % 2) * 30)); x.lineTo(W, H); x.closePath();
-      x.fillStyle = ['#2c2a5e', '#3a3f7c', '#556aa8', '#dfe8f7'][l]; x.globalAlpha = l === 3 ? .25 : .9; x.fill(); x.globalAlpha = 1; });
-    x.save(); x.translate(0, -scroll);
-    // chemin
-    x.lineWidth = 10; x.lineCap = 'round'; x.strokeStyle = 'rgba(255,255,255,.18)'; x.beginPath(); nodes.forEach((n, i) => i ? x.lineTo(n.x, n.y) : x.moveTo(n.x, n.y)); x.stroke();
-    x.lineWidth = 6; x.strokeStyle = '#ffd34a'; x.setLineDash([2, 12]); x.beginPath(); nodes.slice(0, C.at + 1).forEach((n, i) => i ? x.lineTo(n.x, n.y) : x.moveTo(n.x, n.y)); x.stroke(); x.setLineDash([]);
-    // régions
-    for (let r = 0; r < total / 10; r++){ const n = nodes[r * 10]; x.font = '400 16px "Lilita One", sans-serif'; x.fillStyle = 'rgba(255,255,255,.75)'; x.textAlign = 'left'; x.fillText(T.CHAPTERS_CAMP[r % T.CHAPTERS_CAMP.length], 14, n.y + 6); }
-    // camps
-    for (const n of nodes){ const c = T.camp(n.i), done = n.i < C.at, cur = n.i === C.at, r = c.boss ? 26 : 17;
-      if (n.y - scroll < -60 || n.y - scroll > H + 60) continue;
-      if (cur){ const pr = r + 10 + Math.sin(t * 4) * 5; x.fillStyle = 'rgba(190,90,255,.35)'; x.beginPath(); x.arc(n.x, n.y, pr, 0, 7); x.fill(); }
-      // camp : tente / forteresse
-      x.fillStyle = done ? '#3fbf6a' : cur ? '#b25cff' : '#5a3a8a'; x.strokeStyle = '#120a20'; x.lineWidth = 3;
-      x.beginPath(); if (c.boss){ x.moveTo(n.x - r, n.y + r * .6); x.lineTo(n.x - r, n.y - r * .3); x.lineTo(n.x - r * .5, n.y - r * .3); x.lineTo(n.x - r * .5, n.y - r * .7); x.lineTo(n.x + r * .5, n.y - r * .7); x.lineTo(n.x + r * .5, n.y - r * .3); x.lineTo(n.x + r, n.y - r * .3); x.lineTo(n.x + r, n.y + r * .6); }
-      else { x.moveTo(n.x - r, n.y + r * .6); x.lineTo(n.x, n.y - r); x.lineTo(n.x + r, n.y + r * .6); } x.closePath(); x.fill(); x.stroke();
-      if (done){ x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); x.moveTo(n.x + 4, n.y - r - 2); x.lineTo(n.x + 4, n.y - r - 22); x.stroke(); x.fillStyle = '#e8323f'; x.beginPath(); x.moveTo(n.x + 4, n.y - r - 22); x.lineTo(n.x + 20, n.y - r - 16); x.lineTo(n.x + 4, n.y - r - 10); x.fill();
-        const st = C.st[n.i] || 0; x.font = '14px sans-serif'; x.textAlign = 'center'; x.fillStyle = '#ffd34a'; x.fillText('★'.repeat(st) + '☆'.repeat(3 - st), n.x, n.y + r + 16); }
-      else { x.font = '700 12px Fredoka, sans-serif'; x.textAlign = 'center'; x.fillStyle = cur ? '#fff' : 'rgba(255,255,255,.7)'; x.fillText(`${c.n} trolls${c.boss ? ' + chef' : ''}`, n.x, n.y + r + 15); }
-      if (sel === n.i){ x.strokeStyle = '#ffd34a'; x.lineWidth = 3; x.beginPath(); x.arc(n.x, n.y, r + 14, 0, 7); x.stroke(); } }
-    // le Père Noël sur la carte
-    { const n = nodes[Math.min(C.at, total - 1)], by = n.y + 8 + Math.sin(t * 3) * 4; x.fillStyle = '#e8323f'; x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.arc(n.x - 34, by, 13, 0, 7); x.fill(); x.stroke(); x.fillStyle = '#fff'; x.beginPath(); x.arc(n.x - 34, by + 7, 8, 0, Math.PI); x.fill(); x.font = '700 11px Fredoka'; x.textAlign = 'center'; x.fillStyle = '#ffd34a'; x.fillText('TOI', n.x - 34, by - 18); }
-    x.restore();
+    x.fillStyle = '#e8f0fb'; x.fillRect(0, 0, W, H);
+    x.drawImage(fond.img, ox, oy, fond.w * k, fond.h * k);
+    // camps, du fond vers l'avant
+    const order = CAMPS.map((c, i) => i).sort((a, b) => (CAMPS[a][0] + CAMPS[a][1]) - (CAMPS[b][0] + CAMPS[b][1]));
+    for (const i of order){ const st = stateOf(i), sp = IMG[st], [px, py] = pos(i), g = first + i, cur = g === C.at;
+      if (cur){ const pr = 46 * k * 3 + Math.sin(t * 4) * 8; x.save(); x.globalAlpha = .45; x.fillStyle = '#b25cff'; x.beginPath(); x.ellipse(px, py, pr, pr * .5, 0, 0, 7); x.fill(); x.restore(); }
+      const s = k * 1.15; x.drawImage(sp.img, px - sp.ax * s, py - sp.ay * s, sp.w * s, sp.h * s);
+      // lueur du feu (camps encore occupés)
+      if (!st.includes('repris') || st === 'chefrepris'){ const [fx, fy] = [px + (.55 - .45) * 32 * s, py + (.55 + .45) * 16 * s - 14 * s]; x.save(); x.globalCompositeOperation = 'lighter';
+        const r = (16 + Math.sin(t * 9 + i) * 3) * s, gr = x.createRadialGradient(fx, fy, 0, fx, fy, r); gr.addColorStop(0, 'rgba(255,190,80,.75)'); gr.addColorStop(1, 'rgba(255,120,30,0)'); x.fillStyle = gr; x.beginPath(); x.arc(fx, fy, r, 0, 7); x.fill(); x.restore(); }
+      // étiquette
+      const lab = st.includes('repris') ? '★'.repeat(C.st[g] || 0) + '☆'.repeat(3 - (C.st[g] || 0)) : cur ? 'À ATTAQUER' : `${T.camp(g).n} trolls`;
+      x.font = `700 ${Math.round(12 * Math.min(1.4, k * 1.6))}px Fredoka, sans-serif`; x.textAlign = 'center'; const tw = x.measureText(lab).width + 14, ly = py + 26 * s;
+      x.fillStyle = st.includes('repris') ? 'rgba(20,80,40,.85)' : cur ? 'rgba(120,40,190,.92)' : 'rgba(40,20,60,.75)'; x.beginPath(); x.roundRect(px - tw / 2, ly - 11, tw, 20, 9); x.fill();
+      x.fillStyle = st.includes('repris') ? '#ffd34a' : '#fff'; x.fillText(lab, px, ly + 4);
+      if (sel === i){ x.strokeStyle = '#ffd34a'; x.lineWidth = 3; x.beginPath(); x.ellipse(px, py, 60 * s, 30 * s, 0, 0, 7); x.stroke(); } }
+    // neige qui tombe
+    x.fillStyle = 'rgba(255,255,255,.85)'; for (let n = 0; n < 70; n++){ const fx = (n * 137.5 + t * 14 * (1 + n % 3)) % W, fy = (n * 91.3 + t * 40 * (1 + n % 2)) % H; x.beginPath(); x.arc(fx, fy, 1 + n % 3, 0, 7); x.fill(); }
   }
   draw();
-  let dragY = null, moved = 0;
-  cv.addEventListener('pointerdown', e => { dragY = e.clientY; moved = 0; });
-  addEventListener('pointermove', e => { if (dragY == null) return; const d = e.clientY - dragY; moved += Math.abs(d); dragY = e.clientY; scroll = Math.max(0, Math.min(MAPH - H, scroll - d)); });
-  addEventListener('pointerup', e => { if (dragY == null) return; dragY = null; if (moved > 8) return;
-    const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top + scroll;
-    const n = nodes.find(n => Math.hypot(n.x - px, n.y - py) < 34); if (n) card(n.i); });
+  cv.addEventListener('click', e => { const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    let best = null, bd = 1e9; CAMPS.forEach((c, i) => { const [cx, cy] = pos(i), d = Math.hypot(cx - px, (cy - 20 * k) - py); if (d < bd){ bd = d; best = i; } });
+    if (best != null && bd < 90 * Math.max(.6, k)) card(best); });
   function card(i){
-    sel = i; ov.querySelector('.xcard')?.remove(); const c = T.camp(i), done = i < C.at, cur = i === C.at;
+    sel = i; ov.querySelector('.xcard')?.remove(); const g = first + i, c = T.camp(g), done = g < C.at, cur = g === C.at;
     const el = document.createElement('div'); el.className = 'xcard';
-    el.innerHTML = `<h3>${c.name}</h3><p>${done ? `✅ Repris · ${'★'.repeat(C.st[i] || 0)}` : cur ? '🟣 Prochain camp à attaquer' : '🔒 Encore aux mains des trolls'}</p>
-      <p>Force : <b>${c.n} trolls</b>${c.boss ? ` et leur <b>chef</b> (${c.bossHp} points de vie)` : ''} · attaque ${c.atk.toFixed(1)}</p>
-      <p>Coût de l'attaque : ${Object.entries(T.campCost(i)).map(([k, v]) => `${v} ${k === 'cookies' ? 'biscuits' : k}`).join(', ')}</p>
+    el.innerHTML = `<h3>${c.name}</h3><p>${done ? `✅ Repris · ${'★'.repeat(C.st[g] || 0)}` : cur ? '🟣 Prochain camp à attaquer' : '🔒 Encore aux mains des trolls'}</p>
+      <p>Force : <b>${c.n} trolls</b>${c.boss ? ` et leur <b>chef</b> (${c.bossHp} points de vie)` : ''}</p>
+      <p>Attaque : ${Object.entries(T.campCost(g)).map(([k2, v]) => `${v} ${k2 === 'cookies' ? 'biscuits' : k2}`).join(', ')}</p>
       <div class="row">${cur || done ? `<button class="xbtn g" data-x="go">${done ? 'Rejouer' : 'Attaquer'}</button>` : ''}<button class="xbtn b" data-x="nope">Fermer</button></div>`;
     ov.appendChild(el);
-    el.addEventListener('click', ev => { const b = ev.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'nope'){ el.remove(); sel = null; return; }
-      close(); E().campGo(i); });
+    el.addEventListener('click', ev => { const b = ev.target.closest('[data-x]'); if (!b) return; if (b.dataset.x === 'nope'){ el.remove(); sel = null; return; } close(); E().campGo(g); });
   }
-  const close = () => { cancelAnimationFrame(raf); ov.remove(); removeEventListener('resize', layout); };
+  const close = () => { cancelAnimationFrame(raf); ov.remove(); removeEventListener('resize', fit); };
   ov.querySelector('[data-x=close]').onclick = close;
 }

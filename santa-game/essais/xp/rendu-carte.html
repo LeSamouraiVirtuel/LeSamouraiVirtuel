@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Rendu de la carte</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<style>body{margin:0;background:#cdd8ea}img{max-width:100%}</style></head><body>
+<script type="module">
+// Rend le fond de la carte et les 4 états de camp avec bake.js (même caméra / lumière / contour que le pack du jeu).
+import {loadAssets} from '../js/assets.js';
+import {bake} from '../js/v2/bake.js';
+import {terrain, camp, loadTrolls} from './carte3d.js';
+await loadAssets('../../assets/', () => {}); await loadTrolls('../../assets/');
+const outline = (src, r, color) => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d');
+  for (let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; x.drawImage(src, Math.round(Math.cos(t) * r), Math.round(Math.sin(t) * r)); }
+  x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height); x.globalCompositeOperation = 'source-over'; x.drawImage(src, 0, 0); return c; };
+const grade = (src, k = 1) => { const c = document.createElement('canvas'); c.width = Math.round(src.width * k); c.height = Math.round(src.height * k); const x = c.getContext('2d'); x.filter = 'saturate(1.28) contrast(1.06)'; x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height); return c; };
+const out = {};
+const bg = bake(terrain(), {density: 1.5, shadow: true});
+out.fond = {url: grade(bg.canvas).toDataURL('image/webp', .88), ax: bg.ax, ay: bg.ay, w: bg.w, h: bg.h};
+for (const st of ['troll', 'repris', 'chef', 'chefrepris']){ const s = bake(camp(st), {density: 3}); out[st] = {url: grade(outline(s.canvas, 5, 'rgba(46,32,44,.92)'), 2 / 3).toDataURL('image/webp', .9), ax: s.ax, ay: s.ay, w: s.w, h: s.h};
+  const im = new Image(); im.src = out[st].url; im.style.height = '240px'; document.body.appendChild(im); }
+const im = new Image(); im.src = out.fond.url; document.body.appendChild(im);
+window.__out = out;
+</script></body></html>

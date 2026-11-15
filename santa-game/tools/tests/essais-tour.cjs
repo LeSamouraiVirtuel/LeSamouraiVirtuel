@@ -9,7 +9,7 @@ const {webkit, chromium, devices} = require('playwright');
     await p.click('#xpbar [data-x=camps]'); await p.waitForTimeout(1500); await p.screenshot({path: `out/et-${dev}-camps.png`});
     // toucher le camp actuel (le plus proche du centre-bas visible) : on clique sur le marqueur « TOI »
     const box = await p.evaluate(() => { const c = document.querySelector('.xpov canvas').getBoundingClientRect(); return [c.left + c.width / 2, c.top + c.height * .6]; });
-    for (let dy = -60; dy <= 60 && !(await p.$('.xcard')); dy += 20) for (let dx = -240; dx <= 240 && !(await p.$('.xcard')); dx += 24) await p.mouse.click(box[0] + dx, box[1] + dy);
+    await p.waitForTimeout(1500); for (let dy = -200; dy <= 200 && !(await p.$('.xcard')); dy += 40) for (let dx = -300; dx <= 300 && !(await p.$('.xcard')); dx += 60) await p.mouse.click(box[0] + dx, box[1] + dy);
     await p.waitForTimeout(400); await p.screenshot({path: `out/et-${dev}-campcard.png`});
     await p.click('.xpov header [data-x=close]'); await p.waitForTimeout(400);
     await p.click('#xpbar [data-x=trans]'); await p.waitForTimeout(2500); await p.screenshot({path: `out/et-${dev}-cine.png`});
