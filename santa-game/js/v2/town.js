@@ -397,6 +397,12 @@ const WISHES = ['pour jouer avec ma petite sœur.', 'parce que j’ai été trè
 const ARTICLE = {train: 'un', box: 'une', sled: 'une', plush: 'un', nut: 'un', cane: 'un', sock: 'une', bell: 'une', ginger: 'un', choco: 'un', wagon: 'un', wreath: 'une', ball: 'une', lamp: 'une', minitree: 'un', snowball: 'un', gbhouse: 'une', bigsled: 'un'};
 export const TOY_KEYS = Object.keys(TOYS).filter(k => !TOYS[k].wrap);
 export const toysAvailable = s => TOY_KEYS.filter(k => TOYS[k].lvl <= s.lvl);
+// « un train en bois et 2 boîtes de biscuits » : la lettre cite tout ce qui est demandé, avec les quantités
+const plural = n => { let stop = false; return n.split(' ').map(w => { if (stop || /^(en|de|d’|d'|à|au|aux|du|des|pour)$/.test(w) || /^d[’']/.test(w)){ stop = true; return w; } return /[sx]$/.test(w) ? w : w + (/(eau|eu)$/.test(w) ? 'x' : 's'); }).join(' '); };
+function wishList(items){
+  const parts = Object.entries(items).map(([k, q]) => { const n = ITEMS[k].name.toLowerCase(); return q > 1 ? `${q} ${plural(n)}` : `${ARTICLE[k] || 'un'} ${n}`; });
+  return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' et ' + parts[parts.length - 1] : parts[0];
+}
 export function makeOrder(s, bureauLv = 1){
   const av = toysAvailable(s), n = av.length > 1 && Math.random() < .4 ? 2 : 1, items = {};
   for (const k of [...av].sort(() => Math.random() - .5).slice(0, n)) items[k] = 1 + Math.floor(Math.random() * Math.min(3, 1 + s.lvl / 3));
@@ -405,7 +411,7 @@ export function makeOrder(s, bureauLv = 1){
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const used = new Set((s.orders || []).map(o => o?.kid)), kid = pick(KIDS.filter(k => !used.has(k)).length ? KIDS.filter(k => !used.has(k)) : KIDS);
   const first = Object.keys(items)[0], why = pick(WISHES);
-  const o = {kid, age: 4 + Math.floor(Math.random() * 7), city: pick(CITIES), msg: `${pick(HELLO)} je voudrais ${ARTICLE[first] || 'un'} ${ITEMS[first].name.toLowerCase()} ${why}`, items, coins: Math.round(value * 1.3 * m * (1 + zoneB(s, 'letters'))), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
+  const o = {kid, age: 4 + Math.floor(Math.random() * 7), city: pick(CITIES), msg: `${pick(HELLO)} je voudrais ${wishList(items)} ${why}`, items, coins: Math.round(value * 1.3 * m * (1 + zoneB(s, 'letters'))), xp: Math.round(xp * 1.6 * m * (1 + s.lvl * .12))};
   const r = Math.random();
   if (r < .2) o.mat = Math.random() < .6 ? 'axe' : 'saw'; else if (r < .23) o.stars = 1;   // étoiles d'or : rares
   return o;

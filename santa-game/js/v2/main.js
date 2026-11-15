@@ -1298,7 +1298,7 @@ function renderPanel(){
     h = hd(`Niveau ${n} · production +${n} %`, 'Illuminations du village') + `<div class="garland">${Array.from({length: 14}, (_, i) => `<i class="${i < Math.min(14, n) ? 'on' : ''}"></i>`).join('')}</div>
       <p class="meta">Ni bâtisseur ni attente : chaque niveau allume de nouvelles guirlandes et donne <b>+1 % de production</b> à tout le village, pour toujours. Le prix monte à chaque niveau.</p>
       <h3>Niveau ${n} → ${n + 1}</h3><div class="costs">${costChips(c)}</div>
-      <div class="acts"><button class="btn green" data-a="lights" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>Allumer</button></div>${why ? `<p class="note">${why}</p>` : ''}`;
+      <div class="acts"><button class="btn ${why ? 'blue' : 'green'}" data-a="lights" ${why && why !== 'Ressources insuffisantes' ? 'disabled' : ''}>${why === 'Ressources insuffisantes' ? 'Voir ce qui manque' : 'Allumer'}</button></div>${why && why !== 'Ressources insuffisantes' ? `<p class="note">${why}</p>` : ''}`;
   }
   else if (panel === 'stock'){
     h = hd('Ressources, jouets et outils', 'Stock') + `<p class="help">Touche une ligne pour tout savoir sur une ressource. Il te manque quelque chose ? <button class="lnk" data-a="goshop">Boutique ›</button></p>
@@ -1489,7 +1489,7 @@ $('#sheet').addEventListener('click', e => {
   if (a === 'expgo'){ const why = T.expStart(S, b.dataset.k, now()); if (why){ sfx.err(); return toast(why); } sfx.level(); T.track(S, 'exp'); toast('Les rennes sont partis !'); save(); return renderPanel(); }
   if (a === 'expspeed'){ const e = (S.exps || [])[+b.dataset.i]; if (!e) return; const st = T.speedStars(e.end - now()); if (S.stars < st){ sfx.err(); return openPanel('shop'); } S.stars -= st; e.end = now(); checkExps(); return renderPanel(); }
   if (a === 'builder'){ const n = S.extraBuilders || 0, p = T.BUILDER_PRICE[n]; if (p == null) return; if (S.stars < p){ sfx.err(); return toast(`Il faut ${p} étoiles d'or`); } S.stars -= p; S.extraBuilders = n + 1; sfx.level(); toast(`Bâtisseur ${n + 3} engagé !`); save(); return renderPanel(); }
-  if (a === 'lights'){ const why = T.lightsUp(S); if (why){ sfx.err(); return toast(why); } sfx.level(); gainXp(2, b); T.track(S, 'lights'); toast(`Illuminations niv. ${S.lights} : production +${S.lights} %`); save(); return renderPanel(); }
+  if (a === 'lights'){ const why = T.lightsUp(S); if (why){ sfx.err(); return why === 'Ressources insuffisantes' ? showMissing(T.lightsCost(T.lightsLv(S)), `Illuminations niveau ${T.lightsLv(S) + 1}`, () => openPanel('lights')) : toast(why); } sfx.level(); gainXp(2, b); T.track(S, 'lights'); toast(`Illuminations niv. ${S.lights} : production +${S.lights} %`); save(); return renderPanel(); }
   if (a === 'cat'){ panelArg = b.dataset.k; sfx.tap(); return renderPanel(); }
   if (a === 'place') return startPlace(b.dataset.k);
   if (a === 'expand'){ const {cx, cy} = panelArg, n = S.chunks.length - T.START_CHUNKS.length, c = T.chunkCost(n); if (!T.has(S, c) || T.zoneLock(S, cx, cy)) return; T.take(S, c); const z = T.openZone(S, cx, cy); T.track(S, 'expand'); gainXp(30 + n * 20, b); sfx.level(); closePanel(); save(); if (z) zoneWelcome(z, T.zoneName(cx, cy)); else toast('Nouveau terrain !'); return; }
@@ -1657,7 +1657,8 @@ const GUIDE = [
   ['gold', ['foundry', 'mine', 'stable'], 'bâtiments à partir du niveau 11'],
   ['stars', ['Succès, Pass, niveaux, boutique'], 'accélérer, bâtisseurs, achats'],
 ];
-const qty = k => k === 'xp' ? `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}` : k === 'pop' ? `${T.employed(S)} au travail / ${T.lutins(S)} logés` : k === 'joy' ? `${T.joy(S)} points · +${T.joy(S)} %` : T.RES.includes(k) && k !== 'coins' ? `${fmt(S[k])} / ${fmt(T.cap(S, k))} (stock max)` : fmt(haveOf(k));
+const fmtK = n => n >= 1e4 ? fmt(Math.round(n / 1e3)) + 'k' : fmt(n);   // 556 600 → « 557k » (pastille courte)
+const qty = k => k === 'xp' ? `${fmt(S.xp)} / ${fmt(T.xpNeed(S.lvl))}` : k === 'pop' ? `${T.employed(S)} au travail / ${T.lutins(S)} logés` : k === 'joy' ? `${T.joy(S)} points · +${T.joy(S)} %` : T.RES.includes(k) && k !== 'coins' ? `${fmtK(S[k])} / ${fmtK(T.cap(S, k))} max` : fmt(haveOf(k));
 const resImg = k => k === 'stars' ? '<i class="i star"></i>' : k === 'xp' ? '<i class="i xp">XP</i>' : k === 'pop' ? '<i class="i pop"></i>' : k === 'joy' ? '<i class="i joy"></i>' : `<img src="${ICON[k]}" alt="">`;
 function resInfo(k){
   const I = RINFO[k]; if (!I) return;
@@ -2061,7 +2062,7 @@ function todoList(){
   { const ws = find('workshop'); if (ws && craftDone(ws).length) add(ICON[craftDone(ws)[0].item], 'Des jouets sont prêts à l’Atelier', {o: ws}); }
   { const n = S.orders.filter(od => od.items && T.has(S, od.items)).length; if (n) add(thumbs.orders, `${n} lettre${n > 1 ? 's' : ''} prête${n > 1 ? 's' : ''} à livrer`, 'orders'); }
   { const st = T.mineState(S); if (st && st.M.picks >= st.max) add(ICON.ice, 'Pioches pleines à la Grotte', {o: st.o}); }
-  { const sb = find('stable'); if (sb && (S.exps || []).length < T.expSlots(sb.lv)) add(ICON.gold, 'Des rennes attendent une expédition', {o: sb}); }
+  { const sb = find('stable'); if (sb && (S.exps || []).length < T.expSlots(sb.lv)) add(ICON.mg_deer, 'Des rennes attendent une expédition', {o: sb}); }
   if ((S.parcels || []).length) add(thumbs.gifts, `${S.parcels.length} colis mystère à ouvrir`, 'parcels');
   { const sto = find('storage'); if (sto && T.bulkReady(sto, t)) add(thumbs.storage, 'Grande commande du Nord disponible', {o: sto}); }
   { const th = find('theater'); if (th && !(S.show && S.show.end > t)) add(thumbs.theater, 'Le Théâtre peut monter un spectacle', {o: th}); }
