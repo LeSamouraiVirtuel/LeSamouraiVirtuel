@@ -350,3 +350,16 @@ Une amélioration par tour : choisie d'après les jeux analysés, testée sur iP
 - **v88 — Anti-triche** : le jeu se cale sur l'heure du serveur (horloge avancée sans effet), valeurs impossibles corrigées, crochets de test réservés à localhost, alertes silencieuses dans le tableau de bord.
 - **v88 — Audit** : lettres qui citent tous les jouets avec les quantités, barres de progression vides lisibles, tickets en forme de ticket, pastille de stock courte, Illuminations « Voir ce qui manque », raretés de pêche sans coupure, icône des rennes.
 - **v89** : choix Google / e-mail / invité à chaque lancement tant qu'il n'y a pas de compte (bonus mis en avant) ; code mort des terrains réservés retiré ; appât 15 + 5 × niveau (≈ 1,5-2 min de production) ; tâches sans fin qui mènent aussi à la pêche et aux combats ; tableau de bord : contrôle du compte avant toute requête, noindex.
+- **v90** (points de Grok sur la v88) :
+  - Défis de la Maison à plusieurs chemins :
+    - N jouets fabriqués de niveau ≥ X, au choix (les moins chers partent en premier) ;
+    - des points d'aventure : espèce de poisson 3 pts, camp de trolls 2 pts, expédition 1 pt, 5 lettres 1 pt.
+    - Quand le défi bloque, il s'affiche en haut de la fiche, avec ce qui manque et un bouton par chemin.
+    - Simulation : un joueur qui ne pêche jamais et ne combat jamais n'est pas bloqué (lettres et expéditions suffisent).
+  - Anti-triche renforcé :
+    - étoiles plausibles selon le niveau et les achats : signalées au-delà, ramenées au-delà de 10 fois ;
+    - Maison incohérente (niveau du joueur, temps écoulé depuis la création) signalée ;
+    - bâtiments au-delà du plafond signalés ;
+    - `new Date()` corrigé ;
+    - hors ligne, le temps ne dépasse plus la dernière heure vérifiée.
+  - Outils de test retirés du site public : `?export`, `?prof`, `?heure=`, `__pan`, `__sprInfo`, `__big`, `__b3`, `__stack`.
